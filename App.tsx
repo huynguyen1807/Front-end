@@ -1,15 +1,28 @@
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import ReduxProvider from "./src/app/providers/ReduxProvider";
+import WelcomeScreen from "./src/features/auth/screens/WelcomeScreen";
 import HomeScreen from "./src/features/home/screens/HomeScreen";
+
+const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
     <SafeAreaProvider>
       <ReduxProvider>
         <StatusBar style="dark" translucent={false} />
-        <HomeScreen />
+        <NavigationContainer>
+          <Stack.Navigator
+            initialRouteName="Welcome"
+            screenOptions={{ headerShown: false }}
+          >
+            <Stack.Screen name="Welcome" component={WelcomeScreen} />
+            <Stack.Screen name="Home" component={HomeScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
       </ReduxProvider>
     </SafeAreaProvider>
   );
