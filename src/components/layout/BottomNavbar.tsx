@@ -4,10 +4,20 @@ import { Platform, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { COLORS } from "../../constants/colors";
+import { setActiveTab, TabKey } from "../../redux/appSlice";
+import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { bottomNavbarStyles as styles } from "./navbar.styles";
 import { useNavigation } from "../../app/providers/NavigationProvider";
 
-const tabs = [
+type NavVariant = "default" | "planner";
+
+type TabConfig = {
+  key: TabKey;
+  label: string;
+  icon: (color: string) => React.ReactNode;
+};
+
+const defaultTabs: TabConfig[] = [
   {
     key: "home",
     label: "Home",
@@ -35,7 +45,11 @@ const tabs = [
   },
 ];
 
-export default function BottomNavbar() {
+type BottomNavbarProps = {
+  variant?: NavVariant;
+};
+
+export default function BottomNavbar({ variant = "default" }: BottomNavbarProps) {
   const insets = useSafeAreaInsets();
   const { activeTab, setActiveTab } = useNavigation();
 
@@ -43,6 +57,7 @@ export default function BottomNavbar() {
     <View
       style={[
         styles.container,
+        isPlanner && styles.plannerContainer,
         {
           height: Platform.OS === "ios" ? 78 + insets.bottom : 78,
           paddingBottom: Platform.OS === "ios" ? insets.bottom : 0,

@@ -3,20 +3,19 @@
   "compilerOptions": {
     "ignoreDeprecations": "5.0",
     "moduleResolution": "bundler",
-    "baseUrl": "./src",
     "paths": {
-      "app/*": ["app/*"],
-      "assets/*": ["assets/*"],
-      "components/*": ["components/*"],
-      "config/*": ["config/*"],
-      "features/*": ["features/*"],
-      "hooks/*": ["hooks/*"],
-      "services/*": ["services/*"],
-      "theme/*": ["theme/*"],
-      "types/*": ["types/*"],
-      "utils/*": ["utils/*"]
+      "app/*": ["./src/app/*"],
+      "assets/*": ["./src/assets/*"],
+      "components/*": ["./src/components/*"],
+      "config/*": ["./src/config/*"],
+      "features/*": ["./src/features/*"],
+      "hooks/*": ["./src/hooks/*"],
+      "services/*": ["./src/services/*"],
+      "theme/*": ["./src/theme/*"],
+      "types/*": ["./src/types/*"],
+      "utils/*": ["./src/utils/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "app.json", "src/app/providers/ReduxProvider.tsx"],
+  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "app.json"],
   "exclude": ["node_modules"]
 }

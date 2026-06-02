@@ -1,12 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Platform, Text, TouchableOpacity, View } from "react-native";
+import { Image, Platform, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { COLORS } from "../../constants/colors";
 import { topNavbarStyles as styles } from "./navbar.styles";
 import { useNavigation } from "../../app/providers/NavigationProvider";
 
-export default function TopNavbar() {
+type TopNavbarProps = {
+  variant?: "default" | "planner";
+};
+
+export default function TopNavbar({ variant = "default" }: TopNavbarProps) {
   const insets = useSafeAreaInsets();
   const { activeTab, setActiveTab } = useNavigation();
 
@@ -16,6 +20,7 @@ export default function TopNavbar() {
     <View
       style={[
         styles.container,
+        isPlanner && styles.plannerContainer,
         {
           paddingTop: Platform.OS === "ios" ? insets.top : 0,
           height: Platform.OS === "ios" ? 64 + insets.top : 64,

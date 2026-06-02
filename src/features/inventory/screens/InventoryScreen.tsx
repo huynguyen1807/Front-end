@@ -12,8 +12,8 @@ import InventoryCard from "../components/InventoryCard";
 import SummaryCard from "../components/SummaryCard";
 import WasteCard from "../components/WasteCard";
 import { setActiveFilter } from "../redux/inventorySlice";
-import { InventoryFilter } from "../types/inventory";
 import { inventoryScreenStyles as styles } from "../styles/InventoryScreen.styles";
+import { InventoryFilter } from "../types/inventory";
 
 const filters: {
   key: InventoryFilter;
@@ -98,4 +98,3 @@ export default function InventoryDashboardScreen() {
     </ScreenContainer>
   );
 }
-
