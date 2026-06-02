@@ -1,6 +1,7 @@
 import HomeScreen from "../features/home/screens/HomeScreen";
 import PlannerScreen from "../features/planner/screens/PlannerScreen";
 import { SettingsScreen } from "../features/settings";
+import { ScannerScreen } from "../features/scan";
 import { useNavigation } from "./providers/NavigationProvider";
 import PlaceholderScreen from "./screens/PlaceholderScreen";
 
