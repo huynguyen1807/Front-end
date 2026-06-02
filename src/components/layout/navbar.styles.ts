@@ -13,6 +13,10 @@ export const topNavbarStyles = StyleSheet.create({
     borderBottomColor: COLORS.surfaceContainer,
   },
 
+  plannerContainer: {
+    borderBottomColor: "rgba(28, 27, 27, 0.08)",
+  },
+
   leftGroup: {
     flexDirection: "row",
     alignItems: "center",
@@ -29,6 +33,17 @@ export const topNavbarStyles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "800",
     color: COLORS.primary,
+  },
+
+  plannerBrand: {
+    fontSize: 20,
+    letterSpacing: 0,
+  },
+
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: RADIUS.full,
   },
 
   iconButton: {
@@ -62,6 +77,18 @@ export const bottomNavbarStyles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
   },
 
+  plannerContainer: {
+    borderTopColor: "rgba(28, 27, 27, 0.08)",
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    shadowOffset: {
+      width: 0,
+      height: -4,
+    },
+    elevation: 8,
+  },
+
   item: {
     minWidth: 62,
     alignItems: "center",
@@ -76,13 +103,7 @@ export const bottomNavbarStyles = StyleSheet.create({
     paddingVertical: 8,
   },
 
-  icon: {
-    color: COLORS.onSurfaceVariant,
-  },
 
-  activeIcon: {
-    color: COLORS.onSecondaryContainer,
-  },
 
   label: {
     fontSize: 13,

@@ -1,4 +1,5 @@
 import HomeScreen from "../features/home/screens/HomeScreen";
+import PlannerScreen from "../features/planner/screens/PlannerScreen";
 import { SettingsScreen } from "../features/settings";
 import { ScannerScreen } from "../features/scan";
 import { useNavigation } from "./providers/NavigationProvider";
@@ -10,10 +11,10 @@ export default function AppNavigator() {
   switch (activeTab) {
     case "scan":
       return <ScannerScreen />;
-    case "meal":
-      return <PlaceholderScreen tabName="Meal Planner" />;
     case "shopping":
       return <PlaceholderScreen tabName="Shopping List" />;
+    case "meal":
+      return <PlannerScreen />;
     case "settings":
       return <SettingsScreen />;
     case "home":
