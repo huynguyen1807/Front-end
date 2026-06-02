@@ -16,6 +16,7 @@ export const topNavbarStyles = StyleSheet.create({
   leftGroup: {
     flexDirection: "row",
     alignItems: "center",
+    gap: SPACING.md,
   },
 
   rightGroup: {
