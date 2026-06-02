@@ -1,6 +1,10 @@
 {
   "expo": {
     "name": "SmartHouseholdFoodManagement",
-    "slug": "smart-household-food-management"
+    "slug": "smart-household-food-management",
+    "plugins": [
+      "expo-asset",
+      "expo-font"
+    ]
   }
 }

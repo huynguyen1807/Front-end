@@ -17,6 +17,6 @@
       "utils/*": ["utils/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "app.json"],
+  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "app.json", "src/app/providers/ReduxProvider.tsz"],
   "exclude": ["node_modules"]
 }
