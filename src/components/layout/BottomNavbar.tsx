@@ -1,55 +1,19 @@
-import { cloneElement } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { Platform, Text, TouchableOpacity, View } from "react-native";
+import { Platform, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { COLORS } from "../../constants/colors";
-import { setActiveTab, TabKey } from "../../redux/appSlice";
-import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { bottomNavbarStyles as styles } from "./navbar.styles";
-import { useNavigation } from "../../app/providers/NavigationProvider";
+import { useNavigation } from "app/providers/NavigationProvider";
 
-type NavVariant = "default" | "planner";
-
-type TabConfig = {
-  key: TabKey;
-  label: string;
-  icon: (color: string) => React.ReactNode;
-};
-
-const defaultTabs: TabConfig[] = [
-  {
-    key: "home",
-    label: "Home",
-    icon: <Ionicons name="home-outline" size={27} color="" />,
-  },
-  {
-    key: "scan",
-    label: "Scan",
-    icon: <Ionicons name="scan-outline" size={27} color="" />,
-  },
-  {
-    key: "meal",
-    label: "Meal",
-    icon: <MaterialCommunityIcons name="silverware-fork-knife" size={27} color="" />,
-  },
-  {
-    key: "shopping",
-    label: "Shopping",
-    icon: <Ionicons name="basket-outline" size={27} color="" />,
-  },
-  {
-    key: "settings",
-    label: "Settings",
-    icon: <Ionicons name="settings-outline" size={27} color="" />,
-  },
+const tabs = [
+  { key: "home", icon: <Ionicons name="home-outline" size={27} /> },
+  { key: "scan", icon: <Ionicons name="scan-outline" size={27} /> },
+  { key: "meal", icon: <MaterialCommunityIcons name="silverware-fork-knife" size={27} /> },
+  { key: "shopping", icon: <Ionicons name="basket-outline" size={27} /> },
+  { key: "settings", icon: <Ionicons name="menu-outline" size={27} /> },
 ];
 
-type BottomNavbarProps = {
-  variant?: NavVariant;
-};
-
-export default function BottomNavbar({ variant = "default" }: BottomNavbarProps) {
+export default function BottomNavbar() {
   const insets = useSafeAreaInsets();
   const { activeTab, setActiveTab } = useNavigation();
 
@@ -57,7 +21,6 @@ export default function BottomNavbar({ variant = "default" }: BottomNavbarProps)
     <View
       style={[
         styles.container,
-        isPlanner && styles.plannerContainer,
         {
           height: Platform.OS === "ios" ? 78 + insets.bottom : 78,
           paddingBottom: Platform.OS === "ios" ? insets.bottom : 0,
@@ -66,9 +29,6 @@ export default function BottomNavbar({ variant = "default" }: BottomNavbarProps)
     >
       {tabs.map((tab) => {
         const isActive = tab.key === activeTab;
-        const iconColor = isActive
-          ? COLORS.onSecondaryContainer
-          : COLORS.onSurfaceVariant;
 
         return (
           <TouchableOpacity
@@ -77,13 +37,10 @@ export default function BottomNavbar({ variant = "default" }: BottomNavbarProps)
             onPress={() => setActiveTab(tab.key as any)}
             style={[styles.item, isActive && styles.activeItem]}
           >
-            <View>
-              {cloneElement(tab.icon, { color: iconColor })}
+            <View style={isActive ? styles.activeItem : styles.item}>
+              {tab.icon}
             </View>
 
-            <Text style={[styles.label, isActive && styles.activeLabel]}>
-              {tab.label}
-            </Text>
           </TouchableOpacity>
         );
       })}

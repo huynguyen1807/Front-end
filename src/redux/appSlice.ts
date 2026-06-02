@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
-export type TabKey = "home" | "scan" | "meal" | "shopping" | "menu";
+export type TabKey = "home" | "scan" | "meal" | "shopping" | "settings";
 
 interface AppState {
   activeTab: TabKey;

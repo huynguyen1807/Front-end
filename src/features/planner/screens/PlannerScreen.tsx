@@ -16,7 +16,7 @@ export default function PlannerScreen() {
 
   return (
     <ScreenContainer>
-      <TopNavbar variant="planner" />
+      <TopNavbar />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
