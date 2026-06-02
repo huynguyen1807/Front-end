@@ -76,13 +76,7 @@ export const bottomNavbarStyles = StyleSheet.create({
     paddingVertical: 8,
   },
 
-  icon: {
-    color: COLORS.onSurfaceVariant,
-  },
 
-  activeIcon: {
-    color: COLORS.onSecondaryContainer,
-  },
 
   label: {
     fontSize: 13,

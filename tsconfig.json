@@ -1,7 +1,7 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.0",
     "moduleResolution": "bundler",
     "baseUrl": "./src",
     "paths": {
@@ -17,6 +17,6 @@
       "utils/*": ["utils/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "app.json", "src/app/providers/ReduxProvider.tsz"],
+  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "app.json", "src/app/providers/ReduxProvider.tsx"],
   "exclude": ["node_modules"]
 }
