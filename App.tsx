@@ -5,9 +5,18 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import ReduxProvider from "./src/app/providers/ReduxProvider";
 import WelcomeScreen from "./src/features/auth/screens/WelcomeScreen";
-import HomeScreen from "./src/features/home/screens/HomeScreen";
+import { NavigationProvider } from "./src/app/providers/NavigationProvider";
+import AppNavigator from "./src/app/AppNavigator";
 
 const Stack = createNativeStackNavigator();
+
+function MainApp() {
+  return (
+    <NavigationProvider>
+      <AppNavigator />
+    </NavigationProvider>
+  );
+}
 
 export default function App() {
   return (
@@ -20,7 +29,7 @@ export default function App() {
             screenOptions={{ headerShown: false }}
           >
             <Stack.Screen name="Welcome" component={WelcomeScreen} />
-            <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="Main" component={MainApp} />
           </Stack.Navigator>
         </NavigationContainer>
       </ReduxProvider>

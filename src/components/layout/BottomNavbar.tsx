@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { COLORS } from "../../constants/colors";
 import { bottomNavbarStyles as styles } from "./navbar.styles";
+import { useNavigation } from "../../app/providers/NavigationProvider";
 
 const tabs = [
   {
@@ -28,15 +29,15 @@ const tabs = [
     icon: <Ionicons name="basket-outline" size={27} color="" />,
   },
   {
-    key: "menu",
-    label: "Menu",
-    icon: <Ionicons name="menu-outline" size={29} color="" />,
+    key: "settings",
+    label: "Settings",
+    icon: <Ionicons name="settings-outline" size={27} color="" />,
   },
 ];
 
 export default function BottomNavbar() {
   const insets = useSafeAreaInsets();
-  const activeTab = "home";
+  const { activeTab, setActiveTab } = useNavigation();
 
   return (
     <View
@@ -58,6 +59,7 @@ export default function BottomNavbar() {
           <TouchableOpacity
             key={tab.key}
             activeOpacity={0.8}
+            onPress={() => setActiveTab(tab.key as any)}
             style={[styles.item, isActive && styles.activeItem]}
           >
             <View>

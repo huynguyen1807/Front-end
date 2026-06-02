@@ -42,13 +42,13 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
             variant="primary"
             icon={<Ionicons name="arrow-forward" size={18} color="#ffffff" />}
             iconPosition="right"
-            onPress={() => navigation.navigate("Home")}
+            onPress={() => navigation.navigate("Main")}
           />
           <AppButton
             title="Tôi đã có tài khoản"
             variant="outline"
             style={styles.outlineBtn}
-            onPress={() => navigation.navigate("Home")}
+            onPress={() => navigation.navigate("Main")}
           />
         </View>
 
