@@ -20,7 +20,7 @@ export const topNavbarStyles = StyleSheet.create({
   leftGroup: {
     flexDirection: "row",
     alignItems: "center",
-    gap: SPACING.sm,
+    gap: SPACING.md,
   },
 
   rightGroup: {
@@ -103,23 +103,7 @@ export const bottomNavbarStyles = StyleSheet.create({
     paddingVertical: 8,
   },
 
-  plannerItem: {
-    minWidth: 70,
-  },
 
-  plannerActiveItem: {
-    minWidth: 82,
-  },
-
-  icon: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  activeIcon: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
 
   label: {
     fontSize: 13,

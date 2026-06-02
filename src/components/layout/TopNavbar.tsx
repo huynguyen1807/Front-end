@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { COLORS } from "../../constants/colors";
 import { topNavbarStyles as styles } from "./navbar.styles";
+import { useNavigation } from "../../app/providers/NavigationProvider";
 
 type TopNavbarProps = {
   variant?: "default" | "planner";
@@ -11,7 +12,9 @@ type TopNavbarProps = {
 
 export default function TopNavbar({ variant = "default" }: TopNavbarProps) {
   const insets = useSafeAreaInsets();
-  const isPlanner = variant === "planner";
+  const { activeTab, setActiveTab } = useNavigation();
+
+  const isSettingsScreen = activeTab === "settings";
 
   return (
     <View
@@ -25,35 +28,38 @@ export default function TopNavbar({ variant = "default" }: TopNavbarProps) {
       ]}
     >
       <View style={styles.leftGroup}>
-        {isPlanner && (
-          <Image
-            source={{
-              uri: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&q=80",
-            }}
-            style={styles.avatar}
-          />
+        {isSettingsScreen ? (
+          <>
+            <TouchableOpacity
+              onPress={() => setActiveTab("home")}
+              activeOpacity={0.7}
+              style={styles.iconButton}
+            >
+              <Ionicons name="arrow-back" size={24} color={COLORS.onSurface} />
+            </TouchableOpacity>
+            <Text style={[styles.brand, { fontSize: 18 }]}>Cài đặt</Text>
+          </>
+        ) : (
+          <Text style={styles.brand}>FreshFriends</Text>
         )}
-        <Text style={[styles.brand, isPlanner && styles.plannerBrand]}>
-          {isPlanner ? "FreshTrack" : "FreshFriends"}
-        </Text>
       </View>
 
-      <View style={styles.rightGroup}>
-        {!isPlanner && (
+      {!isSettingsScreen && (
+        <View style={styles.rightGroup}>
           <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
             <Ionicons name="search-outline" size={24} color={COLORS.onSurface} />
           </TouchableOpacity>
-        )}
 
-        <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
-          <Ionicons
-            name="notifications-outline"
-            size={24}
-            color={COLORS.onSurface}
-          />
-          {!isPlanner && <View style={styles.dot} />}
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
+            <Ionicons
+              name="notifications-outline"
+              size={24}
+              color={COLORS.onSurface}
+            />
+            <View style={styles.dot} />
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }

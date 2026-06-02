@@ -1,3 +1,4 @@
+import { cloneElement } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Platform, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -6,6 +7,7 @@ import { COLORS } from "../../constants/colors";
 import { setActiveTab, TabKey } from "../../redux/appSlice";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { bottomNavbarStyles as styles } from "./navbar.styles";
+import { useNavigation } from "../../app/providers/NavigationProvider";
 
 type NavVariant = "default" | "planner";
 
@@ -19,58 +21,27 @@ const defaultTabs: TabConfig[] = [
   {
     key: "home",
     label: "Home",
-    icon: (color) => <Ionicons name="home-outline" size={27} color={color} />,
+    icon: <Ionicons name="home-outline" size={27} color="" />,
   },
   {
     key: "scan",
     label: "Scan",
-    icon: (color) => <Ionicons name="scan-outline" size={27} color={color} />,
+    icon: <Ionicons name="scan-outline" size={27} color="" />,
   },
   {
     key: "meal",
     label: "Meal",
-    icon: (color) => (
-      <MaterialCommunityIcons
-        name="silverware-fork-knife"
-        size={27}
-        color={color}
-      />
-    ),
+    icon: <MaterialCommunityIcons name="silverware-fork-knife" size={27} color="" />,
   },
   {
     key: "shopping",
     label: "Shopping",
-    icon: (color) => <Ionicons name="basket-outline" size={27} color={color} />,
+    icon: <Ionicons name="basket-outline" size={27} color="" />,
   },
   {
-    key: "menu",
-    label: "Menu",
-    icon: (color) => <Ionicons name="menu-outline" size={29} color={color} />,
-  },
-];
-
-const plannerTabs: TabConfig[] = [
-  {
-    key: "home",
-    label: "Dashboard",
-    icon: (color) => <Ionicons name="grid-outline" size={24} color={color} />,
-  },
-  {
-    key: "scan",
-    label: "Scanner",
-    icon: (color) => <Ionicons name="camera-outline" size={24} color={color} />,
-  },
-  {
-    key: "meal",
-    label: "Planner",
-    icon: (color) => (
-      <MaterialCommunityIcons name="calendar-month" size={24} color={color} />
-    ),
-  },
-  {
-    key: "shopping",
-    label: "Shopping",
-    icon: (color) => <Ionicons name="basket-outline" size={24} color={color} />,
+    key: "settings",
+    label: "Settings",
+    icon: <Ionicons name="settings-outline" size={27} color="" />,
   },
 ];
 
@@ -80,10 +51,7 @@ type BottomNavbarProps = {
 
 export default function BottomNavbar({ variant = "default" }: BottomNavbarProps) {
   const insets = useSafeAreaInsets();
-  const dispatch = useAppDispatch();
-  const activeTab = useAppSelector((state) => state.app.activeTab);
-  const isPlanner = variant === "planner";
-  const tabs = isPlanner ? plannerTabs : defaultTabs;
+  const { activeTab, setActiveTab } = useNavigation();
 
   return (
     <View
@@ -106,15 +74,12 @@ export default function BottomNavbar({ variant = "default" }: BottomNavbarProps)
           <TouchableOpacity
             key={tab.key}
             activeOpacity={0.8}
-            onPress={() => dispatch(setActiveTab(tab.key))}
-            style={[
-              styles.item,
-              isActive && styles.activeItem,
-              isPlanner && styles.plannerItem,
-              isPlanner && isActive && styles.plannerActiveItem,
-            ]}
+            onPress={() => setActiveTab(tab.key as any)}
+            style={[styles.item, isActive && styles.activeItem]}
           >
-            <View style={styles.icon}>{tab.icon(iconColor)}</View>
+            <View>
+              {cloneElement(tab.icon, { color: iconColor })}
+            </View>
 
             <Text style={[styles.label, isActive && styles.activeLabel]}>
               {tab.label}
