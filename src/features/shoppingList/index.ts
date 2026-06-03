@@ -1,4 +1,5 @@
 // Screens
+export { default as ShoppingScreen } from "./screens/ShoppingScreen";
 export { default as AddShoppingItemScreen } from "./screens/AddShoppingItemScreen";
 
 // Components

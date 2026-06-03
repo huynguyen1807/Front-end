@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import {
+  Alert,
   Image,
   Platform,
   ScrollView,
@@ -12,9 +13,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import FilterChip from "../../../components/common/FilterChip";
-import BottomNavbar from "../../../components/layout/BottomNavbar";
+import { COLORS } from "../../../constants/colors";
 import ScreenContainer from "../../../components/layout/ScreenContainer";
-import { useNavigation } from "../../../app/providers/NavigationProvider";
 import { addShoppingItemScreenStyles as styles } from "../styles/AddShoppingItemScreen.styles";
 import { ItemData } from "../types/shopping";
 import SuggestionCard from "../components/SuggestionCard";
@@ -84,9 +84,16 @@ const filterOptions = [
   { key: "milk", label: "Sữa & Trứng" },
 ];
 
-export default function AddShoppingItemScreen() {
+interface AddShoppingItemScreenProps {
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+export default function AddShoppingItemScreen({
+  onClose,
+  onConfirm,
+}: AddShoppingItemScreenProps) {
   const insets = useSafeAreaInsets();
-  const { setActiveTab } = useNavigation();
   const [searchText, setSearchText] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
 
@@ -107,7 +114,12 @@ export default function AddShoppingItemScreen() {
   };
 
   const handleDone = () => {
-    setActiveTab("home");
+    onConfirm();
+  };
+
+  const handleSeeAll = () => {
+    const list = suggestions.map((item) => `• ${item.name} (${item.unit})`).join("\n");
+    Alert.alert("Gợi ý từ tủ lạnh", list);
   };
 
   // Filter lists based on Search Text and Filter Chips
@@ -124,16 +136,21 @@ export default function AddShoppingItemScreen() {
   const filteredPopular = popularItems.filter(filterItem);
 
   const bottomSpace = 100;
-  const bannerBottom = 16;
-
   const selectedSummaryText = selectedItems.map((i) => i.name).join(", ");
 
   return (
     <ScreenContainer>
       <SafeAreaView edges={["top"]} style={styles.container}>
-        {/* Header */}
+        {/* Header with Close and Done actions */}
         <View style={styles.header}>
-          <Text style={styles.title}>Thêm vào danh sách</Text>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={onClose}
+            style={{ flexDirection: "row", alignItems: "center", paddingRight: 10 }}
+          >
+            <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
+          </TouchableOpacity>
+          <Text style={[styles.title, { flex: 1, textAlign: "left" }]}>Thêm thực phẩm</Text>
           <TouchableOpacity activeOpacity={0.7} onPress={handleDone}>
             <Text style={styles.doneText}>Xong</Text>
           </TouchableOpacity>
@@ -184,7 +201,7 @@ export default function AddShoppingItemScreen() {
             <View>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Gợi ý từ tủ lạnh</Text>
-                <TouchableOpacity activeOpacity={0.7}>
+                <TouchableOpacity activeOpacity={0.7} onPress={handleSeeAll}>
                   <Text style={styles.seeAllText}>Xem tất cả</Text>
                 </TouchableOpacity>
               </View>
@@ -239,9 +256,6 @@ export default function AddShoppingItemScreen() {
           />
         )}
       </SafeAreaView>
-
-      {/* Persistent Bottom Navbar */}
-      <BottomNavbar />
     </ScreenContainer>
   );
 }
