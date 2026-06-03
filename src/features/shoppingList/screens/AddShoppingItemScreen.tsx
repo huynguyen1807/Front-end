@@ -16,18 +16,10 @@ import BottomNavbar from "../../../components/layout/BottomNavbar";
 import ScreenContainer from "../../../components/layout/ScreenContainer";
 import { useNavigation } from "../../../app/providers/NavigationProvider";
 import { addShoppingItemScreenStyles as styles } from "../styles/AddShoppingItemScreen.styles";
-
-interface ItemData {
-  id: string;
-  name: string;
-  unit: string;
-  image: string;
-  category: "vegetables" | "meat" | "milk" | "other";
-  badge?: {
-    text: string;
-    color: string;
-  };
-}
+import { ItemData } from "../types/shopping";
+import SuggestionCard from "../components/SuggestionCard";
+import PopularItemRow from "../components/PopularItemRow";
+import SelectedFloatingBanner from "../components/SelectedFloatingBanner";
 
 const suggestions: ItemData[] = [
   {
@@ -184,6 +176,7 @@ export default function AddShoppingItemScreen() {
         {/* Scrollable Content */}
         <ScrollView
           showsVerticalScrollIndicator={false}
+          style={{ flex: 1 }}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomSpace }]}
         >
           {/* Suggestions Section */}
@@ -205,44 +198,12 @@ export default function AddShoppingItemScreen() {
                 {filteredSuggestions.map((item) => {
                   const selected = isSelected(item);
                   return (
-                    <View key={item.id} style={styles.suggestionCard}>
-                      <Image source={{ uri: item.image }} style={styles.cardImage} />
-                      {item.badge && (
-                        <View
-                          style={[
-                            styles.cardBadge,
-                            { backgroundColor: item.badge.color },
-                          ]}
-                        >
-                          <Text style={styles.cardBadgeText}>
-                            {item.badge.text}
-                          </Text>
-                        </View>
-                      )}
-                      <View style={styles.cardInfo}>
-                        <Text numberOfLines={1} style={styles.itemName}>
-                          {item.name}
-                        </Text>
-                        <Text style={styles.itemQty}>{item.unit}</Text>
-                        <TouchableOpacity
-                          activeOpacity={0.8}
-                          onPress={() => toggleSelect(item)}
-                          style={[
-                            styles.addBtn,
-                            selected && { backgroundColor: "#745b00" }, // Different color if added
-                          ]}
-                        >
-                          <Ionicons
-                            name={selected ? "checkmark" : "add"}
-                            size={16}
-                            color="#ffffff"
-                          />
-                          <Text style={styles.addBtnText}>
-                            {selected ? "Đã thêm" : "Thêm"}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
+                    <SuggestionCard
+                      key={item.id}
+                      item={item}
+                      selected={selected}
+                      onToggleSelect={() => toggleSelect(item)}
+                    />
                   );
                 })}
               </ScrollView>
@@ -258,30 +219,12 @@ export default function AddShoppingItemScreen() {
             {filteredPopular.map((item) => {
               const selected = isSelected(item);
               return (
-                <View key={item.id} style={styles.popularItemRow}>
-                  <View style={styles.popularItemLeft}>
-                    <Image source={{ uri: item.image }} style={styles.popularItemImage} />
-                    <View style={styles.popularItemInfo}>
-                      <Text style={styles.popularItemName}>{item.name}</Text>
-                      <Text style={styles.popularItemQty}>{item.unit}</Text>
-                    </View>
-                  </View>
-
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => toggleSelect(item)}
-                    style={[
-                      styles.circleActionBtn,
-                      selected && styles.circleActionBtnActive,
-                    ]}
-                  >
-                    <Ionicons
-                      name={selected ? "checkmark" : "add"}
-                      size={20}
-                      color={selected ? "#ffffff" : "#757575"}
-                    />
-                  </TouchableOpacity>
-                </View>
+                <PopularItemRow
+                  key={item.id}
+                  item={item}
+                  selected={selected}
+                  onToggleSelect={() => toggleSelect(item)}
+                />
               );
             })}
           </View>
@@ -289,30 +232,11 @@ export default function AddShoppingItemScreen() {
 
         {/* Selected floating banner */}
         {selectedItems.length > 0 && (
-          <View style={[styles.floatingBanner, { bottom: bannerBottom }]}>
-            <View style={styles.bannerLeft}>
-              <View style={styles.bannerBadgeCircle}>
-                <Text style={styles.bannerBadgeCircleText}>
-                  {selectedItems.length}
-                </Text>
-              </View>
-              <View style={styles.bannerTextContainer}>
-                <Text style={styles.bannerTitle}>
-                  Đã chọn {selectedItems.length} món
-                </Text>
-                <Text numberOfLines={1} style={styles.bannerSub}>
-                  {selectedSummaryText}
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleDone}
-              style={styles.bannerConfirmBtn}
-            >
-              <Text style={styles.bannerConfirmBtnText}>Xác nhận</Text>
-            </TouchableOpacity>
-          </View>
+          <SelectedFloatingBanner
+            selectedItemsCount={selectedItems.length}
+            selectedSummaryText={selectedSummaryText}
+            onConfirm={handleDone}
+          />
         )}
       </SafeAreaView>
 

@@ -14,6 +14,7 @@ export const addShoppingItemScreenStyles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
     backgroundColor: COLORS.surface,
+    flexShrink: 0,
   },
   title: {
     fontSize: 20,
@@ -34,6 +35,7 @@ export const addShoppingItemScreenStyles = StyleSheet.create({
     paddingVertical: Platform.OS === "ios" ? 10 : 6,
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
+    flexShrink: 0,
   },
   searchIcon: {
     marginRight: SPACING.sm,
@@ -45,6 +47,7 @@ export const addShoppingItemScreenStyles = StyleSheet.create({
   },
   chipList: {
     flexGrow: 0,
+    flexShrink: 0,
     marginBottom: SPACING.lg,
   },
   chipListContent: {
