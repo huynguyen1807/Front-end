@@ -6,65 +6,9 @@ import { COLORS } from "../../../constants/colors";
 import TopNavbar from "../../../components/layout/TopNavbar";
 import BottomNavbar from "../../../components/layout/BottomNavbar";
 import ScreenContainer from "../../../components/layout/ScreenContainer";
-import { useNavigation } from "../../../app/providers/NavigationProvider";
 import { shoppingScreenStyles as styles } from "../styles/ShoppingScreen.styles";
 import { ChecklistItem } from "../types/shopping";
-import AddShoppingItemScreen from "./AddShoppingItemScreen";
-
-const initialChecklist: ChecklistItem[] = [
-  // Vegetables
-  {
-    id: "c1",
-    name: "Cải bó xôi (Spinach)",
-    subtext: "2 bó • Freshness Priority",
-    checked: false,
-    category: "vegetables",
-  },
-  {
-    id: "c2",
-    name: "Cà chua bi",
-    subtext: "500g • Organic preference",
-    checked: false,
-    category: "vegetables",
-  },
-  {
-    id: "c3",
-    name: "Bông cải xanh",
-    subtext: "1 cây lớn",
-    checked: false,
-    category: "vegetables",
-  },
-  // Meat & Fish
-  {
-    id: "c4",
-    name: "Ức gà phile",
-    subtext: "1.5kg • Weekly Meal Prep",
-    checked: false,
-    category: "meat",
-  },
-  {
-    id: "c5",
-    name: "Cá hồi tươi",
-    subtext: "400g • Atlantic Salmon",
-    checked: false,
-    category: "meat",
-  },
-  // Spices
-  {
-    id: "c6",
-    name: "Dầu Oliu Extra Virgin",
-    subtext: "1 chai 500ml",
-    checked: false,
-    category: "spices",
-  },
-  {
-    id: "c7",
-    name: "Tương bần",
-    subtext: "1 hũ nhỏ",
-    checked: false,
-    category: "spices",
-  },
-];
+import { mockInitialChecklist } from "../../planner/data/plannerMock";
 
 type CategoryKey = "vegetables" | "meat" | "spices";
 
@@ -93,9 +37,7 @@ const CATEGORIES: Record<CategoryKey, CategoryConfig> = {
 };
 
 export default function ShoppingScreen() {
-  const { setActiveTab } = useNavigation();
-  const [isAdding, setIsAdding] = useState(false);
-  const [items, setItems] = useState<ChecklistItem[]>(initialChecklist);
+  const [items, setItems] = useState<ChecklistItem[]>(mockInitialChecklist);
 
   const toggleItem = (id: string) => {
     setItems((prev) =>
@@ -105,22 +47,6 @@ export default function ShoppingScreen() {
     );
   };
 
-  const handleConfirm = () => {
-    setIsAdding(false);
-    setActiveTab("meal");
-  };
-
-  const handleClose = () => {
-    setIsAdding(false);
-  };
-
-  if (isAdding) {
-    return (
-      <AddShoppingItemScreen onClose={handleClose} onConfirm={handleConfirm} />
-    );
-  }
-
-  // Group items by category
   const categoriesList: CategoryKey[] = ["vegetables", "meat", "spices"];
 
   return (
@@ -214,7 +140,7 @@ export default function ShoppingScreen() {
       <TouchableOpacity
         activeOpacity={0.85}
         style={styles.fab}
-        onPress={() => setIsAdding(true)}
+        onPress={() => {}}
       >
         <Ionicons name="add" size={30} color={COLORS.onPrimary} />
       </TouchableOpacity>

@@ -4,7 +4,6 @@ import { SettingsScreen } from "../features/settings";
 import { ScannerScreen } from "../features/scan";
 import { ShoppingScreen } from "../features/shoppingList";
 import { useNavigation } from "./providers/NavigationProvider";
-import PlaceholderScreen from "./screens/PlaceholderScreen";
 
 export default function AppNavigator() {
   const { activeTab } = useNavigation();
