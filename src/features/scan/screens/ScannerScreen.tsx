@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { View, TouchableOpacity, Platform } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { useState, useEffect, useRef } from "react";
+import { View, TouchableOpacity, Platform, Alert, Text } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import ScreenContainer from "../../../components/layout/ScreenContainer";
@@ -13,57 +13,48 @@ import { ScanResult, StorageLocation } from "../types/scan";
 import { COLORS } from "../../../constants/colors";
 import { useAppDispatch } from "../../../redux/hooks";
 import { addInventoryItem } from "../../inventory/redux/inventorySlice";
-
-const mockScanResults: ScanResult[] = [
-  {
-    id: "1",
-    productName: "Chuối Cavendish",
-    aiPredictedDays: 5,
-    imageUrl:
-      "https://images.unsplash.com/photo-1587182372962-717ba6df58a8?w=400",
-    confidence: 0.95,
-  },
-  {
-    id: "2",
-    productName: "Ớt chuông đỏ",
-    aiPredictedDays: 7,
-    imageUrl:
-      "https://images.unsplash.com/photo-1599599810694-b5ac4dd37e33?w=400",
-    confidence: 0.92,
-  },
-  {
-    id: "3",
-    productName: "Cà chua tươi",
-    aiPredictedDays: 4,
-    imageUrl:
-      "https://images.unsplash.com/photo-1595521624291-1d7d35294f34?w=400",
-    confidence: 0.98,
-  },
-];
+import { useCameraPermissions } from "../../../hooks/useCameraPermissions";
+import { scanProductFromImage, validateImage } from "../utils/scanUtils";
 
 export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
+  const cameraRef = useRef(null);
+  
+  const { permission, isLoading: permissionsLoading } = useCameraPermissions();
 
-  const [isScanning, setIsScanning] = useState(true);
+  const [isScanning, setIsScanning] = useState(false);
   const [currentResult, setCurrentResult] = useState<ScanResult | null>(null);
-  const [resultIndex, setResultIndex] = useState(0);
+  const [scanError, setScanError] = useState<string | null>(null);
 
-  // Simulate scanning
-  useEffect(() => {
-    if (isScanning) {
-      const timer = setTimeout(() => {
-        setIsScanning(false);
-        setCurrentResult(mockScanResults[resultIndex]);
-      }, 2500);
+  // Handle camera capture
+  const handleCameraCapture = async (photo: any) => {
+    try {
+      setScanError(null);
+      setIsScanning(true);
 
-      return () => clearTimeout(timer);
+      // Validate image
+      const validation = validateImage(photo.uri);
+      if (!validation.valid) {
+        throw new Error(validation.error || "Ảnh không hợp lệ");
+      }
+
+      // Scan product from image
+      const result = await scanProductFromImage(photo.uri);
+      setCurrentResult(result);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Lỗi quét sản phẩm";
+      setScanError(errorMessage);
+      Alert.alert("Lỗi", errorMessage);
+    } finally {
+      setIsScanning(false);
     }
-  }, [isScanning, resultIndex]);
+  };
 
   const handleRescan = () => {
     setCurrentResult(null);
-    setIsScanning(true);
+    setScanError(null);
   };
 
   const handleAddToInventory = (
@@ -90,7 +81,7 @@ export default function ScannerScreen() {
     dispatch(
       addInventoryItem({
         id: `${Date.now()}`,
-        name: currentResult.productName,
+        name: currentResult.foodRecognition.productName,
         quantity: quantity,
         storageLabel: storageMap[storage],
         storageType: storage,
@@ -100,40 +91,75 @@ export default function ScannerScreen() {
       })
     );
 
-    // Show next result or rescan
-    if (resultIndex < mockScanResults.length - 1) {
-      setResultIndex(resultIndex + 1);
-      handleRescan();
-    } else {
-      setResultIndex(0);
-      handleRescan();
-    }
+    // Reset state after adding
+    handleRescan();
+    Alert.alert("Thành công", "Sản phẩm đã được thêm vào kho hàng");
   };
 
-  const bottomSpace = Platform.OS === "ios" ? 120 + insets.bottom : 120;
+  if (permission !== "granted") {
+    return (
+      <ScreenContainer>
+        <TopNavbar />
+        <View
+          style={[
+            styles.cameraContainer,
+            {
+              justifyContent: "center",
+              alignItems: "center",
+              paddingHorizontal: 20,
+            },
+          ]}
+        >
+          <MaterialCommunityIcons
+            name="camera-off"
+            size={64}
+            color={COLORS.onSurfaceVariant}
+            style={{ marginBottom: 16 }}
+          />
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: "600",
+              color: COLORS.onSurface,
+              textAlign: "center",
+            }}
+          >
+            Cần cấp quyền camera
+          </Text>
+          <Text
+            style={{
+              fontSize: 14,
+              color: COLORS.onSurfaceVariant,
+              textAlign: "center",
+              marginTop: 8,
+            }}
+          >
+            Vui lòng cấp quyền truy cập camera để sử dụng tính năng quét
+          </Text>
+        </View>
+        <BottomNavbar />
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer>
-      {/* Header */}
       <TopNavbar />
-
-      {/* Camera or Result View */}
-      {isScanning || !currentResult ? (
-        <CameraView isScanning={isScanning} />
+      {currentResult ? (
+        <ScanResultCard
+          result={currentResult}
+          onAddToInventory={handleAddToInventory}
+          onRescan={handleRescan}
+        />
       ) : (
-        <View style={{ flex: 1 }}>
-          <ScanResultCard
-            result={currentResult}
-            onAddToInventory={handleAddToInventory}
-            onRescan={handleRescan}
-          />
-        </View>
+        <CameraView
+          isScanning={isScanning}
+          onCapture={handleCameraCapture}
+          cameraRef={cameraRef}
+        />
       )}
-
-      {/* Bottom Navbar */}
-      <View style={{ position: "absolute", bottom: 0, width: "100%" }}>
-        <BottomNavbar />
-      </View>
+      <BottomNavbar />
     </ScreenContainer>
   );
 }
+
