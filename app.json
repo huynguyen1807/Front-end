@@ -2,9 +2,21 @@
   "expo": {
     "name": "SmartHouseholdFoodManagement",
     "slug": "smart-household-food-management",
+    "permissions": [
+      "camera",
+      "photos"
+    ],
     "plugins": [
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos"
+        }
+      ]
     ]
   }
 }

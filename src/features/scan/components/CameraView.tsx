@@ -1,15 +1,24 @@
-import { View, Animated, Text } from "react-native";
+import { View, Animated, Text, TouchableOpacity, Platform } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { scannerScreenStyles as styles } from "../styles/ScannerScreen.styles";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { COLORS } from "../../../constants/colors";
+import { CameraView as ExpoCamera } from "expo-camera";
 
 type CameraViewProps = {
   isScanning?: boolean;
+  onCapture?: (photo: any) => void;
+  cameraRef?: any;
 };
 
-export default function CameraView({ isScanning = false }: CameraViewProps) {
+export default function CameraView({ 
+  isScanning = false, 
+  onCapture,
+  cameraRef
+}: CameraViewProps) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const localCameraRef = useRef(null);
 
   useEffect(() => {
     if (isScanning) {
@@ -27,15 +36,43 @@ export default function CameraView({ isScanning = false }: CameraViewProps) {
           }),
         ])
       ).start();
+    } else {
+      pulseAnim.setValue(1);
     }
-  }, [isScanning]);
+  }, [isScanning, pulseAnim]);
+
+  const handleCameraReady = () => {
+    setIsCameraReady(true);
+  };
+
+  const handleTakePicture = async () => {
+    if (!isCameraReady || isScanning) return;
+
+    try {
+      const camera = cameraRef?.current || localCameraRef.current;
+      if (!camera) return;
+
+      const photo = await camera.takePictureAsync({
+        quality: 0.8,
+        base64: false,
+      });
+
+      onCapture?.(photo);
+    } catch (error) {
+      console.error('Error taking picture:', error);
+    }
+  };
 
   const frameScale = pulseAnim;
 
   return (
     <View style={styles.cameraContainer}>
-      <View style={styles.cameraPlaceholder}>
-        {/* Scan Frame */}
+      <ExpoCamera
+        ref={cameraRef || localCameraRef}
+        style={styles.cameraPlaceholder}
+        onCameraReady={handleCameraReady}
+      >
+        {/* Overlay: Scan Frame */}
         <Animated.View
           style={[
             styles.scanFrame,
@@ -45,7 +82,7 @@ export default function CameraView({ isScanning = false }: CameraViewProps) {
           ]}
         />
 
-        {/* Detection Label */}
+        {/* Overlay: Detection Label */}
         {isScanning && (
           <View style={styles.detectionLabel}>
             <MaterialCommunityIcons
@@ -56,7 +93,27 @@ export default function CameraView({ isScanning = false }: CameraViewProps) {
             <Text style={styles.detectionText}>AI ĐANG NHẬN DIỆN...</Text>
           </View>
         )}
-      </View>
+
+        {/* Overlay: Capture Button */}
+        {!isScanning && isCameraReady && (
+          <TouchableOpacity
+            style={[
+              styles.captureButton,
+              { opacity: isScanning ? 0.5 : 1 }
+            ]}
+            onPress={handleTakePicture}
+            disabled={isScanning}
+          >
+            <View style={styles.captureButtonInner}>
+              <MaterialCommunityIcons
+                name="camera"
+                size={32}
+                color={COLORS.onPrimary}
+              />
+            </View>
+          </TouchableOpacity>
+        )}
+      </ExpoCamera>
     </View>
   );
 }
