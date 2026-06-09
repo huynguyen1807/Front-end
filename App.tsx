@@ -7,6 +7,7 @@ import ReduxProvider from "./src/app/providers/ReduxProvider";
 import WelcomeScreen from "./src/features/auth/screens/WelcomeScreen";
 import { NavigationProvider } from "./src/app/providers/NavigationProvider";
 import AppNavigator from "./src/app/AppNavigator";
+import RegisterScreen from "features/auth/screens/RegisterScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -29,6 +30,7 @@ export default function App() {
             screenOptions={{ headerShown: false }}
           >
             <Stack.Screen name="Welcome" component={WelcomeScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen name="Main" component={MainApp} />
           </Stack.Navigator>
         </NavigationContainer>
