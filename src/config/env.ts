@@ -1,3 +1,10 @@
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
+const getApiUrl = () => {
+  return 'https://sabine-prepituitary-alphamerically.ngrok-free.dev';
+};
+
 export const appConfig = {
-  apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000'
+  apiUrl: getApiUrl()
 };

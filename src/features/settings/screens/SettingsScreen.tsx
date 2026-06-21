@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ScrollView,
   Text,
@@ -9,6 +9,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import BottomNavbar from "../../../components/layout/BottomNavbar";
 import ScreenContainer from "../../../components/layout/ScreenContainer";
@@ -24,16 +26,38 @@ import { UserProfile } from "../types/settings";
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [language, setLanguage] = useState<"vi" | "en">("vi");
 
-  const user: UserProfile = {
-    name: "Nguyễn Minh Tuấn",
-    email: "tuan.nguyen@freshfriends.vn",
+  const [user, setUser] = useState<UserProfile>({
+    name: "Đang tải...",
+    email: "...",
     avatar:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuAvxKarOtflssf0DRAIlS7rBsZ2CsimMFiMYmnTyqxz6vhQRYPiMwW1HB9sf50iMpv1NdhjSpUsPrZtEcFFuDwagAYqXHATw6AYTj6Qe8Jbvf3jEoMM3FBZf9to-OualWQgWjZ0Ga-j1RgW52VCm0EkeQGLFldPGpOpkICGcdcAbKf_fkjvUlHOYhC7mFfzjM4-TI2yrUKNYoF9VuVgvDhKsZ70BsrOCe45CaxVB9cqarYDYpxV9rZNM-6wv_kZxM8n90vlMGhZac0",
-  };
+  });
+
+  useEffect(() => {
+    const loadUserInfo = async () => {
+      try {
+        const userInfoString = await AsyncStorage.getItem('userInfo');
+        if (userInfoString) {
+          const userInfo = JSON.parse(userInfoString);
+          setUser(prev => ({
+            ...prev,
+            name: userInfo.fullName || userInfo.name || "Người dùng",
+            email: userInfo.email || "",
+            avatar: userInfo.avatarUrl || prev.avatar
+          }));
+        }
+      } catch (error) {
+        console.error("Lỗi khi tải thông tin user:", error);
+      }
+    };
+    
+    loadUserInfo();
+  }, []);
 
   const bottomSpace = Platform.OS === "ios" ? 100 + insets.bottom : 100;
 
@@ -45,9 +69,14 @@ export default function SettingsScreen() {
         { text: "Hủy", onPress: () => {}, style: "cancel" },
         {
           text: "Đăng xuất",
-          onPress: () => {
-            // TODO: Implement logout logic
-            console.log("User logged out");
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem('userToken');
+              await AsyncStorage.removeItem('userInfo');
+              navigation.replace('Login');
+            } catch (error) {
+              console.error('Logout error:', error);
+            }
           },
           style: "destructive",
         },
