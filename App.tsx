@@ -10,6 +10,10 @@ import OTPVerificationScreen from "./src/features/auth/screens/OTPVerificationSc
 import ForgotPasswordScreen from "./src/features/auth/screens/ForgotPasswordScreen";
 import { NavigationProvider } from "./src/app/providers/NavigationProvider";
 import AppNavigator from "./src/app/AppNavigator";
+import AddFoodScreen from "./src/features/inventory/screens/AddFoodScreen";
+import UpdateFoodScreen from "./src/features/inventory/screens/UpdateFoodScreen";
+import StorageLocationScreen from "./src/features/inventory/screens/StorageLocationScreen";
+import FoodDetailScreen from "./src/features/inventory/screens/FoodDetailScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -36,9 +40,14 @@ export default function App() {
             <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             <Stack.Screen name="Main" component={MainApp} />
+            {/* Food Inventory screens */}
+            <Stack.Screen name="AddFood" component={AddFoodScreen} />
+            <Stack.Screen name="UpdateFood" component={UpdateFoodScreen} />
+            <Stack.Screen name="StorageLocations" component={StorageLocationScreen} />
+            <Stack.Screen name="FoodDetail" component={FoodDetailScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </ReduxProvider>
     </SafeAreaProvider>
   );
-}
+}

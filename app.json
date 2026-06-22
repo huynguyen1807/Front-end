@@ -18,7 +18,14 @@
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to add food images",
+          "cameraPermission": "Allow $(PRODUCT_NAME) to take photos of food items"
+        }
+      ]
     ],
     "extra": {
       "eas": {
