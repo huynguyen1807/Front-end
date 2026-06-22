@@ -5,6 +5,14 @@
     "plugins": [
       "expo-asset",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "07471232-a564-41d8-8fd8-fce2418cf78e"
+      }
+    },
+    "android": {
+      "package": "com.thangtran.foodmanagement"
+    }
   }
 }
