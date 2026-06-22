@@ -2,6 +2,7 @@
   "expo": {
     "name": "SmartHouseholdFoodManagement",
     "slug": "smart-household-food-management",
+    "scheme": "freshfriends",
     "permissions": [
       "camera",
       "photos"
@@ -16,7 +17,8 @@
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos"
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {
