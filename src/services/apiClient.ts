@@ -1,16 +1,31 @@
-import { appConfig } from 'config/env';
-import type { ApiHealthResponse } from 'types/api';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { appConfig } from '../config/env';
 
-async function request<T>(path: string): Promise<T> {
-  const response = await fetch(`${appConfig.apiUrl}${path}`);
+export const apiClient = axios.create({
+  baseURL: appConfig.apiUrl,
+  headers: {
+    'Content-Type': 'application/json',
+    'Bypass-Tunnel-Reminder': 'true', // Bypass localtunnel warning page
+    'ngrok-skip-browser-warning': 'true' // Bypass ngrok warning page
+  },
+});
 
-  if (!response.ok) {
-    throw new Error(`Request failed with status ${response.status}`);
+console.log('🌍 [NETWORK DEBUG] App is connecting to Backend at:', appConfig.apiUrl);
+
+apiClient.interceptors.request.use(
+  async (config) => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (e) {
+      // Ignored
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-
-  return response.json() as Promise<T>;
-}
-
-export const apiClient = {
-  getHealth: () => request<ApiHealthResponse>('/api/health')
-};
+);
