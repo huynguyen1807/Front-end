@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { View, TouchableOpacity, Platform, Alert, Text } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -12,13 +13,13 @@ import { scannerScreenStyles as styles } from "../styles/ScannerScreen.styles";
 import { ScanResult, StorageLocation } from "../types/scan";
 import { COLORS } from "../../../constants/colors";
 import { useAppDispatch } from "../../../redux/hooks";
-import { addInventoryItem } from "../../inventory/redux/inventorySlice";
+// addFoodItem từ inventorySlice chỉ nhận FoodItem từ API - scan feature cần integrate riêng
 import { useCameraPermissions } from "../../../hooks/useCameraPermissions";
 import { scanProductFromImage, validateImage } from "../utils/scanUtils";
 
 export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
-  const dispatch = useAppDispatch();
+  const navigation = useNavigation<any>();
   const cameraRef = useRef(null);
   
   const { permission, isLoading: permissionsLoading } = useCameraPermissions();
@@ -64,36 +65,24 @@ export default function ScannerScreen() {
   ) => {
     if (!currentResult) return;
 
-    // Parse date from DD/MM/YYYY to calculate daysLeft
+    // Chuyển sang AddFoodScreen với data đã điền sẵn từ scan
     const [day, month, year] = date.split("/").map(Number);
-    const expiryDate = new Date(year, month - 1, day);
-    const today = new Date();
-    const daysLeft = Math.ceil(
-      (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-    );
+    const isoExpiry = year && month && day
+      ? `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      : '';
 
-    const storageMap = {
-      fridge: "Tủ lạnh",
-      outside: "Bên ngoài",
-      freezer: "Ngăn đông",
-    };
-
-    dispatch(
-      addInventoryItem({
-        id: `${Date.now()}`,
-        name: currentResult.foodRecognition.productName,
+    navigation.navigate('AddFood', {
+      prefill: {
+        foodName: currentResult.foodRecognition.productName,
+        imageUrl: currentResult.imageUrl ?? '',
+        expiryDate: isoExpiry,
         quantity: quantity,
-        storageLabel: storageMap[storage],
-        storageType: storage,
-        daysLeft: Math.max(1, daysLeft),
-        freshnessPercent: 100 - Math.min(50, Math.abs(daysLeft - 5) * 10),
-        imageUrl: currentResult.imageUrl,
-      })
-    );
+        sourceType: 'SUPERMARKET',
+        expiryType: 'SCANNED',
+      }
+    });
 
-    // Reset state after adding
     handleRescan();
-    Alert.alert("Thành công", "Sản phẩm đã được thêm vào kho hàng");
   };
 
   if (permission !== "granted") {
