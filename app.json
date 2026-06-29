@@ -18,7 +18,22 @@
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos"
         }
       ],
-      "expo-web-browser"
-    ]
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to add food images",
+          "cameraPermission": "Allow $(PRODUCT_NAME) to take photos of food items"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "07471232-a564-41d8-8fd8-fce2418cf78e"
+      }
+    },
+    "android": {
+      "package": "com.thangtran.foodmanagement"
+    }
   }
 }

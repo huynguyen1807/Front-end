@@ -1,62 +1,116 @@
-import { Image, StyleSheet, Text, View } from "react-native";
+import React, { useState } from "react";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import { COLORS } from "../../../constants/colors";
 import { RADIUS, SPACING } from "../../../constants/spacing";
-import { InventoryItem } from "../types/inventory";
+import { FoodItem } from "../types/inventory";
 
 type InventoryCardProps = {
-  item: InventoryItem;
+  item: FoodItem;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onConsume?: () => void;
+  onPress?: () => void;
 };
 
-function getStatusColor(percent: number) {
-  if (percent <= 25) return COLORS.tertiary;
-  if (percent <= 50) return COLORS.secondaryContainer;
-  return COLORS.primary;
+const STATUS_CONFIG = {
+  SAFE:        { color: COLORS.primary,   label: "Còn tốt",     icon: "check-circle" as const },
+  NEAR_EXPIRY: { color: "#F59E0B",        label: "Sắp hết hạn", icon: "warning" as const },
+  EXPIRED:     { color: COLORS.tertiary,  label: "Hết hạn",     icon: "error" as const },
+  NEED_CHECK:  { color: COLORS.onSurfaceVariant, label: "Cần kiểm tra", icon: "help" as const },
+};
+
+function getDaysLeft(expiryDate: string): number {
+  const diff = new Date(expiryDate).getTime() - Date.now();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
-export default function InventoryCard({ item }: InventoryCardProps) {
-  const statusColor = getStatusColor(item.freshnessPercent);
-  const isUrgent = item.daysLeft <= 1;
+export default function InventoryCard({ item, onEdit, onDelete, onConsume, onPress }: InventoryCardProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const cfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.SAFE;
+  const daysLeft = getDaysLeft(item.expiryDate);
+  const freshnessScore = item.freshnessScore ?? 0;
+  const isUrgent = daysLeft <= 1;
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity activeOpacity={0.9} style={styles.card} onPress={onPress}>
+      {/* Image + badge */}
       <View style={styles.imageWrapper}>
-        <Image source={{ uri: item.imageUrl }} style={styles.image} />
-
+        {item.imageUrl ? (
+          <Image source={{ uri: item.imageUrl }} style={styles.image} />
+        ) : (
+          <View style={[styles.image, styles.imagePlaceholder]}>
+            <MaterialIcons name="fastfood" size={40} color={COLORS.primary + "60"} />
+          </View>
+        )}
         {isUrgent && (
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>Cần dùng ngay</Text>
+            <Text style={styles.badgeText}>Cần dùng ngay!</Text>
+          </View>
+        )}
+        {/* Status badge */}
+        <View style={[styles.statusBadge, { backgroundColor: cfg.color + "22" }]}>
+          <MaterialIcons name={cfg.icon} size={12} color={cfg.color} />
+          <Text style={[styles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
+        </View>
+      </View>
+
+      {/* Content */}
+      <View style={styles.content}>
+        <View style={styles.nameRow}>
+          <Text style={styles.name} numberOfLines={1}>{item.foodName}</Text>
+          {/* Menu button */}
+          <TouchableOpacity onPress={() => setMenuOpen((v) => !v)} style={styles.menuBtn}>
+            <MaterialIcons name="more-vert" size={20} color={COLORS.onSurfaceVariant} />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.meta}>
+          {item.quantity} {item.unit}
+          {item.storageLocationId?.storageName ? ` • ${item.storageLocationId.storageName}` : ""}
+        </Text>
+
+        <Text style={styles.category}>
+          {item.categoryId?.categoryName ?? ""}
+        </Text>
+
+        {/* Freshness bar */}
+        <View style={styles.progressHeader}>
+          <Text style={[styles.daysLeft, { color: cfg.color }]}>
+            {daysLeft > 0 ? `${daysLeft} ngày còn lại` : daysLeft === 0 ? "Hết hạn hôm nay" : `Quá hạn ${Math.abs(daysLeft)} ngày`}
+          </Text>
+          <Text style={styles.percent}>{freshnessScore}%</Text>
+        </View>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${freshnessScore}%`, backgroundColor: cfg.color }]} />
+        </View>
+
+        {/* Action menu */}
+        {menuOpen && (
+          <View style={styles.actionRow}>
+            {onEdit && (
+              <TouchableOpacity style={styles.actionBtn} onPress={() => { setMenuOpen(false); onEdit(); }}>
+                <MaterialIcons name="edit" size={16} color={COLORS.primary} />
+                <Text style={[styles.actionText, { color: COLORS.primary }]}>Sửa</Text>
+              </TouchableOpacity>
+            )}
+            {onConsume && (
+              <TouchableOpacity style={styles.actionBtn} onPress={() => { setMenuOpen(false); onConsume(); }}>
+                <MaterialIcons name="check-circle-outline" size={16} color="#16A34A" />
+                <Text style={[styles.actionText, { color: "#16A34A" }]}>Đã dùng</Text>
+              </TouchableOpacity>
+            )}
+            {onDelete && (
+              <TouchableOpacity style={styles.actionBtn} onPress={() => { setMenuOpen(false); onDelete(); }}>
+                <MaterialIcons name="delete-outline" size={16} color={COLORS.tertiary} />
+                <Text style={[styles.actionText, { color: COLORS.tertiary }]}>Xoá</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </View>
-
-      <View style={styles.content}>
-        <Text style={styles.name}>{item.name}</Text>
-
-        <Text style={styles.meta}>
-          {item.quantity} • {item.storageLabel}
-        </Text>
-
-        <View style={styles.progressHeader}>
-          <Text style={[styles.daysLeft, { color: statusColor }]}>
-            {item.daysLeft} ngày còn lại
-          </Text>
-
-          <Text style={styles.percent}>{item.freshnessPercent}%</Text>
-        </View>
-
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${item.freshnessPercent}%`,
-                backgroundColor: statusColor,
-              },
-            ]}
-          />
-        </View>
-      </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -70,70 +124,50 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.04,
     shadowRadius: 12,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
+    shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  imageWrapper: {
-    height: 150,
-    position: "relative",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-  },
+  imageWrapper: { height: 140, position: "relative" },
+  image: { width: "100%", height: "100%" },
+  imagePlaceholder: { backgroundColor: COLORS.surfaceContainer, justifyContent: "center", alignItems: "center" },
   badge: {
-    position: "absolute",
-    top: SPACING.md,
-    right: SPACING.md,
-    backgroundColor: COLORS.tertiary,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 5,
+    position: "absolute", top: SPACING.md, right: SPACING.md,
+    backgroundColor: COLORS.tertiary, paddingHorizontal: SPACING.md, paddingVertical: 5,
     borderRadius: RADIUS.full,
   },
-  badgeText: {
-    color: COLORS.onTertiary,
-    fontSize: 12,
-    fontWeight: "700",
+  badgeText: { color: COLORS.onTertiary, fontSize: 12, fontWeight: "700" },
+  statusBadge: {
+    position: "absolute", bottom: SPACING.sm, left: SPACING.sm,
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.full,
   },
-  content: {
-    padding: SPACING.lg,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: COLORS.onSurface,
-  },
-  meta: {
-    marginTop: 2,
-    fontSize: 14,
-    color: COLORS.onSurfaceVariant,
-  },
+  statusText: { fontSize: 11, fontWeight: "700" },
+  content: { padding: SPACING.lg },
+  nameRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  name: { fontSize: 16, fontWeight: "800", color: COLORS.onSurface, flex: 1 },
+  menuBtn: { padding: 4 },
+  meta: { marginTop: 2, fontSize: 13, color: COLORS.onSurfaceVariant },
+  category: { fontSize: 12, color: COLORS.primary, marginTop: 2, fontWeight: "600" },
   progressHeader: {
-    marginTop: SPACING.lg,
-    marginBottom: 5,
-    flexDirection: "row",
-    justifyContent: "space-between",
+    marginTop: SPACING.lg, marginBottom: 5,
+    flexDirection: "row", justifyContent: "space-between",
   },
-  daysLeft: {
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  percent: {
-    fontSize: 12,
-    color: COLORS.onSurfaceVariant,
-    opacity: 0.65,
-  },
+  daysLeft: { fontSize: 12, fontWeight: "800" },
+  percent: { fontSize: 12, color: COLORS.onSurfaceVariant, opacity: 0.65 },
   progressTrack: {
-    height: 7,
+    height: 7, backgroundColor: COLORS.surfaceContainer,
+    borderRadius: RADIUS.full, overflow: "hidden",
+  },
+  progressFill: { height: "100%", borderRadius: RADIUS.full },
+  actionRow: {
+    flexDirection: "row", gap: 8, marginTop: SPACING.md,
+    paddingTop: SPACING.md, borderTopWidth: 1, borderTopColor: COLORS.outlineVariant,
+  },
+  actionBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 4, paddingVertical: 8, borderRadius: RADIUS.md,
     backgroundColor: COLORS.surfaceContainer,
-    borderRadius: RADIUS.full,
-    overflow: "hidden",
   },
-  progressFill: {
-    height: "100%",
-    borderRadius: RADIUS.full,
-  },
+  actionText: { fontSize: 12, fontWeight: "700" },
 });
+
