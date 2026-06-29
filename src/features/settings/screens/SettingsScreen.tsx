@@ -158,6 +158,15 @@ export default function SettingsScreen() {
             />
 
             <SettingsItem
+              icon="people-outline"
+              label="Family Cloud"
+              description="Quản lý gia đình và quyền chia sẻ"
+              iconColor={COLORS.primary}
+              onPress={() => navigation.navigate("FamilyCloud")}
+              showChevron
+            />
+
+            <SettingsItem
               icon="lock-closed-outline"
               label="Chính sách bảo mật"
               iconColor={COLORS.onSurfaceVariant}
