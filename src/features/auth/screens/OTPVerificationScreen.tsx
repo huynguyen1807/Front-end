@@ -24,7 +24,7 @@ export default function OTPVerificationScreen() {
   
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const email = route.params?.email || '';
+  const email = (route.params?.email || '').trim().toLowerCase();
 
   const handleVerify = async () => {
     if (!otp || otp.length < 6) {
