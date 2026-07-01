@@ -26,7 +26,7 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
           </View>
         </View>
 
-        <Text style={styles.title}>Chào mừng đến với FreshTrack</Text>
+        <Text style={styles.title}>Chào mừng đến với FreshFriends</Text>
         <Text style={styles.description}>
           Quản lý thực phẩm thông minh, giảm thiểu lãng phí và ăn uống lành mạnh
           hơn mỗi ngày.
@@ -42,7 +42,7 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
             variant="primary"
             icon={<Ionicons name="arrow-forward" size={18} color="#ffffff" />}
             iconPosition="right"
-            onPress={() => navigation.navigate("Main")}
+            onPress={() => navigation.navigate("Register")}
           />
           <AppButton
             title="Tôi đã có tài khoản"
@@ -52,7 +52,7 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
           />
         </View>
 
-        {/* Social Proof */}
+        {/* Social Proof
         <View style={styles.socialSection}>
           <View style={styles.avatarGroup}>
             <Image
@@ -77,11 +77,11 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
           <Text style={styles.socialText}>
             Tham gia cùng hơn 50,000+ người dùng thông thái
           </Text>
-        </View>
+        </View> */}
 
         {/* Footer */}
         <Text style={styles.footerText}>
-          © 2026 FreshTrack. Tôn trọng thực phẩm, bảo vệ môi trường.
+          © 2026 FreshFriends. All rights reserved.
         </Text>
       </View>
     </SafeAreaView>
