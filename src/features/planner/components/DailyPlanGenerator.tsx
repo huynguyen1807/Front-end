@@ -1,8 +1,12 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Text, TextInput, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { COLORS } from "../../../constants/colors";
-import { mealTypeOptions } from "../constants/plannerConstants";
+import {
+  CalorieGoalKey,
+  calorieGoalOptions,
+  mealTypeOptions,
+} from "../constants/plannerConstants";
 import { GeneratedMealPlanResult, MealType } from "../types/planner";
 import { plannerStyles as styles } from "../styles/PlannerScreen.styles";
 import ActionButton from "./shared/ActionButton";
@@ -11,52 +15,53 @@ import Field from "./shared/Field";
 import Section from "./shared/Section";
 
 type DailyPlanGeneratorProps = {
-  targetCalories: string;
+  selectedCalorieGoal: CalorieGoalKey;
   selectedMealTypes: MealType[];
   generatedResult: GeneratedMealPlanResult | null;
   saving: boolean;
-  onChangeTargetCalories: (value: string) => void;
+  onSelectCalorieGoal: (value: CalorieGoalKey) => void;
   onToggleMealType: (mealType: MealType) => void;
   onGenerate: () => void;
 };
 
 export default function DailyPlanGenerator({
-  targetCalories,
+  selectedCalorieGoal,
   selectedMealTypes,
   generatedResult,
   saving,
-  onChangeTargetCalories,
+  onSelectCalorieGoal,
   onToggleMealType,
   onGenerate,
 }: DailyPlanGeneratorProps) {
   return (
     <Section
       title="Generate Daily Meal Plan"
-      subtitle="AI tạo recipe gợi ý từ inventory, ưu tiên đồ sắp hết hạn, kcal mục tiêu và sở thích."
+      subtitle="AI tạo recipe gợi ý từ inventory theo mức calories đã chọn, ưu tiên đồ sắp hết hạn và sở thích."
     >
-      <View style={styles.formGrid}>
-        <Field label="Calorie goal">
-          <TextInput
-            style={styles.input}
-            value={targetCalories}
-            keyboardType="numeric"
-            onChangeText={onChangeTargetCalories}
-            placeholder="2000"
-          />
-        </Field>
-        <Field label="Meal slots">
-          <View style={styles.segmentRow}>
-            {mealTypeOptions.map((option) => (
-              <ChipButton
-                key={option.key}
-                label={option.label}
-                active={selectedMealTypes.includes(option.key)}
-                onPress={() => onToggleMealType(option.key)}
-              />
-            ))}
-          </View>
-        </Field>
-      </View>
+      <Field label="Calories option">
+        <View style={styles.segmentRow}>
+          {calorieGoalOptions.map((option) => (
+            <ChipButton
+              key={option.key}
+              label={option.label}
+              active={selectedCalorieGoal === option.key}
+              onPress={() => onSelectCalorieGoal(option.key)}
+            />
+          ))}
+        </View>
+      </Field>
+      <Field label="Meal slots">
+        <View style={styles.segmentRow}>
+          {mealTypeOptions.map((option) => (
+            <ChipButton
+              key={option.key}
+              label={option.label}
+              active={selectedMealTypes.includes(option.key)}
+              onPress={() => onToggleMealType(option.key)}
+            />
+          ))}
+        </View>
+      </Field>
       <View style={styles.actionRow}>
         <ActionButton
           label="Generate recipes"
@@ -69,7 +74,7 @@ export default function DailyPlanGenerator({
         <View style={styles.inlineNotice}>
           <MaterialCommunityIcons name="check-decagram-outline" size={18} color={COLORS.primary} />
           <Text style={styles.inlineNoticeText}>
-            Đã tạo {generatedResult.generatedRecipes?.length || generatedResult.recommendations.length} recipe gợi ý từ {generatedResult.inventoryPriority.length} món trong tủ. Chọn recipe phù hợp ở Recommended Recipes để đưa vào lịch.
+            Đã chuẩn bị {generatedResult.generatedRecipes?.length || generatedResult.recommendations.length} recipe gợi ý từ {generatedResult.inventoryPriority.length} thực phẩm trong tủ. Chọn recipe phù hợp ở Recommended Recipes để đưa vào lịch.
           </Text>
         </View>
       )}

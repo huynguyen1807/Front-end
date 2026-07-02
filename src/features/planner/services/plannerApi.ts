@@ -35,6 +35,8 @@ export const getMealPlansApi = async (params?: {
 export const generateDailyMealPlanApi = async (data: {
   planDate: string;
   calorieTarget?: number;
+  calorieMin?: number;
+  calorieMax?: number;
   mealTypes?: string[];
   goal?: string;
 }) => {
@@ -69,4 +71,16 @@ export const deleteMealPlanApi = async (id: string) => {
 export const getAvailableFoodsApi = async () => {
   const res = await apiClient.get("/api/foods");
   return res.data.data as InventoryFood[];
+};
+
+export const addMissingIngredientsToShoppingListApi = async (
+  items: Array<{
+    ingredientName: string;
+    categoryId?: string;
+    quantity: number;
+    unit: string;
+  }>
+) => {
+  const res = await apiClient.post("/api/shopping-lists/missing-ingredients", { items });
+  return res.data.data;
 };

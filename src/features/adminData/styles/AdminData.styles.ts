@@ -102,6 +102,38 @@ export const adminDataStyles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "900",
   },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.36)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    maxHeight: "92%",
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 16,
+  },
+  modalHeader: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 10,
+  },
+  modalTitle: {
+    flex: 1,
+    color: COLORS.onSurface,
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "900",
+  },
+  modalScrollContent: {
+    paddingBottom: 20,
+  },
   segmentRow: {
     flexDirection: "row",
     flexWrap: "wrap",
