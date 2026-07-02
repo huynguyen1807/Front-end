@@ -1,8 +1,8 @@
-import { appConfig } from '../config/env';
+import { apiClient } from './apiClient';
 import { ScanResult, FoodRecognition, StorageSuggestion, MealSuggestion, NutritionInfo } from '../features/scan/types/scan';
 
 /**
- * AI Service - Handles all AI-related API calls
+ * AI Service - Handles all AI-related API calls using apiClient (Axios with Auth headers)
  */
 
 /**
@@ -16,16 +16,13 @@ export const recognizeFood = async (imageUri: string): Promise<FoodRecognition> 
     name: 'food-image.jpg',
   } as any);
 
-  const response = await fetch(`${appConfig.apiUrl}/api/ai/recognize-food`, {
-    method: 'POST',
-    body: formData,
+  const response = await apiClient.post('/api/ai/recognize-food', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to recognize food');
-  }
-
-  return response.json();
+  return response.data;
 };
 
 /**
@@ -34,23 +31,13 @@ export const recognizeFood = async (imageUri: string): Promise<FoodRecognition> 
 export const predictExpiryDate = async (
   productName: string,
   storageLocation: string
-): Promise<{ predictedDays: number; expiryDate: string }> => {
-  const response = await fetch(`${appConfig.apiUrl}/api/ai/predict-expiry`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      productName,
-      storageLocation,
-    }),
+): Promise<{ predictedDays: number; expiryDate: string; explanation: string }> => {
+  const response = await apiClient.post('/api/ai/predict-expiry', {
+    productName,
+    storageLocation,
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to predict expiry date');
-  }
-
-  return response.json();
+  return response.data;
 };
 
 /**
@@ -59,19 +46,11 @@ export const predictExpiryDate = async (
 export const getStorageSuggestions = async (
   productName: string
 ): Promise<StorageSuggestion[]> => {
-  const response = await fetch(`${appConfig.apiUrl}/api/ai/storage-suggestions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ productName }),
+  const response = await apiClient.post('/api/ai/storage-suggestions', {
+    productName,
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to get storage suggestions');
-  }
-
-  return response.json();
+  return response.data;
 };
 
 /**
@@ -85,22 +64,12 @@ export const getMealSuggestions = async (
     cookingTime?: number;
   }
 ): Promise<MealSuggestion[]> => {
-  const response = await fetch(`${appConfig.apiUrl}/api/ai/meal-suggestions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      productName,
-      preferences: userPreferences,
-    }),
+  const response = await apiClient.post('/api/ai/meal-suggestions', {
+    productName,
+    preferences: userPreferences,
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to get meal suggestions');
-  }
-
-  return response.json();
+  return response.data;
 };
 
 /**
@@ -110,22 +79,12 @@ export const getNutritionInfo = async (
   productName: string,
   quantity?: number
 ): Promise<NutritionInfo> => {
-  const response = await fetch(`${appConfig.apiUrl}/api/ai/nutrition-info`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      productName,
-      quantity: quantity || 100,
-    }),
+  const response = await apiClient.post('/api/ai/nutrition-info', {
+    productName,
+    quantity: quantity || 100,
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to get nutrition info');
-  }
-
-  return response.json();
+  return response.data;
 };
 
 /**
@@ -144,16 +103,13 @@ export const analyzeRecipeVideo = async (videoUri: string): Promise<{
     name: 'recipe-video.mp4',
   } as any);
 
-  const response = await fetch(`${appConfig.apiUrl}/api/ai/analyze-recipe-video`, {
-    method: 'POST',
-    body: formData,
+  const response = await apiClient.post('/api/ai/analyze-recipe-video', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to analyze recipe video');
-  }
-
-  return response.json();
+  return response.data;
 };
 
 /**
@@ -168,27 +124,16 @@ export const getPersonalizedMenu = async (
     mealType?: 'breakfast' | 'lunch' | 'dinner';
   }
 ): Promise<MealSuggestion[]> => {
-  const response = await fetch(`${appConfig.apiUrl}/api/ai/personalized-menu`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      inventory,
-      userProfile,
-    }),
+  const response = await apiClient.post('/api/ai/personalized-menu', {
+    inventory,
+    userProfile,
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to get personalized menu');
-  }
-
-  return response.json();
+  return response.data;
 };
 
 /**
  * Complete scan - combines all AI features
- * Returns mock data if API fails (fallback)
  */
 export const scanProductComplete = async (
   imageUri: string,
@@ -225,7 +170,7 @@ export const scanProductComplete = async (
     // Pick the best storage suggestion or default
     const bestStorage = storageSuggestions[0] || {
       location: 'outside' as const,
-      description: 'Bảo quản ở nhiệt độ phòng',
+      description: 'Bảo quan ở nhiệt độ phòng',
       temperature: '15-25°C',
     };
 
@@ -240,7 +185,6 @@ export const scanProductComplete = async (
       imageUrl: imageUri,
     };
   } catch (error) {
-    // Silently fail - let caller handle fallback
     throw error;
   }
 };

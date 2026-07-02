@@ -8,7 +8,7 @@ import { scanProductComplete } from '../../../services/aiService';
  * Set __DEV__ to true to use mock data by default
  * Set __DEV__ to false to use real AI API
  */
-const USE_MOCK_DATA = true; // Set to false when backend API is ready
+const USE_MOCK_DATA = false; // Set to false when backend API is ready
 let lastMockIndex = -1; // Track last index to avoid repeats
 
 export const scanProductFromImage = async (

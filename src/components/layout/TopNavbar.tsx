@@ -1,12 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Platform, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 
 import { COLORS } from "../../constants/colors";
 import { topNavbarStyles as styles } from "./navbar.styles";
 
 export default function TopNavbar() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
 
   return (
     <View
@@ -27,7 +29,11 @@ export default function TopNavbar() {
           <Ionicons name="search-outline" size={24} color={COLORS.onSurface} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.iconButton}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate("Notifications")}
+        >
           <Ionicons
             name="notifications-outline"
             size={24}
