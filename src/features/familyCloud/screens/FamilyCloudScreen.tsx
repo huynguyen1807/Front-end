@@ -1,10 +1,12 @@
-import { useNavigation } from "@react-navigation/native";
-import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView } from "react-native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { COLORS } from "../../../constants/colors";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { getCurrentSubscriptionApi } from "../../subscription/services/paymentApi";
+import { CurrentSubscription } from "../../subscription/types/subscription";
 import AddMemberForm from "../components/AddMemberForm";
 import CreateHouseholdForm from "../components/CreateHouseholdForm";
 import FamilyCloudEmptyState from "../components/FamilyCloudEmptyState";
@@ -18,6 +20,7 @@ import {
   addFamilyMember,
   cancelFamilyInvitation,
   createFamilyHousehold,
+  deleteFamilyHousehold,
   fetchHouseholdInvitations,
   fetchHouseholdMembers,
   fetchMyHouseholds,
@@ -55,6 +58,8 @@ export default function FamilyCloudScreen() {
 
   const [householdName, setHouseholdName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
+  const [currentSubscription, setCurrentSubscription] = useState<CurrentSubscription | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 
   const selectedMembership = useMemo(
     () => households.find((item) => item.household._id === selectedHouseholdId),
@@ -62,8 +67,9 @@ export default function FamilyCloudScreen() {
   );
 
   const canManageMembers = selectedMembership?.role === "OWNER";
+  const canCreateFamilyCloud = Boolean(currentSubscription?.isPremium);
 
-  const refreshHouseholds = () => {
+  const refreshHouseholds = useCallback(() => {
     dispatch(fetchMyHouseholds())
       .unwrap()
       .catch((error) => {
@@ -75,11 +81,21 @@ export default function FamilyCloudScreen() {
       .catch((error) => {
         Alert.alert("Không tải được lời mời của bạn", getErrorMessage(error));
       });
-  };
 
-  useEffect(() => {
-    refreshHouseholds();
-  }, []);
+    setSubscriptionLoading(true);
+    getCurrentSubscriptionApi()
+      .then(setCurrentSubscription)
+      .catch((error) => {
+        Alert.alert("Không tải được gói Premium", getErrorMessage(error));
+      })
+      .finally(() => setSubscriptionLoading(false));
+  }, [dispatch]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshHouseholds();
+    }, [refreshHouseholds])
+  );
 
   useEffect(() => {
     if (!selectedHouseholdId) return;
@@ -224,19 +240,59 @@ export default function FamilyCloudScreen() {
     ]);
   };
 
+  const handleDeleteHousehold = () => {
+    if (!selectedHouseholdId) return;
+
+    Alert.alert(
+      "Xóa Family Cloud",
+      "Bạn chắc chắn muốn xóa nhà hiện tại? Các thành viên sẽ bị gỡ khỏi Family Cloud và lời mời đang chờ sẽ bị hủy.",
+      [
+        { text: "Hủy", style: "cancel" },
+        {
+          text: "Xóa",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await dispatch(deleteFamilyHousehold(selectedHouseholdId)).unwrap();
+              await dispatch(fetchMyHouseholds()).unwrap();
+              await dispatch(fetchMyHouseholdInvitations()).unwrap();
+            } catch (error: any) {
+              Alert.alert("Không xóa được Family Cloud", getErrorMessage(error));
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <FamilyCloudHeader onBack={() => navigation.goBack()} onRefresh={refreshHouseholds} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {!loading && households.length === 0 && (
+        {subscriptionLoading || loading ? (
+          <ActivityIndicator color={COLORS.primary} size="large" style={styles.loader} />
+        ) : !canCreateFamilyCloud && households.length === 0 ? (
+          <View style={styles.upgradeBox}>
+            <Text style={styles.upgradeTitle}>Family Cloud cần Premium</Text>
+            <Text style={styles.upgradeText}>
+              Nâng cấp Premium để tạo family, chia sẻ inventory, meal và shopping list với tối đa 5 thành viên.
+            </Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate("Subscription")}
+              style={styles.fullButton}
+            >
+              <Text style={styles.primaryButtonText}>Nâng cấp Premium</Text>
+            </TouchableOpacity>
+          </View>
+        ) : canCreateFamilyCloud && households.length === 0 ? (
           <CreateHouseholdForm
             householdName={householdName}
             saving={saving}
             onChangeHouseholdName={setHouseholdName}
             onSubmit={handleCreateHousehold}
           />
-        )}
+        ) : null}
 
         <ReceivedInvitationList
           invitations={receivedInvitations}
@@ -246,9 +302,7 @@ export default function FamilyCloudScreen() {
           onReject={handleRejectInvitation}
         />
 
-        {loading ? (
-          <ActivityIndicator color={COLORS.primary} size="large" style={styles.loader} />
-        ) : households.length === 0 ? (
+        {subscriptionLoading || loading ? null : households.length === 0 && canCreateFamilyCloud ? (
           <FamilyCloudEmptyState />
         ) : (
           <>
@@ -273,6 +327,14 @@ export default function FamilyCloudScreen() {
                   saving={saving}
                   onCancelInvitation={(invitation) => handleCancelInvitation(invitation._id)}
                 />
+
+                <TouchableOpacity
+                  onPress={handleDeleteHousehold}
+                  disabled={saving}
+                  style={[styles.deleteHouseholdButton, saving && styles.disabled]}
+                >
+                  <Text style={styles.deleteHouseholdText}>Xóa Family Cloud này</Text>
+                </TouchableOpacity>
               </>
             )}
 

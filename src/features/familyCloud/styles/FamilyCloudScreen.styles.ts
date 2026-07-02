@@ -102,6 +102,15 @@ export const familyCloudStyles = StyleSheet.create({
     marginTop: SPACING.sm,
     textAlign: "center",
   },
+  upgradeBox: {
+    backgroundColor: COLORS.surfaceContainerLowest,
+    borderColor: COLORS.outlineVariant + "45",
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    padding: SPACING.lg,
+  },
+  upgradeTitle: { color: COLORS.onSurface, fontSize: 17, fontWeight: "800" },
+  upgradeText: { color: COLORS.onSurfaceVariant, fontSize: 14, lineHeight: 20, marginTop: SPACING.sm },
   householdRow: { flexDirection: "row", gap: SPACING.sm, paddingRight: SPACING.lg },
   householdChip: {
     backgroundColor: COLORS.surfaceContainerLowest,
@@ -179,4 +188,13 @@ export const familyCloudStyles = StyleSheet.create({
     justifyContent: "center",
     width: 36,
   },
+  deleteHouseholdButton: {
+    alignItems: "center",
+    borderColor: COLORS.error + "55",
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    height: 46,
+    justifyContent: "center",
+  },
+  deleteHouseholdText: { color: COLORS.error, fontSize: 14, fontWeight: "800" },
 });

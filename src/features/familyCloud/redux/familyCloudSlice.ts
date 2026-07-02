@@ -5,6 +5,7 @@ import {
   addHouseholdMemberApi,
   cancelHouseholdInvitationApi,
   createHouseholdApi,
+  deleteHouseholdApi,
   getHouseholdInvitationsApi,
   getHouseholdMembersApi,
   getMyHouseholdsApi,
@@ -52,6 +53,14 @@ export const fetchMyHouseholdInvitations = createAsyncThunk(
 export const createFamilyHousehold = createAsyncThunk(
   "familyCloud/createHousehold",
   async (payload: CreateHouseholdPayload) => createHouseholdApi(payload)
+);
+
+export const deleteFamilyHousehold = createAsyncThunk(
+  "familyCloud/deleteHousehold",
+  async (householdId: string) => {
+    await deleteHouseholdApi(householdId);
+    return householdId;
+  }
 );
 
 export const addFamilyMember = createAsyncThunk(
@@ -223,6 +232,23 @@ const familyCloudSlice = createSlice({
       .addCase(createFamilyHousehold.rejected, (state, action) => {
         state.saving = false;
         state.error = action.error.message ?? "Failed to create household";
+      })
+      .addCase(deleteFamilyHousehold.pending, (state) => {
+        state.saving = true;
+        state.error = null;
+      })
+      .addCase(deleteFamilyHousehold.fulfilled, (state, action) => {
+        state.saving = false;
+        state.households = state.households.filter(
+          (item) => item.household._id !== action.payload
+        );
+        state.members = [];
+        state.invitations = [];
+        state.selectedHouseholdId = state.households[0]?.household._id ?? "";
+      })
+      .addCase(deleteFamilyHousehold.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.error.message ?? "Failed to delete household";
       })
       .addCase(addFamilyMember.pending, (state) => {
         state.saving = true;

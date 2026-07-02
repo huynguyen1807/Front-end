@@ -17,6 +17,7 @@ import StorageLocationScreen from "./src/features/inventory/screens/StorageLocat
 import FoodDetailScreen from "./src/features/inventory/screens/FoodDetailScreen";
 import NotificationScreen from "./src/features/notifications/screens/NotificationScreen";
 import { FamilyCloudScreen } from "./src/features/familyCloud";
+import { SubscriptionScreen } from "./src/features/subscription";
 
 const Stack = createNativeStackNavigator();
 
@@ -53,6 +54,7 @@ export default function App() {
               <Stack.Screen name="Notifications" component={NotificationScreen} />
               {/* Family Cloud screen */}
               <Stack.Screen name="FamilyCloud" component={FamilyCloudScreen} />
+              <Stack.Screen name="Subscription" component={SubscriptionScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </ReduxProvider>

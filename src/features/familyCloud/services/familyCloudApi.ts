@@ -21,6 +21,11 @@ export const getMyHouseholdsApi = async (): Promise<MyHousehold[]> => {
   return res.data.data;
 };
 
+export const deleteHouseholdApi = async (householdId: string) => {
+  const res = await apiClient.delete(`/api/households/${householdId}`);
+  return res.data;
+};
+
 export const getHouseholdMembersApi = async (
   householdId: string
 ): Promise<HouseholdMember[]> => {
