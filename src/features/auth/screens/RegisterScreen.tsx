@@ -34,7 +34,9 @@ export default function RegisterScreen() {
   const navigation = useNavigation<any>();
 
   const handleRegister = async () => {
-    if (!fullName || !email || !password || !confirmPassword) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!fullName || !normalizedEmail || !password || !confirmPassword) {
       setError('Vui lòng điền đầy đủ các trường bắt buộc');
       return;
     }
@@ -54,9 +56,9 @@ export default function RegisterScreen() {
     try {
       setLoading(true);
       setError('');
-      await registerApi({ fullName, email, password });
+      await registerApi({ fullName, email: normalizedEmail, password });
       
-      navigation.replace('OTPVerification', { email });
+      navigation.replace('OTPVerification', { email: normalizedEmail });
     } catch (err: any) {
       console.error("REGISTER ERROR:", err);
       setError(err.response?.data?.message || err.message || 'Đăng ký thất bại. Vui lòng thử lại.');

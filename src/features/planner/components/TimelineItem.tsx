@@ -1,16 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { COLORS } from "../../../constants/colors";
+import { MealStatus } from "../types/planner";
 
-interface TimelineItemProps {
+type TimelineItemProps = {
   time: string;
   title: string;
-  statusText: string;
+  statusText?: string;
   kcal: number;
-  status: "completed" | "current" | "upcoming";
-}
+  status: MealStatus;
+  onPress?: () => void;
+  onRemove?: () => void;
+};
 
 export default function TimelineItem({
   time,
@@ -18,10 +20,17 @@ export default function TimelineItem({
   statusText,
   kcal,
   status,
+  onPress,
+  onRemove,
 }: TimelineItemProps) {
-  const isCompleted = status === "completed";
-  const isCurrent = status === "current";
+  const isCompleted = status === "COMPLETED";
+  const isCurrent = status === "PREPARING";
   const borderColor = isCompleted || isCurrent ? COLORS.primary : "#e0dddd";
+  const fallbackStatusText = isCompleted
+    ? "Đã hoàn thành"
+    : isCurrent
+      ? "Đang chuẩn bị"
+      : "Chưa thực hiện";
 
   return (
     <View style={styles.container}>
@@ -29,13 +38,15 @@ export default function TimelineItem({
 
       <View style={[styles.card, { borderLeftColor: borderColor }]}>
         <View style={styles.content}>
-          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.title} numberOfLines={2}>
+            {title}
+          </Text>
           <Text style={styles.subtitle}>
-            {statusText} • {kcal} kcal
+            {statusText || fallbackStatusText} - {kcal} kcal
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.iconButton} activeOpacity={0.75}>
+        <TouchableOpacity style={styles.iconButton} activeOpacity={0.75} onPress={onPress}>
           {isCompleted && (
             <Ionicons name="checkmark-circle-outline" size={26} color={COLORS.primary} />
           )}
@@ -47,6 +58,9 @@ export default function TimelineItem({
               <Ionicons name="add" size={20} color={COLORS.primary} />
             </View>
           )}
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.removeButton} activeOpacity={0.75} onPress={onRemove}>
+          <Ionicons name="close" size={18} color={COLORS.onSurfaceVariant} />
         </TouchableOpacity>
       </View>
     </View>
@@ -73,7 +87,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(28, 27, 27, 0.08)",
     borderLeftWidth: 4,
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
     shadowColor: "#000",
@@ -101,6 +115,15 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     marginLeft: 12,
+  },
+  removeButton: {
+    width: 28,
+    height: 28,
+    marginLeft: 6,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.surfaceContainer,
   },
   plusIcon: {
     width: 30,

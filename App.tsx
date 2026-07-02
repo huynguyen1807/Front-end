@@ -15,6 +15,7 @@ import UpdateFoodScreen from "./src/features/inventory/screens/UpdateFoodScreen"
 import StorageLocationScreen from "./src/features/inventory/screens/StorageLocationScreen";
 import FoodDetailScreen from "./src/features/inventory/screens/FoodDetailScreen";
 import NotificationScreen from "./src/features/notifications/screens/NotificationScreen";
+import { FamilyCloudScreen } from "./src/features/familyCloud";
 
 const Stack = createNativeStackNavigator();
 
@@ -48,9 +49,11 @@ export default function App() {
             <Stack.Screen name="FoodDetail" component={FoodDetailScreen} />
             {/* Notifications screen */}
             <Stack.Screen name="Notifications" component={NotificationScreen} />
+            {/* Family Cloud screen */}
+            <Stack.Screen name="FamilyCloud" component={FamilyCloudScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </ReduxProvider>
     </SafeAreaProvider>
   );
-}
+}

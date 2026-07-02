@@ -1,12 +1,27 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { COLORS } from "../../../constants/colors";
-import { mockSuggestedRecipes } from "../data/plannerMock";
-import RecipeCard from "./RecipeCard";
+import RecipeCard from "../../recipes/components/RecipeCard";
+import { Recipe } from "../types/planner";
 
-export default function SuggestionSection() {
+type SuggestionSectionProps = {
+  recipes: Recipe[];
+  loading?: boolean;
+  isAdmin?: boolean;
+  onAddToPlan: (recipe: Recipe) => void;
+  onEditRecipe: (recipe: Recipe) => void;
+  onDeleteRecipe: (recipe: Recipe) => void;
+};
+
+export default function SuggestionSection({
+  recipes,
+  loading,
+  isAdmin,
+  onAddToPlan,
+  onEditRecipe,
+  onDeleteRecipe,
+}: SuggestionSectionProps) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -18,21 +33,30 @@ export default function SuggestionSection() {
           />
           <Text style={styles.title}>Gợi ý hôm nay</Text>
         </View>
-        <TouchableOpacity activeOpacity={0.75}>
-          <Text style={styles.seeAll}>Xem tất cả</Text>
-        </TouchableOpacity>
       </View>
 
       <View style={styles.banner}>
         <Text style={styles.bannerText}>
-          Dựa trên <Text style={styles.strong}>Bơ</Text> và{" "}
-          <Text style={styles.strong}>Ức gà</Text> sắp hết hạn trong 2 ngày tới.
+          Dữ liệu công thức được dùng để lên meal plan, tự tính calorie và macro.
         </Text>
       </View>
 
-      {mockSuggestedRecipes.map((recipe) => (
-        <RecipeCard key={recipe.id} {...recipe} />
-      ))}
+      {loading ? (
+        <ActivityIndicator color={COLORS.primary} style={styles.loader} />
+      ) : recipes.length === 0 ? (
+        <Text style={styles.emptyText}>Chưa có recipe data. Hãy tạo công thức đầu tiên.</Text>
+      ) : (
+        recipes.map((recipe) => (
+          <RecipeCard
+            key={recipe._id}
+            recipe={recipe}
+            canManage={isAdmin || recipe.sourceType === "USER_CREATED"}
+            onAddToPlan={onAddToPlan}
+            onEdit={onEditRecipe}
+            onDelete={onDeleteRecipe}
+          />
+        ))
+      )}
     </View>
   );
 }
@@ -57,11 +81,6 @@ const styles = StyleSheet.create({
     color: COLORS.onSurface,
     marginLeft: 8,
   },
-  seeAll: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.primary,
-  },
   banner: {
     backgroundColor: "#fff1c7",
     borderColor: COLORS.secondaryContainer,
@@ -76,7 +95,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
   },
-  strong: {
-    fontWeight: "800",
+  loader: {
+    marginVertical: 20,
+  },
+  emptyText: {
+    color: COLORS.onSurfaceVariant,
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 12,
   },
 });

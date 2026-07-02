@@ -37,7 +37,9 @@ export default function LoginScreen() {
   const navigation = useNavigation<any>();
 
   const handleLogin = async () => {
-    if (!email || !password) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password) {
       setError('Vui lòng điền đầy đủ email và mật khẩu');
       return;
     }
@@ -45,7 +47,7 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       setError('');
-      const response = await loginApi({ email, password });
+      const response = await loginApi({ email: normalizedEmail, password });
 
       await AsyncStorage.setItem('userToken', response.token);
       await AsyncStorage.setItem('userInfo', JSON.stringify(response.user));
