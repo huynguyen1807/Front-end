@@ -47,6 +47,8 @@ export const updateFoodApi = async (id: string, data: Partial<{
   quantity: number;
   unit: string;
   imageUrl: string;
+  sourceType: 'SUPERMARKET' | 'MARKET';
+  expiryType: 'MANUAL' | 'SCANNED' | 'AI_PREDICTED';
 }>) => {
   const res = await apiClient.put(`/api/foods/${id}`, data);
   return res.data.data;

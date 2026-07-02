@@ -4,8 +4,10 @@ import { Alert } from "react-native";
 
 import {
   AdminSection,
+  CalorieGoalKey,
   PlannerDetailTab,
   Workspace,
+  calorieGoalOptions,
   createEmptyRecipeForm,
   createEmptyRecipeIngredient,
   emptyCategoryForm,
@@ -54,6 +56,7 @@ import {
   createMealPlanApi,
   deleteMealPlanApi,
   extractRecipeFromVideoApi,
+  addMissingIngredientsToShoppingListApi,
   generateDailyMealPlanApi,
   getAvailableFoodsApi,
   getMealPlansApi,
@@ -162,6 +165,43 @@ const buildCookingStepsFromForm = (formState: RecipeFormState) => {
   return draftStep ? [...steps, draftStep] : steps;
 };
 
+const getFoodCalories = (food: InventoryFood) =>
+  Number(food.calories ?? food.nutrition?.calories) || 0;
+
+const getFoodMacroSummary = (food: InventoryFood) => ({
+  protein: Number(food.macroSummary?.protein ?? food.nutrition?.macroSummary.protein) || 0,
+  carbs: Number(food.macroSummary?.carbs ?? food.nutrition?.macroSummary.carbs) || 0,
+  fat: Number(food.macroSummary?.fat ?? food.nutrition?.macroSummary.fat) || 0,
+});
+
+const buildMissingShoppingItems = (
+  recipe: Recipe,
+  missingIngredientNames: string[]
+): MissingShoppingItem[] => {
+  const missingSet = new Set(missingIngredientNames.map((name) => name.trim().toLowerCase()));
+
+  return (recipe.ingredients || [])
+    .filter((ingredient) => missingSet.has(ingredient.ingredientName.trim().toLowerCase()))
+    .map((ingredient) => ({
+      ingredientName: ingredient.ingredientName,
+      categoryId: typeof ingredient.categoryId === "string" ? ingredient.categoryId : undefined,
+      quantity: Number(ingredient.quantity) || 1,
+      unit: ingredient.unit || "item",
+    }));
+};
+
+type ScheduleDraft =
+  | { type: "recipe"; recipe: Recipe }
+  | { type: "food"; food: InventoryFood }
+  | null;
+
+type MissingShoppingItem = {
+  ingredientName: string;
+  categoryId?: string;
+  quantity: number;
+  unit: string;
+};
+
 export default function usePlannerScreen() {
   const [roleLoaded, setRoleLoaded] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -178,13 +218,21 @@ export default function usePlannerScreen() {
   const [generatedResult, setGeneratedResult] = useState<GeneratedMealPlanResult | null>(null);
   const [videoUrl, setVideoUrl] = useState("");
   const [videoExtraction, setVideoExtraction] = useState<VideoRecipeExtraction | null>(null);
-  const [targetCalories, setTargetCalories] = useState("2000");
+  const [selectedCalorieGoal, setSelectedCalorieGoal] =
+    useState<CalorieGoalKey>("RANGE_1000_1500");
   const [selectedMealTypes, setSelectedMealTypes] = useState<MealType[]>([
     "BREAKFAST",
     "LUNCH",
     "DINNER",
   ]);
+  const [scheduleDraft, setScheduleDraft] = useState<ScheduleDraft>(null);
+  const [scheduleMealType, setScheduleMealType] = useState<MealType>("BREAKFAST");
+  const [scheduleTime, setScheduleTime] = useState(mealTypeOptions[0].time);
   const [selectedMealType, setSelectedMealType] = useState<MealType>("LUNCH");
+  const [missingIngredientPrompt, setMissingIngredientPrompt] = useState<{
+    sourceName: string;
+    items: MissingShoppingItem[];
+  } | null>(null);
 
   const [adminRecipes, setAdminRecipes] = useState<Recipe[]>([]);
   const [nutritionFacts, setNutritionFacts] = useState<NutritionFact[]>([]);
@@ -222,6 +270,13 @@ export default function usePlannerScreen() {
     });
   }, []);
 
+  const selectedCalorieGoalOption = useMemo(
+    () =>
+      calorieGoalOptions.find((option) => option.key === selectedCalorieGoal) ||
+      calorieGoalOptions[3],
+    [selectedCalorieGoal]
+  );
+
   const dayTotals = useMemo(() => {
     return plans.reduce(
       (acc, plan) => {
@@ -247,7 +302,9 @@ export default function usePlannerScreen() {
   }, [plans]);
 
   const inventoryBuckets = useMemo(() => {
-    const available = foods.filter((food) => food.status !== "EXPIRED");
+    const available = foods.filter(
+      (food) => food.status !== "EXPIRED" && Number(food.quantity) > 0
+    );
     return {
       nearExpiry: available
         .filter(
@@ -360,7 +417,9 @@ export default function usePlannerScreen() {
       setSaving(true);
       const result = await generateDailyMealPlanApi({
         planDate: activeDate,
-        calorieTarget: Number(targetCalories) || undefined,
+        calorieTarget: selectedCalorieGoalOption.target,
+        calorieMin: selectedCalorieGoalOption.min,
+        calorieMax: selectedCalorieGoalOption.max,
         mealTypes: selectedMealTypes,
       });
       setGeneratedResult(result);
@@ -404,15 +463,109 @@ export default function usePlannerScreen() {
     }
   };
 
+  const openScheduleDraft = (draft: Exclude<ScheduleDraft, null>) => {
+    const defaultOption = mealTypeOptions[0];
+    setScheduleDraft(draft);
+    setScheduleMealType(defaultOption.key);
+    setScheduleTime(defaultOption.time);
+  };
+
+  const handleSelectScheduleMealType = (mealType: MealType) => {
+    const option = mealTypeOptions.find((item) => item.key === mealType) || mealTypeOptions[0];
+    setScheduleMealType(option.key);
+    setScheduleTime(option.time);
+  };
+
+  const closeScheduleModal = () => {
+    setScheduleDraft(null);
+  };
+
+  const saveMealToPlan = async (meal: MealPlanMeal) => {
+    if (plans[0]) {
+      await updateMealPlanApi(plans[0]._id, {
+        planDate: activeDate,
+        meals: [...plans[0].meals.map(normalizeMealForApi), meal],
+      });
+    } else {
+      await createMealPlanApi({
+        planDate: activeDate,
+        goal: "Balanced daily meals",
+        meals: [meal],
+      });
+    }
+  };
+
+  const handleConfirmScheduleMeal = async () => {
+    if (!scheduleDraft) return;
+
+    try {
+      setSaving(true);
+      if (scheduleDraft.type === "recipe") {
+        const { recipe } = scheduleDraft;
+        await saveMealToPlan({
+          mealType: scheduleMealType,
+          recipeId: recipe._id,
+          recipeName: recipe.recipeName,
+          imageUrl: recipe.imageUrl,
+          scheduledTime: scheduleTime,
+          calories: recipe.calories || 0,
+          macroSummary: recipe.macroSummary || { protein: 0, carbs: 0, fat: 0 },
+          status: "PENDING",
+          usedFoodItemIds: getRecipeUsedFoodIds(recipe, foods),
+        });
+      } else {
+        const { food } = scheduleDraft;
+        await saveMealToPlan({
+          mealType: scheduleMealType,
+          recipeName: food.foodName,
+          imageUrl: food.imageUrl,
+          scheduledTime: scheduleTime,
+          calories: getFoodCalories(food),
+          macroSummary: getFoodMacroSummary(food),
+          status: "PENDING",
+          usedFoodItemIds: [food._id],
+        });
+      }
+
+      closeScheduleModal();
+      await loadPlanner();
+    } catch (error: any) {
+      Alert.alert("Không thêm được meal", getErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const closeMissingIngredientPrompt = () => {
+    setMissingIngredientPrompt(null);
+  };
+
+  const handleAddMissingIngredientsToShoppingList = async () => {
+    if (!missingIngredientPrompt?.items.length) return;
+
+    try {
+      setSaving(true);
+      await addMissingIngredientsToShoppingListApi(missingIngredientPrompt.items);
+      setMissingIngredientPrompt(null);
+    } catch (error: any) {
+      Alert.alert("Không thêm được shopping list", getErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleAddRecipeToPlan = async (recipe: Recipe) => {
     const availability = getRecipeAvailability(recipe, foods);
     if (!availability.canSchedule) {
-      Alert.alert(
-        "Thiếu nguyên liệu",
-        `Recipe này còn thiếu: ${availability.missingIngredients.join(", ")}`
-      );
+      setMissingIngredientPrompt({
+        sourceName: recipe.recipeName,
+        items: buildMissingShoppingItems(recipe, availability.missingIngredients),
+      });
       return;
     }
+
+    openScheduleDraft({ type: "recipe", recipe });
+    return;
 
     try {
       setSaving(true);
@@ -447,6 +600,62 @@ export default function usePlannerScreen() {
       await loadPlanner();
     } catch (error: any) {
       Alert.alert("Không thêm được meal", getErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddFoodToPlan = async (food: InventoryFood) => {
+    if (Number(food.quantity) <= 0 || food.status === "EXPIRED") {
+      setMissingIngredientPrompt({
+        sourceName: food.foodName,
+        items: [
+          {
+            ingredientName: food.foodName,
+            categoryId: typeof food.categoryId === "string" ? food.categoryId : undefined,
+            quantity: 1,
+            unit: food.unit || "item",
+          },
+        ],
+      });
+      return;
+    }
+
+    openScheduleDraft({ type: "food", food });
+    return;
+
+    try {
+      setSaving(true);
+      const option =
+        mealTypeOptions.find((item) => item.key === selectedMealType) || mealTypeOptions[1];
+      const meal: MealPlanMeal = {
+        mealType: selectedMealType,
+        recipeName: food.foodName,
+        imageUrl: food.imageUrl,
+        scheduledTime: option.time,
+        calories: getFoodCalories(food),
+        macroSummary: getFoodMacroSummary(food),
+        status: "PENDING",
+        usedFoodItemIds: [food._id],
+      };
+
+      if (plans[0]) {
+        await updateMealPlanApi(plans[0]._id, {
+          planDate: activeDate,
+          meals: [...plans[0].meals.map(normalizeMealForApi), meal],
+        });
+      } else {
+        await createMealPlanApi({
+          planDate: activeDate,
+          goal: "Balanced daily meals",
+          meals: [meal],
+        });
+      }
+
+      setDetailTab("schedule");
+      await loadPlanner();
+    } catch (error: any) {
+      Alert.alert("Không thêm được thực phẩm", getErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -595,7 +804,7 @@ export default function usePlannerScreen() {
   const handleSaveUserRecipe = async () => {
     if (!userRecipeForm.recipeName.trim()) {
       Alert.alert("Thiếu tên recipe", "Vui lòng nhập tên công thức.");
-      return;
+      return false;
     }
 
     try {
@@ -608,8 +817,10 @@ export default function usePlannerScreen() {
       }
       setUserRecipeForm(createEmptyRecipeForm());
       await loadPlanner();
+      return true;
     } catch (error: any) {
       Alert.alert("Không lưu được recipe cá nhân", getErrorMessage(error));
+      return false;
     } finally {
       setSaving(false);
     }
@@ -832,11 +1043,23 @@ export default function usePlannerScreen() {
     videoUrl,
     setVideoUrl,
     videoExtraction,
-    targetCalories,
-    setTargetCalories,
+    targetCalories: String(selectedCalorieGoalOption.target),
+    selectedCalorieGoal,
+    setSelectedCalorieGoal,
+    selectedCalorieGoalOption,
     selectedMealTypes,
     selectedMealType,
     setSelectedMealType,
+    scheduleDraft,
+    scheduleMealType,
+    scheduleTime,
+    setScheduleTime,
+    handleSelectScheduleMealType,
+    closeScheduleModal,
+    handleConfirmScheduleMeal,
+    missingIngredientPrompt,
+    closeMissingIngredientPrompt,
+    handleAddMissingIngredientsToShoppingList,
     inventoryBuckets,
     userRecipeAvailability,
     dayTotals,
@@ -863,6 +1086,7 @@ export default function usePlannerScreen() {
     handleGenerateDailyPlan,
     handleExtractVideo,
     handleAddRecipeToPlan,
+    handleAddFoodToPlan,
     handleCycleMealStatus,
     handleRemoveMeal,
     handleDeletePlan,

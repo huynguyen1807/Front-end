@@ -12,11 +12,11 @@ type PlannerDetailTabsProps = {
 };
 
 const tabs: Array<{ key: PlannerDetailTab; label: string }> = [
-  { key: "inventory", label: "Inventory-based suggestions" },
-  { key: "schedule", label: "Lịch trình bữa ăn" },
-  { key: "macro", label: "Macro Report" },
-  { key: "calories", label: "Calculate Meal Calories" },
+  { key: "inventory", label: "Thực phẩm" },
   { key: "recipes", label: "Recipe" },
+  { key: "schedule", label: "Lịch trình bữa ăn" },
+  { key: "calories", label: "Calculate Meal Calories" },
+  { key: "macro", label: "Macro Report" },
   { key: "video", label: "Extract Recipe from Video" },
 ];
 

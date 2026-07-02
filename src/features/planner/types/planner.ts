@@ -1,6 +1,12 @@
 export type Difficulty = "EASY" | "MEDIUM" | "HARD";
 export type RecipeSourceType = "SYSTEM" | "USER_CREATED" | "AI_GENERATED" | "VIDEO_EXTRACTED";
-export type MealType = "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
+export type MealType =
+  | "BREAKFAST"
+  | "LUNCH"
+  | "AFTERNOON"
+  | "DINNER"
+  | "LATE_NIGHT"
+  | "SNACK";
 export type MealStatus = "COMPLETED" | "PREPARING" | "PENDING";
 
 export interface MacroSummary {
@@ -37,6 +43,7 @@ export interface Recipe {
 export interface InventoryFood {
   _id: string;
   foodName: string;
+  imageUrl?: string;
   quantity: number;
   unit: string;
   status: "SAFE" | "NEAR_EXPIRY" | "EXPIRED" | "NEED_CHECK";

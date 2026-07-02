@@ -1,7 +1,18 @@
+import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import React from "react";
-import { Alert, Image, Text, TextInput, View } from "react-native";
+import React, { useState } from "react";
+import {
+  Alert,
+  Image,
+  Modal,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
+import { COLORS } from "../../../constants/colors";
 import AdminActionButton from "../../adminData/components/shared/AdminActionButton";
 import AdminChipButton from "../../adminData/components/shared/AdminChipButton";
 import AdminField from "../../adminData/components/shared/AdminField";
@@ -23,7 +34,7 @@ type UserRecipePanelProps = {
   setRecipeForm: React.Dispatch<React.SetStateAction<RecipeFormState>>;
   availabilityByRecipeId: Record<string, RecipeAvailability>;
   saving: boolean;
-  onSaveRecipe: () => void;
+  onSaveRecipe: () => boolean | Promise<boolean>;
   onEditRecipe: (recipe: Recipe) => void;
   onDeleteRecipe: (recipe: Recipe) => void;
   onAddToPlan: (recipe: Recipe) => void;
@@ -49,6 +60,30 @@ export default function UserRecipePanel({
   onDeleteRecipe,
   onAddToPlan,
 }: UserRecipePanelProps) {
+  const [recipeModalVisible, setRecipeModalVisible] = useState(false);
+
+  const openCreateRecipe = () => {
+    setRecipeForm(createEmptyRecipeForm());
+    setRecipeModalVisible(true);
+  };
+
+  const openEditRecipe = (recipe: Recipe) => {
+    onEditRecipe(recipe);
+    setRecipeModalVisible(true);
+  };
+
+  const closeRecipeModal = () => {
+    setRecipeForm(createEmptyRecipeForm());
+    setRecipeModalVisible(false);
+  };
+
+  const saveRecipeFromModal = async () => {
+    const saved = await onSaveRecipe();
+    if (saved !== false) {
+      setRecipeModalVisible(false);
+    }
+  };
+
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -131,11 +166,8 @@ export default function UserRecipePanel({
     }));
   };
 
-  return (
-    <AdminSection
-      title="Recipe"
-      subtitle="Recipe cá nhân của bạn. Recipe thiếu nguyên liệu trong inventory sẽ bị làm mờ và không thể đưa vào lịch."
-    >
+  const recipeFormContent = (
+    <>
       <View style={styles.formBlock}>
         <Text style={styles.formBlockTitle}>Thông tin chính</Text>
         <AdminField label="Tên recipe">
@@ -310,7 +342,7 @@ export default function UserRecipePanel({
           />
         </View>
         {(recipeForm.cookingSteps || []).map((step, index) => (
-          <View key={`${index}-${step}`} style={styles.formBlock}>
+          <View key={`step-${index}`} style={styles.formBlock}>
             <View style={styles.formBlockHeader}>
               <View style={styles.stepBadge}>
                 <Text style={styles.stepBadgeText}>{index + 1}</Text>
@@ -394,17 +426,27 @@ export default function UserRecipePanel({
         <AdminActionButton
           label={recipeForm.id ? "Update recipe" : "Thêm recipe"}
           icon="content-save-outline"
-          onPress={onSaveRecipe}
+          onPress={saveRecipeFromModal}
           disabled={saving}
         />
-        {recipeForm.id && (
-          <AdminActionButton
-            label="Hủy"
-            icon="close"
-            secondary
-            onPress={() => setRecipeForm(createEmptyRecipeForm())}
-          />
-        )}
+        <AdminActionButton label="Hủy" icon="close" secondary onPress={closeRecipeModal} />
+      </View>
+    </>
+  );
+
+  return (
+    <AdminSection
+      title="Recipe"
+      subtitle="Recipe cá nhân của bạn. Recipe thiếu nguyên liệu trong inventory sẽ bị làm mờ và không thể đưa vào lịch."
+    >
+      <View style={styles.formBlockHeader}>
+        <Text style={styles.formBlockTitle}>Recipe của bạn</Text>
+        <AdminActionButton
+          label="Thêm recipe"
+          icon="plus"
+          onPress={openCreateRecipe}
+          disabled={saving}
+        />
       </View>
 
       {recipes.length === 0 ? (
@@ -428,12 +470,42 @@ export default function UserRecipePanel({
               disabled={!availability.canSchedule}
               disabledReason={disabledReason}
               onAddToPlan={onAddToPlan}
-              onEdit={onEditRecipe}
+              onEdit={openEditRecipe}
               onDelete={onDeleteRecipe}
             />
           );
         })
       )}
+
+      <Modal
+        visible={recipeModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeRecipeModal}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {recipeForm.id ? "Update recipe" : "Thêm recipe"}
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.78}
+                style={styles.iconButton}
+                onPress={closeRecipeModal}
+              >
+                <Ionicons name="close" size={22} color={COLORS.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScrollContent}
+            >
+              {recipeFormContent}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </AdminSection>
   );
 }

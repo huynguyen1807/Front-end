@@ -17,7 +17,9 @@ type MealScheduleProps = {
 const mealTypeLabel: Record<string, string> = {
   BREAKFAST: "Sáng",
   LUNCH: "Trưa",
+  AFTERNOON: "Chiều",
   DINNER: "Tối",
+  LATE_NIGHT: "Khuya",
   SNACK: "Phụ",
 };
 
@@ -25,7 +27,9 @@ function getMealTime(meal: MealPlanMeal) {
   if (meal.scheduledTime) return meal.scheduledTime;
   if (meal.mealType === "BREAKFAST") return "08:00";
   if (meal.mealType === "LUNCH") return "12:30";
+  if (meal.mealType === "AFTERNOON") return "15:30";
   if (meal.mealType === "DINNER") return "19:00";
+  if (meal.mealType === "LATE_NIGHT") return "21:30";
   return "15:30";
 }
 
