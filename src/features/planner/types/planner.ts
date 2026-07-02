@@ -31,6 +31,7 @@ export interface Recipe {
   ingredients: RecipeIngredient[];
   sourceType: RecipeSourceType;
   isActive?: boolean;
+  availability?: RecipeAvailability;
 }
 
 export interface InventoryFood {
@@ -41,6 +42,15 @@ export interface InventoryFood {
   status: "SAFE" | "NEAR_EXPIRY" | "EXPIRED" | "NEED_CHECK";
   expiryDate: string;
   freshnessScore?: number;
+  calories?: number;
+  macroSummary?: MacroSummary;
+  nutrition?: {
+    calories: number;
+    macroSummary: MacroSummary;
+    matched: boolean;
+    nutritionFactId?: string;
+    unit?: string;
+  };
   categoryId?: string | { _id: string; categoryName: string };
   storageLocationId?: string | { _id: string; storageName: string; storageType: string };
 }
@@ -54,6 +64,7 @@ export interface MealPlanMeal {
   calories?: number;
   macroSummary?: MacroSummary;
   status: MealStatus;
+  usedFoodItemIds?: string[];
 }
 
 export interface MealPlan {
@@ -75,10 +86,12 @@ export interface MealRecommendation {
     status: string;
     expiryDate: string;
   }>;
+  priorityReasons?: string[];
 }
 
 export interface GeneratedMealPlanResult {
-  plan: MealPlan;
+  plan?: MealPlan | null;
+  generatedRecipes?: Recipe[];
   inventoryPriority: Array<{
     _id: string;
     foodName: string;
@@ -88,9 +101,18 @@ export interface GeneratedMealPlanResult {
     expiryDate: string;
     daysUntilExpiry: number;
     categoryName?: string;
+    calories?: number;
+    macroSummary?: MacroSummary;
   }>;
   recommendations: MealRecommendation[];
+  planDate?: string;
   calorieTarget: number;
+}
+
+export interface RecipeAvailability {
+  canSchedule: boolean;
+  matchedIngredients: string[];
+  missingIngredients: string[];
 }
 
 export interface VideoRecipeExtraction {

@@ -2,13 +2,23 @@ import { MealStatus, MealType, StorageRuleType } from "../types/planner";
 
 export type Workspace = "meal" | "admin";
 export type AdminSection = "category" | "storage" | "nutrition" | "recipe" | "review";
-export type PlannerDetailTab = "inventory" | "schedule" | "macro" | "calories" | "video";
+export type PlannerDetailTab = "inventory" | "schedule" | "macro" | "calories" | "recipes" | "video";
+
+export type RecipeIngredientFormState = {
+  id: string;
+  ingredientName: string;
+  quantity: string;
+  unit: string;
+  isRequired: boolean;
+};
 
 export type RecipeFormState = {
   id?: string;
   recipeName: string;
   description: string;
   imageUrl: string;
+  cookingSteps: string[];
+  newCookingStep: string;
   cookingTime: string;
   difficulty: "EASY" | "MEDIUM" | "HARD";
   calories: string;
@@ -16,6 +26,7 @@ export type RecipeFormState = {
   carbs: string;
   fat: string;
   tags: string;
+  ingredients: RecipeIngredientFormState[];
   ingredientName: string;
   ingredientQuantity: string;
   ingredientUnit: string;
@@ -48,10 +59,20 @@ export type StorageRuleFormState = {
   priority: string;
 };
 
-export const emptyRecipeForm: RecipeFormState = {
+export const createEmptyRecipeIngredient = (): RecipeIngredientFormState => ({
+  id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  ingredientName: "",
+  quantity: "",
+  unit: "g",
+  isRequired: true,
+});
+
+export const createEmptyRecipeForm = (): RecipeFormState => ({
   recipeName: "",
   description: "",
   imageUrl: "",
+  cookingSteps: [],
+  newCookingStep: "",
   cookingTime: "",
   difficulty: "EASY",
   calories: "",
@@ -59,10 +80,13 @@ export const emptyRecipeForm: RecipeFormState = {
   carbs: "",
   fat: "",
   tags: "",
+  ingredients: [createEmptyRecipeIngredient()],
   ingredientName: "",
   ingredientQuantity: "",
   ingredientUnit: "g",
-};
+});
+
+export const emptyRecipeForm: RecipeFormState = createEmptyRecipeForm();
 
 export const emptyFactForm: NutritionFactFormState = {
   foodName: "",

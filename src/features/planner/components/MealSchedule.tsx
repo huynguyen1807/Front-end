@@ -29,6 +29,21 @@ function getMealTime(meal: MealPlanMeal) {
   return "15:30";
 }
 
+function getScheduleTotals(plans: MealPlan[]) {
+  return plans.reduce(
+    (acc, plan) => {
+      (plan.meals || []).forEach((meal) => {
+        acc.calories += Number(meal.calories) || 0;
+        acc.protein += Number(meal.macroSummary?.protein) || 0;
+        acc.carbs += Number(meal.macroSummary?.carbs) || 0;
+        acc.fat += Number(meal.macroSummary?.fat) || 0;
+      });
+      return acc;
+    },
+    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+  );
+}
+
 export default function MealSchedule({
   dates,
   activeDate,
@@ -38,6 +53,9 @@ export default function MealSchedule({
   onRemoveMeal,
   onDeletePlan,
 }: MealScheduleProps) {
+  const totals = getScheduleTotals(plans);
+  const hasMeals = plans.length > 0 && plans.some((plan) => plan.meals.length > 0);
+
   return (
     <View style={styles.container}>
       <View style={styles.titleRow}>
@@ -73,8 +91,17 @@ export default function MealSchedule({
         })}
       </ScrollView>
 
+      {hasMeals && (
+        <View style={styles.summaryGrid}>
+          <ScheduleMetric label="Kcal" value={`${Math.round(totals.calories)}`} />
+          <ScheduleMetric label="Carbs" value={`${Math.round(totals.carbs)}g`} />
+          <ScheduleMetric label="Protein" value={`${Math.round(totals.protein)}g`} />
+          <ScheduleMetric label="Fat" value={`${Math.round(totals.fat)}g`} />
+        </View>
+      )}
+
       <View style={styles.timeline}>
-        {plans.length === 0 || plans.every((plan) => plan.meals.length === 0) ? (
+        {!hasMeals ? (
           <Text style={styles.emptyText}>
             Chưa có bữa ăn trong ngày này. Chọn recipe và bấm Lên lịch.
           </Text>
@@ -94,6 +121,15 @@ export default function MealSchedule({
           )
         )}
       </View>
+    </View>
+  );
+}
+
+function ScheduleMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.summaryMetric}>
+      <Text style={styles.summaryValue}>{value}</Text>
+      <Text style={styles.summaryLabel}>{label}</Text>
     </View>
   );
 }
@@ -119,7 +155,7 @@ const styles = StyleSheet.create({
     color: COLORS.tertiary,
   },
   tabsScroll: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   tabsContainer: {
     gap: 10,
@@ -150,6 +186,34 @@ const styles = StyleSheet.create({
   },
   activeTabText: {
     color: COLORS.onPrimary,
+  },
+  summaryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 16,
+  },
+  summaryMetric: {
+    flex: 1,
+    minWidth: "22%",
+    minHeight: 58,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  summaryValue: {
+    color: COLORS.primary,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  summaryLabel: {
+    color: COLORS.onSurfaceVariant,
+    fontSize: 11,
+    fontWeight: "800",
+    marginTop: 2,
   },
   timeline: {
     gap: 12,

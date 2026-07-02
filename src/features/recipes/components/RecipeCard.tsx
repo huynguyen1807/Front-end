@@ -7,6 +7,8 @@ import { Recipe } from "../types/recipe";
 type RecipeCardProps = {
   recipe: Recipe;
   canManage?: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
   onAddToPlan?: (recipe: Recipe) => void;
   onEdit?: (recipe: Recipe) => void;
   onDelete?: (recipe: Recipe) => void;
@@ -15,6 +17,8 @@ type RecipeCardProps = {
 export default function RecipeCard({
   recipe,
   canManage,
+  disabled,
+  disabledReason,
   onAddToPlan,
   onEdit,
   onDelete,
@@ -24,7 +28,7 @@ export default function RecipeCard({
   const macro = recipe.macroSummary || { protein: 0, carbs: 0, fat: 0 };
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, disabled && styles.disabledCard]}>
       {recipe.imageUrl ? (
         <Image source={{ uri: recipe.imageUrl }} style={styles.image} />
       ) : (
@@ -82,9 +86,15 @@ export default function RecipeCard({
           <View style={styles.tag}>
             <Text style={styles.tagText}>F {Math.round(macro.fat)}g</Text>
           </View>
+          {disabledReason && (
+            <View style={styles.warningTag}>
+              <Text style={styles.warningTagText} numberOfLines={1}>{disabledReason}</Text>
+            </View>
+          )}
           {onAddToPlan && (
             <TouchableOpacity
-              style={styles.planButton}
+              disabled={disabled}
+              style={[styles.planButton, disabled && styles.disabledButton]}
               activeOpacity={0.75}
               onPress={() => onAddToPlan(recipe)}
             >
@@ -108,6 +118,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     overflow: "hidden",
     marginBottom: 14,
+  },
+  disabledCard: {
+    opacity: 0.48,
   },
   image: {
     width: 122,
@@ -191,6 +204,18 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: COLORS.onSurfaceVariant,
   },
+  warningTag: {
+    maxWidth: "100%",
+    backgroundColor: COLORS.tertiaryFixed,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  warningTagText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: COLORS.onTertiaryFixed,
+  },
   planButton: {
     minHeight: 25,
     flexDirection: "row",
@@ -199,6 +224,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 9,
     borderRadius: 4,
+  },
+  disabledButton: {
+    backgroundColor: COLORS.onSurfaceVariant,
   },
   planButtonText: {
     fontSize: 10,

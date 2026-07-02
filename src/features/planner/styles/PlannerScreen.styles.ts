@@ -374,6 +374,14 @@ export const plannerStyles = StyleSheet.create({
   detailTabPanel: {
     marginBottom: 20,
   },
+  detailTabScroll: {
+    marginBottom: 12,
+  },
+  detailTabContent: {
+    flexDirection: "row",
+    gap: 8,
+    paddingRight: SPACING.lg,
+  },
   hint: {
     color: COLORS.primary,
     fontSize: 13,

@@ -7,6 +7,7 @@ import TopNavbar from "../../../components/layout/TopNavbar";
 import { COLORS } from "../../../constants/colors";
 import AdminDataConsole from "../../adminData/components/AdminDataConsole";
 import RecipeCard from "../../recipes/components/RecipeCard";
+import UserRecipePanel from "../../recipes/components/UserRecipePanel";
 import DailyGoalCard from "../components/DailyGoalCard";
 import DailyPlanGenerator from "../components/DailyPlanGenerator";
 import InventoryBucket from "../components/InventoryBucket";
@@ -115,6 +116,22 @@ export default function PlannerScreen() {
       );
     }
 
+    if (planner.detailTab === "recipes") {
+      return (
+        <UserRecipePanel
+          recipes={planner.userRecipes}
+          recipeForm={planner.userRecipeForm}
+          setRecipeForm={planner.setUserRecipeForm}
+          availabilityByRecipeId={planner.userRecipeAvailability}
+          saving={planner.saving}
+          onSaveRecipe={planner.handleSaveUserRecipe}
+          onEditRecipe={planner.fillUserRecipeForm}
+          onDeleteRecipe={planner.handleDeleteUserRecipe}
+          onAddToPlan={planner.handleAddRecipeToPlan}
+        />
+      );
+    }
+
     return (
       <VideoRecipeExtractor
         videoUrl={planner.videoUrl}
@@ -164,7 +181,7 @@ export default function PlannerScreen() {
 
             <Section
               title="Recommended Recipes"
-              subtitle="Chọn bữa trước, sau đó bấm Lên lịch trên recipe phù hợp."
+              subtitle="AI tạo recipe từ inventory, ưu tiên thực phẩm sắp hết hạn, kcal mục tiêu và sở thích."
             >
               <View style={styles.segmentRow}>
                 {mealTypeOptions.map((option) => (
@@ -179,7 +196,9 @@ export default function PlannerScreen() {
               {planner.loading ? (
                 <ActivityIndicator color={COLORS.primary} style={styles.loader} />
               ) : planner.recipes.length === 0 ? (
-                <Text style={styles.emptyText}>Chưa có recipe chính thức để gợi ý.</Text>
+                <Text style={styles.emptyText}>
+                  Chưa có recipe gợi ý. Bấm Generate plan để AI tạo recipe từ inventory.
+                </Text>
               ) : (
                 planner.recipes.map((recipe) => (
                   <RecipeCard

@@ -2,8 +2,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Text, TextInput, View } from "react-native";
 
 import { COLORS } from "../../../constants/colors";
-import { GeneratedMealPlanResult, MealType } from "../types/planner";
 import { mealTypeOptions } from "../constants/plannerConstants";
+import { GeneratedMealPlanResult, MealType } from "../types/planner";
 import { plannerStyles as styles } from "../styles/PlannerScreen.styles";
 import ActionButton from "./shared/ActionButton";
 import ChipButton from "./shared/ChipButton";
@@ -32,7 +32,7 @@ export default function DailyPlanGenerator({
   return (
     <Section
       title="Generate Daily Meal Plan"
-      subtitle="AI Recommendation Service ưu tiên đồ sắp hết hạn, mục tiêu calories và recipe chính thức."
+      subtitle="AI tạo recipe gợi ý từ inventory, ưu tiên đồ sắp hết hạn, kcal mục tiêu và sở thích."
     >
       <View style={styles.formGrid}>
         <Field label="Calorie goal">
@@ -59,17 +59,17 @@ export default function DailyPlanGenerator({
       </View>
       <View style={styles.actionRow}>
         <ActionButton
-          label="Generate plan"
+          label="Generate recipes"
           icon="star-four-points-outline"
           disabled={saving}
-            onPress={onGenerate}
+          onPress={onGenerate}
         />
       </View>
       {generatedResult && (
         <View style={styles.inlineNotice}>
           <MaterialCommunityIcons name="check-decagram-outline" size={18} color={COLORS.primary} />
           <Text style={styles.inlineNoticeText}>
-            Đã tạo plan {Math.round(generatedResult.plan.totalCalories || 0)} kcal từ {generatedResult.inventoryPriority.length} món trong tủ.
+            Đã tạo {generatedResult.generatedRecipes?.length || generatedResult.recommendations.length} recipe gợi ý từ {generatedResult.inventoryPriority.length} món trong tủ. Chọn recipe phù hợp ở Recommended Recipes để đưa vào lịch.
           </Text>
         </View>
       )}

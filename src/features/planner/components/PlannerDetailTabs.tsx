@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { View } from "react-native";
+import { ScrollView, View } from "react-native";
 
 import { PlannerDetailTab } from "../constants/plannerConstants";
 import { plannerStyles as styles } from "../styles/PlannerScreen.styles";
@@ -16,6 +16,7 @@ const tabs: Array<{ key: PlannerDetailTab; label: string }> = [
   { key: "schedule", label: "Lịch trình bữa ăn" },
   { key: "macro", label: "Macro Report" },
   { key: "calories", label: "Calculate Meal Calories" },
+  { key: "recipes", label: "Recipe" },
   { key: "video", label: "Extract Recipe from Video" },
 ];
 
@@ -26,7 +27,12 @@ export default function PlannerDetailTabs({
 }: PlannerDetailTabsProps) {
   return (
     <View style={styles.detailTabPanel}>
-      <View style={styles.segmentRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.detailTabScroll}
+        contentContainerStyle={styles.detailTabContent}
+      >
         {tabs.map((tab) => (
           <ChipButton
             key={tab.key}
@@ -35,7 +41,7 @@ export default function PlannerDetailTabs({
             onPress={() => onChangeTab(tab.key)}
           />
         ))}
-      </View>
+      </ScrollView>
       {children}
     </View>
   );
