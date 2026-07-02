@@ -16,6 +16,7 @@ import BottomNavbar from "../../../components/layout/BottomNavbar";
 import ScreenContainer from "../../../components/layout/ScreenContainer";
 import TopNavbar from "../../../components/layout/TopNavbar";
 import { COLORS } from "../../../constants/colors";
+import { getMyHouseholdsApi } from "../../familyCloud/services/familyCloudApi";
 import NearbyStoresSection from "../components/NearbyStoresSection";
 import {
   addShoppingListItemApi,
@@ -170,13 +171,19 @@ export default function ShoppingScreen() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState<ShoppingListItem | null>(null);
   const [deleteActionItemId, setDeleteActionItemId] = useState<string | null>(null);
+  const [familyHouseholdId, setFamilyHouseholdId] = useState<string>("");
   const [form, setForm] = useState({
     foodName: "",
     quantity: "1",
     unit: "cái",
   });
 
-  const activeList = lists[0];
+  const familySharedList = lists.find((list) => {
+      const householdId =
+        typeof list.householdId === "string" ? list.householdId : list.householdId?._id;
+      return familyHouseholdId && list.ownerType === "HOUSEHOLD" && householdId === familyHouseholdId;
+    });
+  const activeList = familySharedList ?? lists[0];
   const items = activeList?.items ?? [];
   const hasItems = items.length > 0;
   const fabBottom = Platform.OS === "ios" ? 92 + insets.bottom : 92;
@@ -205,7 +212,31 @@ export default function ShoppingScreen() {
     loadShoppingLists();
   }, []);
 
+  useEffect(() => {
+    const loadFamilyContext = async () => {
+      try {
+        const households = await getMyHouseholdsApi();
+        setFamilyHouseholdId(households[0]?.household._id ?? "");
+      } catch {
+        setFamilyHouseholdId("");
+      }
+    };
+
+    loadFamilyContext();
+  }, []);
+
   const ensureActiveList = async () => {
+    if (familyHouseholdId) {
+      if (familySharedList) return familySharedList;
+
+      return createShoppingListApi({
+        ownerType: "HOUSEHOLD",
+        householdId: familyHouseholdId,
+        listName: "Danh sách mua sắm gia đình",
+        visibility: "SHARED",
+      });
+    }
+
     if (activeList) return activeList;
 
     return createShoppingListApi({

@@ -1,4 +1,4 @@
-export type HouseholdRole = "OWNER" | "ADMIN" | "MEMBER";
+export type HouseholdRole = "OWNER" | "MEMBER";
 
 export interface MemberPermission {
   canViewInventory: boolean;
@@ -42,6 +42,23 @@ export interface HouseholdMember {
   joinedAt: string;
 }
 
+export interface HouseholdInvitationUser {
+  _id: string;
+  fullName: string;
+  email: string;
+  avatarUrl?: string;
+}
+
+export interface HouseholdInvitation {
+  _id: string;
+  householdId: Household | string;
+  invitedBy: HouseholdInvitationUser | string;
+  inviteEmail: string;
+  status: "PENDING" | "ACCEPTED" | "EXPIRED" | "CANCELLED";
+  expiresAt: string;
+  createdAt: string;
+}
+
 export interface CreateHouseholdPayload {
   householdName: string;
 }
@@ -49,11 +66,9 @@ export interface CreateHouseholdPayload {
 export interface AddMemberPayload {
   email?: string;
   userId?: string;
-  role?: Exclude<HouseholdRole, "OWNER">;
   permission?: Partial<MemberPermission>;
 }
 
 export interface UpdateMemberPayload {
-  role?: Exclude<HouseholdRole, "OWNER">;
   permission?: Partial<MemberPermission>;
 }

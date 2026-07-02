@@ -3,6 +3,7 @@ import {
   AddMemberPayload,
   CreateHouseholdPayload,
   Household,
+  HouseholdInvitation,
   HouseholdMember,
   MyHousehold,
   UpdateMemberPayload,
@@ -33,6 +34,40 @@ export const addHouseholdMemberApi = async (
 ) => {
   const res = await apiClient.post(`/api/households/${householdId}/members`, data);
   return res.data.data;
+};
+
+export const getHouseholdInvitationsApi = async (
+  householdId: string
+): Promise<HouseholdInvitation[]> => {
+  const res = await apiClient.get(`/api/households/${householdId}/invitations`);
+  return res.data.data;
+};
+
+export const getMyHouseholdInvitationsApi = async (): Promise<HouseholdInvitation[]> => {
+  const res = await apiClient.get("/api/households/invitations/me");
+  return res.data.data;
+};
+
+export const acceptHouseholdInvitationApi = async (
+  invitationId: string
+): Promise<HouseholdMember> => {
+  const res = await apiClient.post(`/api/households/invitations/${invitationId}/accept`);
+  return res.data.data;
+};
+
+export const rejectHouseholdInvitationApi = async (invitationId: string) => {
+  const res = await apiClient.post(`/api/households/invitations/${invitationId}/reject`);
+  return res.data;
+};
+
+export const cancelHouseholdInvitationApi = async (
+  householdId: string,
+  invitationId: string
+) => {
+  const res = await apiClient.delete(
+    `/api/households/${householdId}/invitations/${invitationId}`
+  );
+  return res.data;
 };
 
 export const updateHouseholdMemberApi = async (
