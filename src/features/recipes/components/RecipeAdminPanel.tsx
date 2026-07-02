@@ -9,7 +9,8 @@ import { adminDataStyles as styles } from "../../adminData/styles/AdminData.styl
 import { NutritionCalculation } from "../../nutrition/types/nutrition";
 import {
   RecipeFormState,
-  emptyRecipeForm,
+  createEmptyRecipeForm,
+  createEmptyRecipeIngredient,
 } from "../../planner/constants/plannerConstants";
 import { Recipe } from "../types/recipe";
 import RecipeCard from "./RecipeCard";
@@ -46,8 +47,32 @@ export default function RecipeAdminPanel({
   onCalculateRecipeNutrition,
 }: RecipeAdminPanelProps) {
   const resetForm = () => {
-    setRecipeForm(emptyRecipeForm);
+    setRecipeForm(createEmptyRecipeForm());
     onResetRecipe();
+  };
+
+  const updateFirstIngredient = (
+    patch: Partial<{ ingredientName: string; quantity: string; unit: string }>
+  ) => {
+    setRecipeForm((form) => {
+      const ingredients = form.ingredients?.length
+        ? form.ingredients
+        : [createEmptyRecipeIngredient()];
+      const nextIngredient = {
+        ...ingredients[0],
+        ...(patch.ingredientName !== undefined ? { ingredientName: patch.ingredientName } : {}),
+        ...(patch.quantity !== undefined ? { quantity: patch.quantity } : {}),
+        ...(patch.unit !== undefined ? { unit: patch.unit } : {}),
+      };
+
+      return {
+        ...form,
+        ...(patch.ingredientName !== undefined ? { ingredientName: patch.ingredientName } : {}),
+        ...(patch.quantity !== undefined ? { ingredientQuantity: patch.quantity } : {}),
+        ...(patch.unit !== undefined ? { ingredientUnit: patch.unit } : {}),
+        ingredients: [nextIngredient, ...ingredients.slice(1)],
+      };
+    });
   };
 
   return (
@@ -121,9 +146,7 @@ export default function RecipeAdminPanel({
           <TextInput
             style={styles.input}
             value={recipeForm.ingredientName}
-            onChangeText={(value) =>
-              setRecipeForm((form) => ({ ...form, ingredientName: value }))
-            }
+            onChangeText={(value) => updateFirstIngredient({ ingredientName: value })}
           />
         </AdminField>
         <AdminField label="Quantity">
@@ -131,18 +154,14 @@ export default function RecipeAdminPanel({
             style={styles.input}
             keyboardType="numeric"
             value={recipeForm.ingredientQuantity}
-            onChangeText={(value) =>
-              setRecipeForm((form) => ({ ...form, ingredientQuantity: value }))
-            }
+            onChangeText={(value) => updateFirstIngredient({ quantity: value })}
           />
         </AdminField>
         <AdminField label="Unit">
           <TextInput
             style={styles.input}
             value={recipeForm.ingredientUnit}
-            onChangeText={(value) =>
-              setRecipeForm((form) => ({ ...form, ingredientUnit: value }))
-            }
+            onChangeText={(value) => updateFirstIngredient({ unit: value })}
           />
         </AdminField>
       </View>

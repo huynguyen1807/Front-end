@@ -6,9 +6,10 @@ import {
   AdminSection,
   PlannerDetailTab,
   Workspace,
+  createEmptyRecipeForm,
+  createEmptyRecipeIngredient,
   emptyCategoryForm,
   emptyFactForm,
-  emptyRecipeForm,
   emptyStorageRuleForm,
   mealTypeOptions,
   nextStatus,
@@ -44,6 +45,12 @@ import {
   updateAdminRecipeApi,
 } from "../../recipes/services/recipeAdminApi";
 import {
+  createUserRecipeApi,
+  deleteUserRecipeApi,
+  getUserRecipesApi,
+  updateUserRecipeApi,
+} from "../../recipes/services/userRecipeApi";
+import {
   createMealPlanApi,
   deleteMealPlanApi,
   extractRecipeFromVideoApi,
@@ -73,9 +80,87 @@ import {
   addDays,
   getDaysUntilExpiry,
   getErrorMessage,
+  getRecipeAvailability,
+  getRecipeUsedFoodIds,
   normalizeMealForApi,
   toDateInput,
 } from "../utils/plannerUtils";
+
+const mapRecipeIngredientsToForm = (recipe: Recipe) => {
+  if (!recipe.ingredients?.length) {
+    return [createEmptyRecipeIngredient()];
+  }
+
+  return recipe.ingredients.map((ingredient, index) => ({
+    id: `${recipe._id}-${index}`,
+    ingredientName: ingredient.ingredientName || "",
+    quantity:
+      ingredient.quantity === undefined || ingredient.quantity === null
+        ? ""
+        : String(ingredient.quantity),
+    unit: ingredient.unit || "g",
+    isRequired: ingredient.isRequired !== false,
+  }));
+};
+
+const mapRecipeToForm = (recipe: Recipe): RecipeFormState => {
+  const firstIngredient = recipe.ingredients?.[0];
+
+  return {
+    id: recipe._id,
+    recipeName: recipe.recipeName,
+    description: recipe.description || "",
+    imageUrl: recipe.imageUrl || "",
+    cookingSteps: recipe.cookingSteps || [],
+    newCookingStep: "",
+    cookingTime: recipe.cookingTime ? String(recipe.cookingTime) : "",
+    difficulty: recipe.difficulty || "EASY",
+    calories: recipe.calories ? String(recipe.calories) : "",
+    protein: recipe.macroSummary?.protein ? String(recipe.macroSummary.protein) : "",
+    carbs: recipe.macroSummary?.carbs ? String(recipe.macroSummary.carbs) : "",
+    fat: recipe.macroSummary?.fat ? String(recipe.macroSummary.fat) : "",
+    tags: recipe.tags?.join(", ") || "",
+    ingredients: mapRecipeIngredientsToForm(recipe),
+    ingredientName: firstIngredient?.ingredientName || "",
+    ingredientQuantity: firstIngredient?.quantity ? String(firstIngredient.quantity) : "",
+    ingredientUnit: firstIngredient?.unit || "g",
+  };
+};
+
+const buildIngredientsFromForm = (formState: RecipeFormState) => {
+  const ingredientRows = (formState.ingredients || [])
+    .map((ingredient) => ({
+      ingredientName: ingredient.ingredientName.trim(),
+      quantity: Number(ingredient.quantity) || 1,
+      unit: ingredient.unit.trim() || "g",
+      isRequired: ingredient.isRequired !== false,
+    }))
+    .filter((ingredient) => ingredient.ingredientName);
+
+  if (ingredientRows.length) {
+    return ingredientRows;
+  }
+
+  return formState.ingredientName.trim()
+    ? [
+        {
+          ingredientName: formState.ingredientName.trim(),
+          quantity: Number(formState.ingredientQuantity) || 1,
+          unit: formState.ingredientUnit || "g",
+          isRequired: true,
+        },
+      ]
+    : [];
+};
+
+const buildCookingStepsFromForm = (formState: RecipeFormState) => {
+  const steps = (formState.cookingSteps || [])
+    .map((step) => step.trim())
+    .filter(Boolean);
+  const draftStep = formState.newCookingStep.trim();
+
+  return draftStep ? [...steps, draftStep] : steps;
+};
 
 export default function usePlannerScreen() {
   const [roleLoaded, setRoleLoaded] = useState(false);
@@ -86,6 +171,7 @@ export default function usePlannerScreen() {
 
   const [activeDate, setActiveDate] = useState(toDateInput(new Date()));
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [userRecipes, setUserRecipes] = useState<Recipe[]>([]);
   const [plans, setPlans] = useState<MealPlan[]>([]);
   const [foods, setFoods] = useState<InventoryFood[]>([]);
   const [report, setReport] = useState<NutritionReport | null>(null);
@@ -106,7 +192,10 @@ export default function usePlannerScreen() {
   const [storageRules, setStorageRules] = useState<StorageRuleData[]>([]);
   const [aiReviewItems, setAiReviewItems] = useState<AiGeneratedData[]>([]);
 
-  const [recipeForm, setRecipeForm] = useState<RecipeFormState>(emptyRecipeForm);
+  const [recipeForm, setRecipeForm] = useState<RecipeFormState>(() => createEmptyRecipeForm());
+  const [userRecipeForm, setUserRecipeForm] = useState<RecipeFormState>(() =>
+    createEmptyRecipeForm()
+  );
   const [factForm, setFactForm] = useState<NutritionFactFormState>(emptyFactForm);
   const [categoryForm, setCategoryForm] = useState<CategoryFormState>(emptyCategoryForm);
   const [storageRuleForm, setStorageRuleForm] =
@@ -136,10 +225,21 @@ export default function usePlannerScreen() {
   const dayTotals = useMemo(() => {
     return plans.reduce(
       (acc, plan) => {
-        acc.calories += Number(plan.totalCalories) || 0;
-        acc.macroSummary.protein += Number(plan.macroSummary?.protein) || 0;
-        acc.macroSummary.carbs += Number(plan.macroSummary?.carbs) || 0;
-        acc.macroSummary.fat += Number(plan.macroSummary?.fat) || 0;
+        const mealTotals = (plan.meals || []).reduce(
+          (mealAcc, meal) => {
+            mealAcc.calories += Number(meal.calories) || 0;
+            mealAcc.macroSummary.protein += Number(meal.macroSummary?.protein) || 0;
+            mealAcc.macroSummary.carbs += Number(meal.macroSummary?.carbs) || 0;
+            mealAcc.macroSummary.fat += Number(meal.macroSummary?.fat) || 0;
+            return mealAcc;
+          },
+          { calories: 0, macroSummary: { protein: 0, carbs: 0, fat: 0 } }
+        );
+
+        acc.calories += mealTotals.calories || Number(plan.totalCalories) || 0;
+        acc.macroSummary.protein += mealTotals.macroSummary.protein || Number(plan.macroSummary?.protein) || 0;
+        acc.macroSummary.carbs += mealTotals.macroSummary.carbs || Number(plan.macroSummary?.carbs) || 0;
+        acc.macroSummary.fat += mealTotals.macroSummary.fat || Number(plan.macroSummary?.fat) || 0;
         return acc;
       },
       { calories: 0, macroSummary: { protein: 0, carbs: 0, fat: 0 } }
@@ -165,6 +265,16 @@ export default function usePlannerScreen() {
     };
   }, [foods]);
 
+  const userRecipeAvailability = useMemo(() => {
+    return userRecipes.reduce<Record<string, ReturnType<typeof getRecipeAvailability>>>(
+      (acc, recipe) => {
+        acc[recipe._id] = getRecipeAvailability(recipe, foods);
+        return acc;
+      },
+      {}
+    );
+  }, [foods, userRecipes]);
+
   const loadAdminData = useCallback(async () => {
     const [recipeList, factList, categoryList, storageRuleList, reviewList] =
       await Promise.all([
@@ -187,14 +297,18 @@ export default function usePlannerScreen() {
 
     try {
       setLoading(true);
-      const [recipeList, planList, macroReport, foodList] = await Promise.all([
+      const [recipeList, userRecipeList, planList, macroReport, foodList] = await Promise.all([
         getRecipesApi(),
+        getUserRecipesApi(),
         getMealPlansApi({ date: activeDate }),
         getNutritionReportApi({ periodType: "WEEK", startDate: activeDate }),
         getAvailableFoodsApi(),
       ]);
 
-      setRecipes(recipeList.filter((recipe) => recipe.isActive !== false));
+      setRecipes(recipeList.filter(
+        (recipe) => recipe.isActive !== false && recipe.sourceType !== "USER_CREATED"
+      ));
+      setUserRecipes(userRecipeList.filter((recipe) => recipe.isActive !== false));
       setPlans(planList);
       setReport(macroReport);
       setFoods(foodList);
@@ -250,8 +364,20 @@ export default function usePlannerScreen() {
         mealTypes: selectedMealTypes,
       });
       setGeneratedResult(result);
-      setPlans([result.plan]);
-      setDetailTab("schedule");
+      const generatedRecipes = [
+        ...(result.generatedRecipes || []),
+        ...result.recommendations.map((item) => item.recipe),
+      ];
+      setRecipes((current) => {
+        const map = new Map<string, Recipe>();
+        [...generatedRecipes, ...current].forEach((recipe) => {
+          if (recipe?._id && recipe.isActive !== false && recipe.sourceType !== "USER_CREATED") {
+            map.set(recipe._id, recipe);
+          }
+        });
+        return Array.from(map.values());
+      });
+      setDetailTab("inventory");
       await loadPlanner();
     } catch (error: any) {
       Alert.alert("Không tạo được meal plan", getErrorMessage(error));
@@ -279,6 +405,15 @@ export default function usePlannerScreen() {
   };
 
   const handleAddRecipeToPlan = async (recipe: Recipe) => {
+    const availability = getRecipeAvailability(recipe, foods);
+    if (!availability.canSchedule) {
+      Alert.alert(
+        "Thiếu nguyên liệu",
+        `Recipe này còn thiếu: ${availability.missingIngredients.join(", ")}`
+      );
+      return;
+    }
+
     try {
       setSaving(true);
       const option =
@@ -292,6 +427,7 @@ export default function usePlannerScreen() {
         calories: recipe.calories || 0,
         macroSummary: recipe.macroSummary || { protein: 0, carbs: 0, fat: 0 },
         status: "PENDING",
+        usedFoodItemIds: getRecipeUsedFoodIds(recipe, foods),
       };
 
       if (plans[0]) {
@@ -361,67 +497,55 @@ export default function usePlannerScreen() {
   };
 
   const resetRecipeForm = () => {
-    setRecipeForm(emptyRecipeForm);
+    setRecipeForm(createEmptyRecipeForm());
     setCalculation(null);
   };
 
   const fillRecipeForm = (recipe: Recipe) => {
-    const firstIngredient = recipe.ingredients?.[0];
-    setRecipeForm({
-      id: recipe._id,
-      recipeName: recipe.recipeName,
-      description: recipe.description || "",
-      imageUrl: recipe.imageUrl || "",
-      cookingTime: recipe.cookingTime ? String(recipe.cookingTime) : "",
-      difficulty: recipe.difficulty || "EASY",
-      calories: recipe.calories ? String(recipe.calories) : "",
-      protein: recipe.macroSummary?.protein ? String(recipe.macroSummary.protein) : "",
-      carbs: recipe.macroSummary?.carbs ? String(recipe.macroSummary.carbs) : "",
-      fat: recipe.macroSummary?.fat ? String(recipe.macroSummary.fat) : "",
-      tags: recipe.tags?.join(", ") || "",
-      ingredientName: firstIngredient?.ingredientName || "",
-      ingredientQuantity: firstIngredient?.quantity ? String(firstIngredient.quantity) : "",
-      ingredientUnit: firstIngredient?.unit || "g",
-    });
+    setRecipeForm(mapRecipeToForm(recipe));
     setAdminSection("recipe");
   };
 
-  const buildRecipePayload = () => {
-    const ingredients = recipeForm.ingredientName.trim()
-      ? [
-          {
-            ingredientName: recipeForm.ingredientName.trim(),
-            quantity: Number(recipeForm.ingredientQuantity) || 1,
-            unit: recipeForm.ingredientUnit || "g",
-            isRequired: true,
-          },
-        ]
-      : [];
+  const fillUserRecipeForm = (recipe: Recipe) => {
+    setUserRecipeForm(mapRecipeToForm(recipe));
+  };
+
+  const buildRecipePayloadFromForm = (
+    formState: RecipeFormState,
+    sourceType?: "SYSTEM" | "USER_CREATED"
+  ) => {
+    const ingredients = buildIngredientsFromForm(formState);
 
     return {
-      recipeName: recipeForm.recipeName.trim(),
-      description: recipeForm.description.trim() || undefined,
-      imageUrl: recipeForm.imageUrl.trim() || undefined,
-      cookingTime: recipeForm.cookingTime ? Number(recipeForm.cookingTime) : undefined,
-      difficulty: recipeForm.difficulty,
-      calories: recipeForm.calories ? Number(recipeForm.calories) : undefined,
+      recipeName: formState.recipeName.trim(),
+      description: formState.description.trim() || undefined,
+      imageUrl: formState.imageUrl.trim() || undefined,
+      cookingSteps: buildCookingStepsFromForm(formState),
+      cookingTime: formState.cookingTime ? Number(formState.cookingTime) : undefined,
+      difficulty: formState.difficulty,
+      calories: formState.calories ? Number(formState.calories) : undefined,
       macroSummary: {
-        protein: Number(recipeForm.protein) || 0,
-        carbs: Number(recipeForm.carbs) || 0,
-        fat: Number(recipeForm.fat) || 0,
+        protein: Number(formState.protein) || 0,
+        carbs: Number(formState.carbs) || 0,
+        fat: Number(formState.fat) || 0,
       },
-      tags: recipeForm.tags
+      tags: formState.tags
         .split(",")
         .map((tag) => tag.trim())
         .filter(Boolean),
       ingredients,
-      sourceType: "SYSTEM" as const,
-      recalculateNutrition: Boolean(ingredients.length && !recipeForm.calories),
+      ...(sourceType ? { sourceType } : {}),
+      recalculateNutrition: Boolean(ingredients.length && !formState.calories),
     };
   };
 
+  const buildRecipePayload = () => buildRecipePayloadFromForm(recipeForm, "SYSTEM");
+  const buildUserRecipePayload = () => buildRecipePayloadFromForm(userRecipeForm);
+
   const handleCalculateRecipeNutrition = async () => {
-    if (!recipeForm.ingredientName.trim()) {
+    const ingredients = buildIngredientsFromForm(recipeForm);
+
+    if (!ingredients.length) {
       Alert.alert(
         "Thiếu nguyên liệu",
         "Nhập ít nhất một nguyên liệu để tính calories/macros."
@@ -430,13 +554,7 @@ export default function usePlannerScreen() {
     }
 
     try {
-      const result = await calculateNutritionApi([
-        {
-          ingredientName: recipeForm.ingredientName.trim(),
-          quantity: Number(recipeForm.ingredientQuantity) || 1,
-          unit: recipeForm.ingredientUnit || "g",
-        },
-      ]);
+      const result = await calculateNutritionApi(ingredients);
       setCalculation(result);
       setRecipeForm((form) => ({
         ...form,
@@ -472,6 +590,47 @@ export default function usePlannerScreen() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSaveUserRecipe = async () => {
+    if (!userRecipeForm.recipeName.trim()) {
+      Alert.alert("Thiếu tên recipe", "Vui lòng nhập tên công thức.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const payload = buildUserRecipePayload();
+      if (userRecipeForm.id) {
+        await updateUserRecipeApi(userRecipeForm.id, payload);
+      } else {
+        await createUserRecipeApi(payload);
+      }
+      setUserRecipeForm(createEmptyRecipeForm());
+      await loadPlanner();
+    } catch (error: any) {
+      Alert.alert("Không lưu được recipe cá nhân", getErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteUserRecipe = (recipe: Recipe) => {
+    Alert.alert("Xóa recipe", `Xóa "${recipe.recipeName}"?`, [
+      { text: "Hủy", style: "cancel" },
+      {
+        text: "Xóa",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteUserRecipeApi(recipe._id);
+            await loadPlanner();
+          } catch (error: any) {
+            Alert.alert("Không xóa được recipe", getErrorMessage(error));
+          }
+        },
+      },
+    ]);
   };
 
   const handleDeleteRecipe = (recipe: Recipe) => {
@@ -665,6 +824,7 @@ export default function usePlannerScreen() {
     setActiveDate,
     dates,
     recipes,
+    userRecipes,
     plans,
     foods,
     report,
@@ -678,6 +838,7 @@ export default function usePlannerScreen() {
     selectedMealType,
     setSelectedMealType,
     inventoryBuckets,
+    userRecipeAvailability,
     dayTotals,
     loading,
     saving,
@@ -688,6 +849,8 @@ export default function usePlannerScreen() {
     aiReviewItems,
     recipeForm,
     setRecipeForm,
+    userRecipeForm,
+    setUserRecipeForm,
     factForm,
     setFactForm,
     categoryForm,
@@ -712,6 +875,9 @@ export default function usePlannerScreen() {
     handleSaveRecipe,
     handleDeleteRecipe,
     fillRecipeForm,
+    handleSaveUserRecipe,
+    handleDeleteUserRecipe,
+    fillUserRecipeForm,
     resetRecipeForm,
     handleCalculateRecipeNutrition,
     handleReviewAiData,

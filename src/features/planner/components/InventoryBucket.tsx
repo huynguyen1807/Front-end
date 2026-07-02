@@ -29,6 +29,9 @@ export default function InventoryBucket({ title, tone, foods }: InventoryBucketP
                 <Text style={styles.foodMeta}>
                   {food.quantity} {food.unit} - {days <= 0 ? "hôm nay" : `${days} ngày`}
                 </Text>
+                <Text style={styles.foodMeta}>
+                  {Math.round(food.calories || food.nutrition?.calories || 0)} kcal - P {Math.round(food.macroSummary?.protein || food.nutrition?.macroSummary.protein || 0)}g
+                </Text>
               </View>
             );
           })}

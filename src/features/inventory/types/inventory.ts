@@ -27,6 +27,23 @@ export type FoodItem = {
   unit: string;
   status: FoodStatus;
   freshnessScore: number;
+  calories?: number;
+  macroSummary?: {
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+  nutrition?: {
+    calories: number;
+    macroSummary: {
+      protein: number;
+      carbs: number;
+      fat: number;
+    };
+    matched: boolean;
+    nutritionFactId?: string;
+    unit?: string;
+  };
   expiryDate: string;
   purchaseDate: string;
   sourceType: 'SUPERMARKET' | 'MARKET';
@@ -65,4 +82,4 @@ export type InventoryItem = {
   daysLeft: number;
   freshnessPercent: number;
   imageUrl: string;
-};
+};
