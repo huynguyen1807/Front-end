@@ -3,8 +3,8 @@ import {
   AddShoppingListItemPayload,
   CreateShoppingListPayload,
   ShoppingList,
-  ShoppingListStatus,
   ShoppingListItem,
+  ShoppingListStatus,
   UpdateShoppingListItemPayload,
 } from "../types/shopping";
 

@@ -185,7 +185,7 @@ export default function ScanResultCard({
             <NutritionItem
               label="Calo"
               value={`${result.nutritionInfo.calories}`}
-              icon="flame"
+              icon="fire"
             />
             <NutritionItem
               label="Protein"
@@ -200,7 +200,7 @@ export default function ScanResultCard({
             <NutritionItem
               label="Fat"
               value={`${result.nutritionInfo.fat.toFixed(1)}g`}
-              icon="droplet"
+              icon="water"
             />
           </View>
         </View>
@@ -477,7 +477,7 @@ function NutritionItem({
 }: {
   label: string;
   value: string;
-  icon: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
 }) {
   return (
     <View style={{ alignItems: "center" }}>

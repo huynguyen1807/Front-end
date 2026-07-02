@@ -32,6 +32,7 @@ export const colors = {
   outlineVariant: '#bdcabf',
   
   surfaceContainerLow: '#f6f3f2',
+  surfaceContainerLowest: '#ffffff',
   surfaceContainer: '#f0eded',
   surfaceContainerHigh: '#eae7e7',
   surfaceContainerHighest: '#e5e2e1',

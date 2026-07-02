@@ -5,7 +5,8 @@
     "scheme": "freshfriends",
     "permissions": [
       "camera",
-      "photos"
+      "photos",
+      "location"
     ],
     "plugins": [
       "expo-asset",
@@ -24,6 +25,13 @@
         {
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to add food images",
           "cameraPermission": "Allow $(PRODUCT_NAME) to take photos of food items"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to find nearby stores.",
+          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to find nearby stores."
         }
       ]
     ],

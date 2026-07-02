@@ -1,15 +1,28 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import React from "react";
 import { DimensionValue, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
 import { COLORS } from "../../../constants/colors";
+import { MacroSummary } from "../types/planner";
 
-export default function DailyGoalCard() {
-  const currentKcal = 1200;
-  const totalKcal = 2000;
+type DailyGoalCardProps = {
+  currentCalories: number;
+  targetCalories?: number;
+  macroSummary?: MacroSummary;
+};
+
+export default function DailyGoalCard({
+  currentCalories,
+  targetCalories = 2000,
+  macroSummary = { protein: 0, carbs: 0, fat: 0 },
+}: DailyGoalCardProps) {
+  const currentKcal = Math.round(currentCalories);
+  const totalKcal = Math.max(1, targetCalories);
   const remainingKcal = totalKcal - currentKcal;
-  const percentage = currentKcal / totalKcal;
+  const percentage = Math.max(0, Math.min(1, currentKcal / totalKcal));
+  const totalMacros = macroSummary.protein + macroSummary.carbs + macroSummary.fat;
+  const macroPercent = (value: number) =>
+    totalMacros > 0 ? Math.round((value / totalMacros) * 100) : 0;
 
   const radius = 48;
   const strokeWidth = 10;
@@ -23,12 +36,14 @@ export default function DailyGoalCard() {
       <Text style={styles.title}>MỤC TIÊU HẰNG NGÀY</Text>
 
       <View style={styles.calorieRow}>
-        <Text style={styles.currentKcal}>1,200</Text>
-        <Text style={styles.totalKcal}> / 2,000 kcal</Text>
+        <Text style={styles.currentKcal}>{currentKcal.toLocaleString("vi-VN")}</Text>
+        <Text style={styles.totalKcal}> / {totalKcal.toLocaleString("vi-VN")} kcal</Text>
       </View>
 
       <Text style={styles.subtitle}>
-        Bạn còn {remainingKcal} kcal cho bữa tối!
+        {remainingKcal >= 0
+          ? `Bạn còn ${remainingKcal.toLocaleString("vi-VN")} kcal cho hôm nay`
+          : `Bạn đã vượt ${Math.abs(remainingKcal).toLocaleString("vi-VN")} kcal`}
       </Text>
 
       <View style={styles.chartContainer}>
@@ -67,9 +82,24 @@ export default function DailyGoalCard() {
       <View style={styles.divider} />
 
       <View style={styles.macrosContainer}>
-        <MacroBar label="Carbs" percent="45%" color="#8a6900" />
-        <MacroBar label="Protein" percent="30%" color={COLORS.primary} />
-        <MacroBar label="Fat" percent="25%" color={COLORS.tertiary} />
+        <MacroBar
+          label="Carbs"
+          grams={macroSummary.carbs}
+          percent={macroPercent(macroSummary.carbs)}
+          color="#8a6900"
+        />
+        <MacroBar
+          label="Protein"
+          grams={macroSummary.protein}
+          percent={macroPercent(macroSummary.protein)}
+          color={COLORS.primary}
+        />
+        <MacroBar
+          label="Fat"
+          grams={macroSummary.fat}
+          percent={macroPercent(macroSummary.fat)}
+          color={COLORS.tertiary}
+        />
       </View>
     </View>
   );
@@ -77,20 +107,22 @@ export default function DailyGoalCard() {
 
 function MacroBar({
   label,
+  grams,
   percent,
   color,
 }: {
   label: string;
-  percent: string;
+  grams: number;
+  percent: number;
   color: string;
 }) {
-  const progressWidth = percent as DimensionValue;
+  const progressWidth = `${Math.min(100, Math.max(0, percent))}%` as DimensionValue;
 
   return (
     <View style={styles.macroCol}>
       <View style={styles.macroHeader}>
         <Text style={styles.macroLabel}>{label}</Text>
-        <Text style={styles.macroPercent}>{percent}</Text>
+        <Text style={styles.macroPercent}>{Math.round(grams)}g</Text>
       </View>
       <View style={styles.progressBarBg}>
         <View
@@ -107,13 +139,13 @@ function MacroBar({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.surfaceContainer,
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "rgba(28, 27, 27, 0.09)",
-    paddingHorizontal: 26,
-    paddingVertical: 26,
+    paddingHorizontal: 24,
+    paddingVertical: 24,
     alignItems: "center",
-    marginBottom: 34,
+    marginBottom: 24,
     shadowColor: "#000",
     shadowOpacity: 0.04,
     shadowRadius: 10,
@@ -125,10 +157,10 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "800",
     color: COLORS.onSurface,
     marginBottom: 8,
-    letterSpacing: 1,
+    letterSpacing: 0,
   },
   calorieRow: {
     flexDirection: "row",
@@ -149,13 +181,14 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 15,
     color: COLORS.onSurfaceVariant,
-    marginBottom: 26,
+    marginBottom: 24,
+    textAlign: "center",
   },
   chartContainer: {
     position: "relative",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 28,
+    marginBottom: 24,
   },
   iconContainer: {
     position: "absolute",
@@ -166,30 +199,32 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 1,
     backgroundColor: "rgba(28, 27, 27, 0.08)",
-    marginBottom: 22,
+    marginBottom: 20,
   },
   macrosContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     width: "100%",
-    gap: 16,
+    gap: 14,
   },
   macroCol: {
     flex: 1,
+    minWidth: 0,
   },
   macroHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 6,
+    gap: 6,
   },
   macroLabel: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "800",
     color: COLORS.onSurface,
   },
   macroPercent: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "800",
     color: COLORS.onSurface,
   },
   progressBarBg: {

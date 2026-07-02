@@ -1,4 +1,5 @@
 import { StyleSheet } from "react-native";
+
 import { COLORS } from "../../../constants/colors";
 import { RADIUS, SPACING } from "../../../constants/spacing";
 
@@ -18,7 +19,7 @@ export const shoppingScreenStyles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "800",
     color: COLORS.onSurface,
-    letterSpacing: -0.5,
+    letterSpacing: 0,
   },
   subtitle: {
     fontSize: 14,
@@ -53,23 +54,7 @@ export const shoppingScreenStyles = StyleSheet.create({
     color: COLORS.onPrimary,
     fontSize: 15,
     fontWeight: "700",
-  },
-  addIngredientButton: {
-    minHeight: 52,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.primary + "45",
-    backgroundColor: COLORS.surfaceContainerLowest,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: SPACING.sm,
-    marginBottom: SPACING.xl,
-  },
-  addIngredientButtonText: {
-    color: COLORS.primary,
-    fontSize: 15,
-    fontWeight: "700",
+    flex: 1,
   },
   section: {
     marginBottom: SPACING.xl,
@@ -114,25 +99,20 @@ export const shoppingScreenStyles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  swipeRow: {
-    position: "relative",
-    overflow: "hidden",
-    backgroundColor: COLORS.error,
+  itemWrapper: {
+    backgroundColor: COLORS.surfaceContainerLowest,
   },
-  deleteAction: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 82,
+  inlineDeleteAction: {
+    minHeight: 44,
     backgroundColor: COLORS.error,
     alignItems: "center",
     justifyContent: "center",
-    gap: 2,
+    flexDirection: "row",
+    gap: SPACING.sm,
   },
   deleteActionText: {
     color: COLORS.onPrimary,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
   },
   itemRow: {
@@ -149,6 +129,10 @@ export const shoppingScreenStyles = StyleSheet.create({
   },
   checkbox: {
     marginRight: 14,
+    minWidth: 32,
+    minHeight: 32,
+    alignItems: "center",
+    justifyContent: "center",
   },
   itemContent: {
     flex: 1,
@@ -257,43 +241,6 @@ export const shoppingScreenStyles = StyleSheet.create({
   emptyAddOnlyButtonText: {
     color: COLORS.onPrimary,
     fontSize: 16,
-    fontWeight: "700",
-  },
-  emptyState: {
-    alignItems: "center",
-    backgroundColor: COLORS.surfaceContainerLowest,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: "rgba(189, 202, 191, 0.35)",
-    padding: SPACING.xl,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: COLORS.onSurface,
-    marginTop: SPACING.md,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: COLORS.onSurfaceVariant,
-    lineHeight: 20,
-    marginTop: SPACING.sm,
-    textAlign: "center",
-  },
-  emptyAddButton: {
-    height: 44,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: SPACING.sm,
-    paddingHorizontal: SPACING.lg,
-    marginTop: SPACING.lg,
-  },
-  emptyAddButtonText: {
-    color: COLORS.onPrimary,
-    fontSize: 14,
     fontWeight: "700",
   },
   fab: {

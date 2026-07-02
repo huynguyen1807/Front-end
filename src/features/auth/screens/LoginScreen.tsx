@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../../theme/colors';
 import { loginApi, googleLoginApi } from '../services/authApi';
+import { registerForPushNotifications } from '../../../services/pushNotificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
@@ -52,6 +53,9 @@ export default function LoginScreen() {
       await AsyncStorage.setItem('userToken', response.token);
       await AsyncStorage.setItem('userInfo', JSON.stringify(response.user));
 
+      // Đăng ký push notification token sau khi đăng nhập (không chặn navigation)
+      void registerForPushNotifications();
+
       navigation.replace('Main');
     } catch (err: any) {
       console.error("LOGIN ERROR:", err);
@@ -84,6 +88,9 @@ export default function LoginScreen() {
 
       await AsyncStorage.setItem('userToken', res.token);
       await AsyncStorage.setItem('userInfo', JSON.stringify(res.user));
+
+      // Đăng ký push notification token sau khi đăng nhập Google (không chặn navigation)
+      void registerForPushNotifications();
 
       navigation.replace('Main');
     } catch (err: any) {

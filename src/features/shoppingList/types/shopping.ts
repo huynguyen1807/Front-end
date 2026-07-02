@@ -15,14 +15,21 @@ export type ShoppingItemReason =
   | "LOW_STOCK"
   | "VIDEO_RECIPE";
 
+export type ShoppingCategoryRef =
+  | string
+  | {
+      _id: string;
+      categoryName?: string;
+    };
+
 export interface ShoppingListItem {
   _id: string;
   itemId?: string;
   foodName: string;
-  categoryId?: string;
+  categoryId?: ShoppingCategoryRef;
   quantity: number;
   unit: string;
-  reason: ShoppingItemReason;
+  reason?: ShoppingItemReason;
   isPurchased: boolean;
   purchasedAt?: string;
   addedBy?: string;
@@ -31,16 +38,18 @@ export interface ShoppingListItem {
 
 export interface ShoppingList {
   _id: string;
-  ownerType: ShoppingOwnerType;
+  ownerType?: ShoppingOwnerType;
   userId?: string;
-  householdId?: string | {
-    _id: string;
-    householdName: string;
-    planType: "FREE" | "PREMIUM";
-    status: "ACTIVE" | "INACTIVE";
-  };
+  householdId?:
+    | string
+    | {
+        _id: string;
+        householdName: string;
+        planType: "FREE" | "PREMIUM";
+        status: "ACTIVE" | "INACTIVE";
+      };
   listName: string;
-  visibility: ShoppingVisibility;
+  visibility?: ShoppingVisibility;
   status: ShoppingListStatus;
   items: ShoppingListItem[];
   createdAt?: string;

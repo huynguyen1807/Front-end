@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
   Alert,
-  Animated,
-  PanResponder,
   Platform,
   ScrollView,
   Text,
@@ -14,10 +12,11 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { COLORS } from "../../../constants/colors";
-import TopNavbar from "../../../components/layout/TopNavbar";
 import BottomNavbar from "../../../components/layout/BottomNavbar";
 import ScreenContainer from "../../../components/layout/ScreenContainer";
+import TopNavbar from "../../../components/layout/TopNavbar";
+import { COLORS } from "../../../constants/colors";
+import NearbyStoresSection from "../components/NearbyStoresSection";
 import {
   addShoppingListItemApi,
   completeShoppingListApi,
@@ -31,13 +30,16 @@ import { ShoppingList, ShoppingListItem } from "../types/shopping";
 
 type SectionKey = "pending" | "purchased";
 
-interface SectionConfig {
-  title: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  iconColor: string;
-}
+const MAX_FOOD_NAME_LENGTH = 80;
+const MAX_UNIT_LENGTH = 20;
+const MAX_QUANTITY = 100000;
+const QUANTITY_PATTERN = /^\d+([.,]\d{1,3})?$/;
+const UNIT_PATTERN = /^[\p{L}\d\s./-]+$/u;
 
-const SECTIONS: Record<SectionKey, SectionConfig> = {
+const SECTIONS: Record<
+  SectionKey,
+  { title: string; icon: keyof typeof Ionicons.glyphMap; iconColor: string }
+> = {
   pending: {
     title: "Cần mua",
     icon: "basket-outline",
@@ -64,101 +66,98 @@ function parseQuantityInput(value: string) {
   return Number(value.trim().replace(",", "."));
 }
 
+function validateShoppingItemForm(foodName: string, quantityText: string, quantity: number, unit: string) {
+  if (!foodName) {
+    return "Vui lòng nhập tên thực phẩm cần mua.";
+  }
+  if (foodName.length > MAX_FOOD_NAME_LENGTH) {
+    return `Tên thực phẩm không được vượt quá ${MAX_FOOD_NAME_LENGTH} ký tự.`;
+  }
+  if (!quantityText.trim()) {
+    return "Vui lòng nhập số lượng.";
+  }
+  if (!QUANTITY_PATTERN.test(quantityText.trim())) {
+    return "Số lượng chỉ được nhập số, tối đa 3 chữ số thập phân. Ví dụ: 0.5 hoặc 500.";
+  }
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    return "Vui lòng nhập số lớn hơn 0, ví dụ: 0.5 kg hoặc 500 gram.";
+  }
+  if (quantity > MAX_QUANTITY) {
+    return `Số lượng không được vượt quá ${MAX_QUANTITY}.`;
+  }
+  if (!unit) {
+    return "Vui lòng nhập đơn vị, ví dụ: cái, kg, bó.";
+  }
+  if (unit.length > MAX_UNIT_LENGTH) {
+    return `Đơn vị không được vượt quá ${MAX_UNIT_LENGTH} ký tự.`;
+  }
+  if (!UNIT_PATTERN.test(unit)) {
+    return "Đơn vị chỉ nên gồm chữ, số, khoảng trắng hoặc các ký tự ./-";
+  }
+
+  return null;
+}
+
 interface ShoppingItemRowProps {
   item: ShoppingListItem;
   isLast: boolean;
-  isSwiped: boolean;
-  onCloseSwipe: () => void;
+  showDeleteAction: boolean;
   onDelete: () => void;
   onEdit: () => void;
-  onSwipeLeft: () => void;
+  onShowDeleteAction: () => void;
   onToggle: () => void;
 }
 
 function ShoppingItemRow({
   item,
   isLast,
-  isSwiped,
-  onCloseSwipe,
+  showDeleteAction,
   onDelete,
   onEdit,
-  onSwipeLeft,
+  onShowDeleteAction,
   onToggle,
 }: ShoppingItemRowProps) {
-  const translateX = useRef(new Animated.Value(isSwiped ? -82 : 0)).current;
-
-  useEffect(() => {
-    Animated.spring(translateX, {
-      toValue: isSwiped ? -82 : 0,
-      useNativeDriver: true,
-      friction: 8,
-      tension: 80,
-    }).start();
-  }, [isSwiped, translateX]);
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_event, gesture) =>
-          Math.abs(gesture.dx) > 20 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
-        onPanResponderMove: (_event, gesture) => {
-          const baseOffset = isSwiped ? -82 : 0;
-          const nextValue = Math.max(-92, Math.min(0, baseOffset + gesture.dx));
-          translateX.setValue(nextValue);
-        },
-        onPanResponderRelease: (_event, gesture) => {
-          const baseOffset = isSwiped ? -82 : 0;
-          const releasedOffset = baseOffset + gesture.dx;
-
-          if (releasedOffset < -42) {
-            onSwipeLeft();
-            return;
-          }
-
-          onCloseSwipe();
-        },
-        onPanResponderTerminate: () => {
-          Animated.spring(translateX, {
-            toValue: isSwiped ? -82 : 0,
-            useNativeDriver: true,
-            friction: 8,
-            tension: 80,
-          }).start();
-        },
-      }),
-    [isSwiped, onCloseSwipe, onSwipeLeft, translateX]
-  );
-
   return (
-    <View style={[styles.swipeRow, isLast && styles.itemRowLast]} {...panResponder.panHandlers}>
-      <TouchableOpacity activeOpacity={0.85} style={styles.deleteAction} onPress={onDelete}>
-        <Ionicons name="trash-outline" size={22} color={COLORS.onPrimary} />
-        <Text style={styles.deleteActionText}>Xóa</Text>
+    <View style={[styles.itemWrapper, isLast && styles.itemRowLast]}>
+      <TouchableOpacity
+        activeOpacity={0.95}
+        onLongPress={onShowDeleteAction}
+        delayLongPress={350}
+        style={[styles.itemRow, isLast && styles.itemRowLast]}
+      >
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={onToggle}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={styles.checkbox}
+        >
+          <Ionicons
+            name={item.isPurchased ? "checkbox" : "square-outline"}
+            size={24}
+            color={item.isPurchased ? COLORS.primary : COLORS.outlineVariant}
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={onEdit}
+          onLongPress={onShowDeleteAction}
+          delayLongPress={350}
+          style={styles.itemContent}
+        >
+          <Text style={[styles.itemName, item.isPurchased && styles.itemNameChecked]}>
+            {item.foodName}
+          </Text>
+          <Text style={styles.itemSubtext}>{formatItemSubtext(item)}</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
 
-      <Animated.View style={{ transform: [{ translateX }] }}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={onToggle}
-          onLongPress={onEdit}
-          delayLongPress={350}
-          style={[styles.itemRow, isLast && styles.itemRowLast]}
-        >
-          <View style={styles.checkbox}>
-            <Ionicons
-              name={item.isPurchased ? "checkbox" : "square-outline"}
-              size={24}
-              color={item.isPurchased ? COLORS.primary : COLORS.outlineVariant}
-            />
-          </View>
-          <View style={styles.itemContent}>
-            <Text style={[styles.itemName, item.isPurchased && styles.itemNameChecked]}>
-              {item.foodName}
-            </Text>
-            <Text style={styles.itemSubtext}>{formatItemSubtext(item)}</Text>
-          </View>
+      {showDeleteAction && (
+        <TouchableOpacity activeOpacity={0.85} style={styles.inlineDeleteAction} onPress={onDelete}>
+          <Ionicons name="trash-outline" size={18} color={COLORS.onPrimary} />
+          <Text style={styles.deleteActionText}>Xóa nguyên liệu</Text>
         </TouchableOpacity>
-      </Animated.View>
+      )}
     </View>
   );
 }
@@ -170,7 +169,7 @@ export default function ShoppingScreen() {
   const [saving, setSaving] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState<ShoppingListItem | null>(null);
-  const [swipedItemId, setSwipedItemId] = useState<string | null>(null);
+  const [deleteActionItemId, setDeleteActionItemId] = useState<string | null>(null);
   const [form, setForm] = useState({
     foodName: "",
     quantity: "1",
@@ -223,7 +222,7 @@ export default function ShoppingScreen() {
   };
 
   const handleEditItem = (item: ShoppingListItem) => {
-    setSwipedItemId(null);
+    setDeleteActionItemId(null);
     setEditingItem(item);
     setForm({
       foodName: item.foodName,
@@ -235,19 +234,13 @@ export default function ShoppingScreen() {
 
   const handleSubmitItem = async () => {
     const foodName = form.foodName.trim();
+    const quantityText = form.quantity.trim();
     const quantity = parseQuantityInput(form.quantity);
     const unit = form.unit.trim();
+    const validationError = validateShoppingItemForm(foodName, quantityText, quantity, unit);
 
-    if (!foodName) {
-      Alert.alert("Thiếu tên món", "Vui lòng nhập tên thực phẩm cần mua.");
-      return;
-    }
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      Alert.alert("Số lượng không hợp lệ", "Vui lòng nhập số lớn hơn 0, ví dụ: 0.5 kg hoặc 500 gram.");
-      return;
-    }
-    if (!unit) {
-      Alert.alert("Thiếu đơn vị", "Vui lòng nhập đơn vị, ví dụ: cái, kg, bó.");
+    if (validationError) {
+      Alert.alert("Thông tin chưa hợp lệ", validationError);
       return;
     }
 
@@ -279,27 +272,6 @@ export default function ShoppingScreen() {
     }
   };
 
-  const handleDeleteItem = (item: ShoppingListItem) => {
-    if (!activeList) return;
-
-    Alert.alert("Xóa nguyên liệu", `Xóa "${item.foodName}" khỏi Shopping List?`, [
-      { text: "Hủy", style: "cancel", onPress: () => setSwipedItemId(null) },
-      {
-        text: "Xóa",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteShoppingListItemApi(activeList._id, item._id);
-            setSwipedItemId(null);
-            await loadShoppingLists();
-          } catch (error: any) {
-            Alert.alert("Không xóa được món", getErrorMessage(error));
-          }
-        },
-      },
-    ]);
-  };
-
   const handleToggleItem = async (item: ShoppingListItem) => {
     if (!activeList) return;
 
@@ -307,10 +279,32 @@ export default function ShoppingScreen() {
       await updateShoppingListItemApi(activeList._id, item._id, {
         isPurchased: !item.isPurchased,
       });
+      setDeleteActionItemId(null);
       await loadShoppingLists();
     } catch (error: any) {
       Alert.alert("Không cập nhật được món", getErrorMessage(error));
     }
+  };
+
+  const handleDeleteItem = (item: ShoppingListItem) => {
+    if (!activeList) return;
+
+    Alert.alert("Xóa nguyên liệu", `Xóa "${item.foodName}" khỏi Shopping List?`, [
+      { text: "Hủy", style: "cancel", onPress: () => setDeleteActionItemId(null) },
+      {
+        text: "Xóa",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteShoppingListItemApi(activeList._id, item._id);
+            setDeleteActionItemId(null);
+            await loadShoppingLists();
+          } catch (error: any) {
+            Alert.alert("Không xóa được món", getErrorMessage(error));
+          }
+        },
+      },
+    ]);
   };
 
   const handleCompleteList = () => {
@@ -346,11 +340,11 @@ export default function ShoppingScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
         style={styles.container}
       >
+        <NearbyStoresSection />
+
         <View style={styles.titleContainer}>
           <Text style={styles.title}>{activeList?.listName ?? "Shopping List"}</Text>
-          <Text style={styles.subtitle}>
-            Danh sách mua sắm được đồng bộ từ dữ liệu thật.
-          </Text>
+          <Text style={styles.subtitle}>Danh sách mua sắm được đồng bộ từ dữ liệu thật.</Text>
         </View>
 
         {hasItems && (
@@ -448,22 +442,18 @@ export default function ShoppingScreen() {
                 </View>
 
                 <View style={styles.card}>
-                  {sectionItems.map((item, idx) => {
-                    const isLast = idx === sectionItems.length - 1;
-                    return (
-                      <ShoppingItemRow
-                        key={item._id}
-                        item={item}
-                        isLast={isLast}
-                        isSwiped={swipedItemId === item._id}
-                        onCloseSwipe={() => setSwipedItemId(null)}
-                        onDelete={() => handleDeleteItem(item)}
-                        onEdit={() => handleEditItem(item)}
-                        onSwipeLeft={() => setSwipedItemId(item._id)}
-                        onToggle={() => handleToggleItem(item)}
-                      />
-                    );
-                  })}
+                  {sectionItems.map((item, idx) => (
+                    <ShoppingItemRow
+                      key={item._id}
+                      item={item}
+                      isLast={idx === sectionItems.length - 1}
+                      showDeleteAction={deleteActionItemId === item._id}
+                      onDelete={() => handleDeleteItem(item)}
+                      onEdit={() => handleEditItem(item)}
+                      onShowDeleteAction={() => setDeleteActionItemId(item._id)}
+                      onToggle={() => handleToggleItem(item)}
+                    />
+                  ))}
                 </View>
               </View>
             );
