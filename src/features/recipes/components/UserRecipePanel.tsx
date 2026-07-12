@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   Image,
@@ -49,6 +49,8 @@ const difficultyOptions: Array<{ key: RecipeFormState["difficulty"]; label: stri
 const ensureIngredients = (ingredients?: RecipeIngredientFormState[]) =>
   ingredients?.length ? ingredients : [createEmptyRecipeIngredient()];
 
+type RecipeSortMode = "name" | "calories" | "difficulty";
+
 export default function UserRecipePanel({
   recipes,
   recipeForm,
@@ -61,6 +63,39 @@ export default function UserRecipePanel({
   onAddToPlan,
 }: UserRecipePanelProps) {
   const [recipeModalVisible, setRecipeModalVisible] = useState(false);
+  const [allRecipesVisible, setAllRecipesVisible] = useState(false);
+  const [recipeSearch, setRecipeSearch] = useState("");
+  const [recipeSortMode, setRecipeSortMode] = useState<RecipeSortMode>("name");
+
+  const visibleRecipes = useMemo(() => {
+    const keyword = recipeSearch.trim().toLowerCase();
+    const filtered = keyword
+      ? recipes.filter((recipe) =>
+          [
+            recipe.recipeName,
+            recipe.description,
+            ...(recipe.tags || []),
+            ...(recipe.ingredients || []).map((ingredient) => ingredient.ingredientName),
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(keyword)
+        )
+      : recipes;
+
+    return [...filtered].sort((a, b) => {
+      if (recipeSortMode === "calories") {
+        return (Number(b.calories) || 0) - (Number(a.calories) || 0);
+      }
+
+      if (recipeSortMode === "difficulty") {
+        return String(a.difficulty || "").localeCompare(String(b.difficulty || ""));
+      }
+
+      return a.recipeName.localeCompare(b.recipeName, "vi");
+    });
+  }, [recipeSearch, recipeSortMode, recipes]);
 
   const openCreateRecipe = () => {
     setRecipeForm(createEmptyRecipeForm());
@@ -442,6 +477,13 @@ export default function UserRecipePanel({
       <View style={styles.formBlockHeader}>
         <Text style={styles.formBlockTitle}>Recipe của bạn</Text>
         <AdminActionButton
+          label="Xem tất cả"
+          icon="format-list-bulleted"
+          secondary
+          onPress={() => setAllRecipesVisible(true)}
+          disabled={recipes.length === 0}
+        />
+        <AdminActionButton
           label="Thêm recipe"
           icon="plus"
           onPress={openCreateRecipe}
@@ -476,6 +518,80 @@ export default function UserRecipePanel({
           );
         })
       )}
+
+      <Modal
+        visible={allRecipesVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAllRecipesVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Tất cả recipe</Text>
+              <TouchableOpacity
+                activeOpacity={0.78}
+                style={styles.iconButton}
+                onPress={() => setAllRecipesVisible(false)}
+              >
+                <Ionicons name="close" size={22} color={COLORS.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.input}
+              value={recipeSearch}
+              onChangeText={setRecipeSearch}
+              placeholder="Tìm theo tên, tag, nguyên liệu..."
+            />
+            <View style={styles.segmentRow}>
+              {[
+                { key: "name" as const, label: "Tên" },
+                { key: "calories" as const, label: "Kcal cao" },
+                { key: "difficulty" as const, label: "Độ khó" },
+              ].map((item) => (
+                <AdminChipButton
+                  key={item.key}
+                  label={item.label}
+                  active={recipeSortMode === item.key}
+                  onPress={() => setRecipeSortMode(item.key)}
+                />
+              ))}
+            </View>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScrollContent}
+            >
+              {visibleRecipes.length === 0 ? (
+                <Text style={styles.emptyText}>Không tìm thấy recipe phù hợp.</Text>
+              ) : (
+                visibleRecipes.map((recipe) => {
+                  const availability = availabilityByRecipeId[recipe._id] || {
+                    canSchedule: true,
+                    matchedIngredients: [],
+                    missingIngredients: [],
+                  };
+                  const disabledReason = availability.canSchedule
+                    ? undefined
+                    : `Thiếu: ${availability.missingIngredients.join(", ")}`;
+
+                  return (
+                    <RecipeCard
+                      key={`all-${recipe._id}`}
+                      recipe={recipe}
+                      canManage
+                      disabled={!availability.canSchedule}
+                      disabledReason={disabledReason}
+                      onAddToPlan={onAddToPlan}
+                      onEdit={openEditRecipe}
+                      onDelete={onDeleteRecipe}
+                    />
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={recipeModalVisible}

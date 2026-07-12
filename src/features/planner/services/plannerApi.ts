@@ -44,6 +44,19 @@ export const generateDailyMealPlanApi = async (data: {
   return res.data.data as GeneratedMealPlanResult;
 };
 
+export const updateUserPreferencesApi = async (data: {
+  calorieTarget?: number;
+  dietaryGoal?: string;
+  dislikedFoods?: string[];
+  allergies?: string[];
+  preferredCuisines?: string[];
+  numberOfPeople?: number;
+  defaultMealTypes?: string[];
+}) => {
+  const res = await apiClient.put("/api/users/preferences", data);
+  return res.data.preferences;
+};
+
 export const extractRecipeFromVideoApi = async (data: {
   videoUrl: string;
   recipeName?: string;

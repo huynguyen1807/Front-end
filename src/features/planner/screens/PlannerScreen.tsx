@@ -34,24 +34,33 @@ import { mealTypeOptions } from "../constants/plannerConstants";
 import usePlannerScreen from "../hooks/usePlannerScreen";
 import { plannerStyles as styles } from "../styles/PlannerScreen.styles";
 
+type RecommendedFilter = "all" | "enough" | "missing";
+
 export default function PlannerScreen() {
   const insets = useSafeAreaInsets();
   const bottomSpace = Platform.OS === "ios" ? 104 + insets.bottom : 104;
   const planner = usePlannerScreen();
   const [recommendedModalVisible, setRecommendedModalVisible] = useState(false);
-  const recommendedRecipes = useMemo(() => {
-    const source = planner.generatedResult?.recommendations.length
-      ? planner.generatedResult.recommendations.map((item) => item.recipe)
-      : planner.recipes;
-    const map = new Map<string, (typeof source)[number]>();
-    source.forEach((recipe) => {
-      if (recipe?._id && recipe.isActive !== false) {
-        map.set(recipe._id, recipe);
-      }
-    });
-    return Array.from(map.values());
-  }, [planner.generatedResult, planner.recipes]);
-  const topRecommendedRecipes = recommendedRecipes.slice(0, 3);
+  const [recommendedFilter, setRecommendedFilter] = useState<RecommendedFilter>("all");
+  const recommendedItems = planner.recommendedItems;
+  const filteredRecommendedItems = useMemo(() => {
+    if (recommendedFilter === "enough") {
+      return recommendedItems.filter(
+        (item) => (item.availabilityStatus || item.recipe.availabilityStatus) === "ENOUGH_INGREDIENTS"
+      );
+    }
+    if (recommendedFilter === "missing") {
+      return recommendedItems.filter(
+        (item) => (item.availabilityStatus || item.recipe.availabilityStatus) === "MISSING_INGREDIENTS"
+      );
+    }
+    return recommendedItems;
+  }, [recommendedFilter, recommendedItems]);
+  const topRecommendedItems = filteredRecommendedItems.slice(0, 3);
+  const selectRecommendedFilter = (filter: RecommendedFilter) => {
+    setRecommendedFilter(filter);
+    planner.markRecommendationTabSeen(filter);
+  };
 
   const renderPlannerTab = () => {
     if (planner.detailTab === "inventory") {
@@ -199,6 +208,7 @@ export default function PlannerScreen() {
               currentCalories={planner.dayTotals.calories}
               targetCalories={Number(planner.targetCalories) || 2000}
               macroSummary={planner.dayTotals.macroSummary}
+              onPress={planner.openDailyGoalEditor}
             />
 
             <DailyPlanGenerator
@@ -215,22 +225,62 @@ export default function PlannerScreen() {
               title="Recommended Recipes"
               subtitle="AI tạo recipe từ inventory, ưu tiên thực phẩm sắp hết hạn, kcal mục tiêu và sở thích."
             >
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.recommendationFilterScroll}
+                contentContainerStyle={styles.recommendationFilterContent}
+              >
+                {[
+                  { key: "all" as const, label: "Tất cả" },
+                  { key: "enough" as const, label: "Đủ nguyên liệu" },
+                  { key: "missing" as const, label: "Thiếu nguyên liệu" },
+                ].map((tab) => {
+                  const active = recommendedFilter === tab.key;
+                  return (
+                    <TouchableOpacity
+                      key={tab.key}
+                      activeOpacity={0.78}
+                      style={[
+                        styles.recommendationChip,
+                        active && styles.recommendationChipActive,
+                      ]}
+                      onPress={() => selectRecommendedFilter(tab.key)}
+                    >
+                      <Text
+                        style={[
+                          styles.recommendationChipText,
+                          active && styles.recommendationChipTextActive,
+                        ]}
+                      >
+                        {tab.label}
+                      </Text>
+                      {planner.recommendationBadges[tab.key] ? (
+                        <View style={styles.recommendationBadgeDot} />
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
               {planner.loading ? (
                 <ActivityIndicator color={COLORS.primary} style={styles.loader} />
-              ) : recommendedRecipes.length === 0 ? (
+              ) : filteredRecommendedItems.length === 0 ? (
                 <Text style={styles.emptyText}>
                   Chưa có recipe gợi ý. Bấm Generate plan để AI tạo recipe từ inventory.
                 </Text>
               ) : (
                 <>
-                  {topRecommendedRecipes.map((recipe) => (
+                  {topRecommendedItems.map((item) => (
                     <RecipeCard
-                      key={recipe._id}
-                      recipe={recipe}
+                      key={item.recipe._id}
+                      recipe={item.recipe}
                       onAddToPlan={planner.handleAddRecipeToPlan}
+                      onAddMissingIngredients={planner.handlePromptRecipeMissingIngredients}
+                      onSaveToRecipes={planner.handleSaveRecommendedRecipe}
+                      onDismiss={planner.handleDismissRecommendation}
                     />
                   ))}
-                  {recommendedRecipes.length > 3 && (
+                  {filteredRecommendedItems.length > 3 && (
                     <TouchableOpacity
                       activeOpacity={0.8}
                       style={styles.seeAllButton}
@@ -313,14 +363,57 @@ export default function PlannerScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
-              {recommendedRecipes.map((recipe) => (
+              {filteredRecommendedItems.map((item) => (
                 <RecipeCard
-                  key={recipe._id}
-                  recipe={recipe}
+                  key={item.recipe._id}
+                  recipe={item.recipe}
                   onAddToPlan={planner.handleAddRecipeToPlan}
+                  onAddMissingIngredients={planner.handlePromptRecipeMissingIngredients}
+                  onSaveToRecipes={planner.handleSaveRecommendedRecipe}
+                  onDismiss={planner.handleDismissRecommendation}
                 />
               ))}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={planner.dailyGoalModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={planner.closeDailyGoalEditor}
+      >
+        <View style={styles.detailBackdrop}>
+          <View style={styles.goalSheet}>
+            <View style={styles.detailHeader}>
+              <Text style={styles.detailTitle}>Mục tiêu hằng ngày</Text>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.detailCloseButton}
+                onPress={planner.closeDailyGoalEditor}
+              >
+                <Text style={styles.detailCloseText}>Đóng</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.sectionSubtitle}>
+              Điều chỉnh kcal mục tiêu theo thể trạng, nhu cầu luyện tập hoặc chế độ ăn hiện tại.
+            </Text>
+            <TextInput
+              style={styles.goalInput}
+              keyboardType="numeric"
+              value={planner.dailyGoalDraft}
+              onChangeText={planner.setDailyGoalDraft}
+              placeholder="Ví dụ: 1800"
+            />
+            <TouchableOpacity
+              activeOpacity={0.82}
+              style={styles.confirmScheduleButton}
+              disabled={planner.saving}
+              onPress={planner.handleSaveDailyGoal}
+            >
+              <Text style={styles.confirmScheduleButtonText}>Lưu mục tiêu</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -405,8 +498,11 @@ export default function PlannerScreen() {
                 : "Bạn có muốn thêm các nguyên liệu thiếu vào shopping list không?"}
             </Text>
             <View style={styles.noticeList}>
-              {planner.missingIngredientPrompt?.items.map((item) => (
-                <View key={`${item.ingredientName}-${item.unit}`} style={styles.noticeItemRow}>
+              {planner.missingIngredientPrompt?.items.map((item, index) => (
+                <View
+                  key={`${item.ingredientName}-${item.unit}-${index}`}
+                  style={styles.noticeItemRow}
+                >
                   <MaterialCommunityIcons name="plus-circle" size={16} color={COLORS.primary} />
                   <Text style={styles.noticeItemText}>
                     {item.ingredientName} - {item.quantity} {item.unit}

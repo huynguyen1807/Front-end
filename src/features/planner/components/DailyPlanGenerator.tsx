@@ -78,6 +78,27 @@ export default function DailyPlanGenerator({
           </Text>
         </View>
       )}
+      {generatedResult?.mealCalorieAllocations?.length ? (
+        <View style={styles.metricGrid}>
+          {generatedResult.mealCalorieAllocations.map((allocation) => {
+            const mealLabel =
+              mealTypeOptions.find((option) => option.key === allocation.mealType)?.label ||
+              allocation.mealType;
+            const maxText = Number.isFinite(allocation.max)
+              ? `${Math.round(allocation.max || 0)}`
+              : "+";
+
+            return (
+              <View key={allocation.mealType} style={styles.metric}>
+                <Text style={styles.metricValue}>{Math.round(allocation.target)} kcal</Text>
+                <Text style={styles.metricLabel}>
+                  {mealLabel}: {Math.round(allocation.min)}-{maxText}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
     </Section>
   );
 }
