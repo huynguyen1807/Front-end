@@ -1,162 +1,366 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
-  RefreshControl,
+  Alert,
+  Platform,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { COLORS } from "../../../constants/colors";
-import TopNavbar from "../../../components/layout/TopNavbar";
 import BottomNavbar from "../../../components/layout/BottomNavbar";
 import ScreenContainer from "../../../components/layout/ScreenContainer";
+import TopNavbar from "../../../components/layout/TopNavbar";
+import { COLORS } from "../../../constants/colors";
+import { getMyHouseholdsApi } from "../../familyCloud/services/familyCloudApi";
+import NearbyStoresSection from "../components/NearbyStoresSection";
 import {
+  addShoppingListItemApi,
+  completeShoppingListApi,
+  createShoppingListApi,
+  deleteShoppingListItemApi,
   getShoppingListsApi,
   updateShoppingListItemApi,
 } from "../services/shoppingApi";
 import { shoppingScreenStyles as styles } from "../styles/ShoppingScreen.styles";
 import { ShoppingList, ShoppingListItem } from "../types/shopping";
 
-type ShoppingGroup = {
-  key: string;
-  title: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  iconColor: string;
-  items: ShoppingListItem[];
+type SectionKey = "pending" | "purchased";
+
+const MAX_FOOD_NAME_LENGTH = 80;
+const MAX_UNIT_LENGTH = 20;
+const MAX_QUANTITY = 100000;
+const QUANTITY_PATTERN = /^\d+([.,]\d{1,3})?$/;
+const UNIT_PATTERN = /^[\p{L}\d\s./-]+$/u;
+
+const SECTIONS: Record<
+  SectionKey,
+  { title: string; icon: keyof typeof Ionicons.glyphMap; iconColor: string }
+> = {
+  pending: {
+    title: "Cần mua",
+    icon: "basket-outline",
+    iconColor: COLORS.primary,
+  },
+  purchased: {
+    title: "Đã mua",
+    icon: "checkmark-done-outline",
+    iconColor: COLORS.tertiary,
+  },
 };
 
-const reasonLabels: Record<string, string> = {
-  MISSING_INGREDIENT: "Cần mua thêm",
-  LOW_STOCK: "Sắp hết trong kho",
-  VIDEO_RECIPE: "Từ recipe video",
-  USER_ADDED: "Tự thêm",
-};
-
-function getCategoryTitle(item: ShoppingListItem) {
-  const category = item.categoryId;
-  if (category && typeof category === "object" && category.categoryName) {
-    return category.categoryName;
-  }
-
-  return reasonLabels[item.reason || ""] || "Cần mua";
+function getErrorMessage(error: any) {
+  return error?.response?.data?.message || error?.message || "Đã có lỗi xảy ra";
 }
 
-function getGroupIcon(title: string): Pick<ShoppingGroup, "icon" | "iconColor"> {
-  const normalized = title.toLowerCase();
-
-  if (normalized.includes("rau") || normalized.includes("fruit") || normalized.includes("trái")) {
-    return { icon: "leaf-outline", iconColor: COLORS.primary };
-  }
-
-  if (normalized.includes("thịt") || normalized.includes("meat") || normalized.includes("protein")) {
-    return { icon: "restaurant-outline", iconColor: COLORS.tertiary };
-  }
-
-  if (normalized.includes("gia") || normalized.includes("spice")) {
-    return { icon: "flask-outline", iconColor: "#a85c2c" };
-  }
-
-  return { icon: "basket-outline", iconColor: COLORS.primary };
+function formatItemSubtext(item: ShoppingListItem) {
+  const quantity = `${item.quantity} ${item.unit}`.trim();
+  const reason = item.reason === "LOW_STOCK" ? "Sắp hết hàng" : "Thêm thủ công";
+  return `${quantity} • ${reason}`;
 }
 
-function updateItemInLists(
-  lists: ShoppingList[],
-  listId: string,
-  itemId: string,
-  isPurchased: boolean
-) {
-  return lists.map((list) =>
-    list._id === listId
-      ? {
-          ...list,
-          items: list.items.map((item) =>
-            item._id === itemId ? { ...item, isPurchased } : item
-          ),
-        }
-      : list
+function parseQuantityInput(value: string) {
+  return Number(value.trim().replace(",", "."));
+}
+
+function validateShoppingItemForm(foodName: string, quantityText: string, quantity: number, unit: string) {
+  if (!foodName) {
+    return "Vui lòng nhập tên thực phẩm cần mua.";
+  }
+  if (foodName.length > MAX_FOOD_NAME_LENGTH) {
+    return `Tên thực phẩm không được vượt quá ${MAX_FOOD_NAME_LENGTH} ký tự.`;
+  }
+  if (!quantityText.trim()) {
+    return "Vui lòng nhập số lượng.";
+  }
+  if (!QUANTITY_PATTERN.test(quantityText.trim())) {
+    return "Số lượng chỉ được nhập số, tối đa 3 chữ số thập phân. Ví dụ: 0.5 hoặc 500.";
+  }
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    return "Vui lòng nhập số lớn hơn 0, ví dụ: 0.5 kg hoặc 500 gram.";
+  }
+  if (quantity > MAX_QUANTITY) {
+    return `Số lượng không được vượt quá ${MAX_QUANTITY}.`;
+  }
+  if (!unit) {
+    return "Vui lòng nhập đơn vị, ví dụ: cái, kg, bó.";
+  }
+  if (unit.length > MAX_UNIT_LENGTH) {
+    return `Đơn vị không được vượt quá ${MAX_UNIT_LENGTH} ký tự.`;
+  }
+  if (!UNIT_PATTERN.test(unit)) {
+    return "Đơn vị chỉ nên gồm chữ, số, khoảng trắng hoặc các ký tự ./-";
+  }
+
+  return null;
+}
+
+interface ShoppingItemRowProps {
+  item: ShoppingListItem;
+  isLast: boolean;
+  showDeleteAction: boolean;
+  onDelete: () => void;
+  onEdit: () => void;
+  onShowDeleteAction: () => void;
+  onToggle: () => void;
+}
+
+function ShoppingItemRow({
+  item,
+  isLast,
+  showDeleteAction,
+  onDelete,
+  onEdit,
+  onShowDeleteAction,
+  onToggle,
+}: ShoppingItemRowProps) {
+  return (
+    <View style={[styles.itemWrapper, isLast && styles.itemRowLast]}>
+      <TouchableOpacity
+        activeOpacity={0.95}
+        onLongPress={onShowDeleteAction}
+        delayLongPress={350}
+        style={[styles.itemRow, isLast && styles.itemRowLast]}
+      >
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={onToggle}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={styles.checkbox}
+        >
+          <Ionicons
+            name={item.isPurchased ? "checkbox" : "square-outline"}
+            size={24}
+            color={item.isPurchased ? COLORS.primary : COLORS.outlineVariant}
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={onEdit}
+          onLongPress={onShowDeleteAction}
+          delayLongPress={350}
+          style={styles.itemContent}
+        >
+          <Text style={[styles.itemName, item.isPurchased && styles.itemNameChecked]}>
+            {item.foodName}
+          </Text>
+          <Text style={styles.itemSubtext}>{formatItemSubtext(item)}</Text>
+        </TouchableOpacity>
+      </TouchableOpacity>
+
+      {showDeleteAction && (
+        <TouchableOpacity activeOpacity={0.85} style={styles.inlineDeleteAction} onPress={onDelete}>
+          <Ionicons name="trash-outline" size={18} color={COLORS.onPrimary} />
+          <Text style={styles.deleteActionText}>Xóa nguyên liệu</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
 export default function ShoppingScreen() {
+  const insets = useSafeAreaInsets();
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingItem, setEditingItem] = useState<ShoppingListItem | null>(null);
+  const [deleteActionItemId, setDeleteActionItemId] = useState<string | null>(null);
+  const [familyHouseholdId, setFamilyHouseholdId] = useState<string>("");
+  const [form, setForm] = useState({
+    foodName: "",
+    quantity: "1",
+    unit: "cái",
+  });
 
-  const loadShoppingLists = useCallback(async (silent = false) => {
+  const familySharedList = lists.find((list) => {
+      const householdId =
+        typeof list.householdId === "string" ? list.householdId : list.householdId?._id;
+      return familyHouseholdId && list.ownerType === "HOUSEHOLD" && householdId === familyHouseholdId;
+    });
+  const activeList = familySharedList ?? lists[0];
+  const items = activeList?.items ?? [];
+  const hasItems = items.length > 0;
+  const fabBottom = Platform.OS === "ios" ? 92 + insets.bottom : 92;
+
+  const groupedItems = useMemo(
+    () => ({
+      pending: items.filter((item) => !item.isPurchased),
+      purchased: items.filter((item) => item.isPurchased),
+    }),
+    [items]
+  );
+
+  const loadShoppingLists = async () => {
+    setLoading(true);
     try {
-      if (silent) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-      setErrorMessage("");
-      const data = await getShoppingListsApi();
+      const data = await getShoppingListsApi("ACTIVE");
       setLists(data);
     } catch (error: any) {
-      setErrorMessage(
-        error.response?.data?.message || error.message || "Không tải được shopping list."
-      );
+      Alert.alert("Không tải được Shopping List", getErrorMessage(error));
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     loadShoppingLists();
-  }, [loadShoppingLists]);
+  }, []);
 
-  const activeList = lists[0];
-  const items = activeList?.items || [];
-  const remainingCount = items.filter((item) => !item.isPurchased).length;
-  const purchasedCount = items.length - remainingCount;
+  useEffect(() => {
+    const loadFamilyContext = async () => {
+      try {
+        const households = await getMyHouseholdsApi();
+        setFamilyHouseholdId(households[0]?.household._id ?? "");
+      } catch {
+        setFamilyHouseholdId("");
+      }
+    };
 
-  const groups = useMemo<ShoppingGroup[]>(() => {
-    const grouped = new Map<string, ShoppingListItem[]>();
+    loadFamilyContext();
+  }, []);
 
-    items.forEach((item) => {
-      const title = getCategoryTitle(item);
-      grouped.set(title, [...(grouped.get(title) || []), item]);
-    });
+  const ensureActiveList = async () => {
+    if (familyHouseholdId) {
+      if (familySharedList) return familySharedList;
 
-    return Array.from(grouped.entries()).map(([title, groupItems]) => {
-      const icon = getGroupIcon(title);
-      return {
-        key: title,
-        title,
-        ...icon,
-        items: groupItems,
-      };
-    });
-  }, [items]);
-
-  const toggleItem = async (item: ShoppingListItem) => {
-    if (!activeList) return;
-
-    const nextPurchased = !item.isPurchased;
-    const previousLists = lists;
-    setLists((current) =>
-      updateItemInLists(current, activeList._id, item._id, nextPurchased)
-    );
-
-    try {
-      const updated = await updateShoppingListItemApi(activeList._id, item._id, {
-        isPurchased: nextPurchased,
+      return createShoppingListApi({
+        ownerType: "HOUSEHOLD",
+        householdId: familyHouseholdId,
+        listName: "Danh sách mua sắm gia đình",
+        visibility: "SHARED",
       });
-      setLists((current) =>
-        current.map((list) => (list._id === updated._id ? updated : list))
-      );
+    }
+
+    if (activeList) return activeList;
+
+    return createShoppingListApi({
+      ownerType: "USER",
+      listName: "Danh sách mua sắm",
+      visibility: "PERSONAL",
+    });
+  };
+
+  const resetForm = () => {
+    setForm({ foodName: "", quantity: "1", unit: "cái" });
+    setEditingItem(null);
+    setShowAddForm(false);
+  };
+
+  const handleEditItem = (item: ShoppingListItem) => {
+    setDeleteActionItemId(null);
+    setEditingItem(item);
+    setForm({
+      foodName: item.foodName,
+      quantity: String(item.quantity),
+      unit: item.unit,
+    });
+    setShowAddForm(true);
+  };
+
+  const handleSubmitItem = async () => {
+    const foodName = form.foodName.trim();
+    const quantityText = form.quantity.trim();
+    const quantity = parseQuantityInput(form.quantity);
+    const unit = form.unit.trim();
+    const validationError = validateShoppingItemForm(foodName, quantityText, quantity, unit);
+
+    if (validationError) {
+      Alert.alert("Thông tin chưa hợp lệ", validationError);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const list = await ensureActiveList();
+
+      if (editingItem) {
+        await updateShoppingListItemApi(list._id, editingItem._id, {
+          foodName,
+          quantity,
+          unit,
+        });
+      } else {
+        await addShoppingListItemApi(list._id, {
+          foodName,
+          quantity,
+          unit,
+          reason: "USER_ADDED",
+        });
+      }
+
+      resetForm();
+      await loadShoppingLists();
     } catch (error: any) {
-      setLists(previousLists);
-      setErrorMessage(
-        error.response?.data?.message || error.message || "Không cập nhật được item."
-      );
+      Alert.alert(editingItem ? "Không sửa được món" : "Không thêm được món", getErrorMessage(error));
+    } finally {
+      setSaving(false);
     }
   };
+
+  const handleToggleItem = async (item: ShoppingListItem) => {
+    if (!activeList) return;
+
+    try {
+      await updateShoppingListItemApi(activeList._id, item._id, {
+        isPurchased: !item.isPurchased,
+      });
+      setDeleteActionItemId(null);
+      await loadShoppingLists();
+    } catch (error: any) {
+      Alert.alert("Không cập nhật được món", getErrorMessage(error));
+    }
+  };
+
+  const handleDeleteItem = (item: ShoppingListItem) => {
+    if (!activeList) return;
+
+    Alert.alert("Xóa nguyên liệu", `Xóa "${item.foodName}" khỏi Shopping List?`, [
+      { text: "Hủy", style: "cancel", onPress: () => setDeleteActionItemId(null) },
+      {
+        text: "Xóa",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteShoppingListItemApi(activeList._id, item._id);
+            setDeleteActionItemId(null);
+            await loadShoppingLists();
+          } catch (error: any) {
+            Alert.alert("Không xóa được món", getErrorMessage(error));
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleCompleteList = () => {
+    if (!activeList) {
+      Alert.alert("Chưa có danh sách", "Hãy thêm món đầu tiên để tạo Shopping List.");
+      return;
+    }
+
+    Alert.alert("Hoàn tất danh sách", "Đánh dấu shopping list này là đã hoàn tất?", [
+      { text: "Hủy", style: "cancel" },
+      {
+        text: "Hoàn tất",
+        onPress: async () => {
+          try {
+            await completeShoppingListApi(activeList._id);
+            await loadShoppingLists();
+          } catch (error: any) {
+            Alert.alert("Không hoàn tất được", getErrorMessage(error));
+          }
+        },
+      },
+    ]);
+  };
+
+  const sectionKeys: SectionKey[] = ["pending", "purchased"];
 
   return (
     <ScreenContainer>
@@ -164,129 +368,145 @@ export default function ShoppingScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => loadShoppingLists(true)} />
-        }
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
         style={styles.container}
       >
+        <NearbyStoresSection />
+
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>Shopping List</Text>
-          <Text style={styles.subtitle}>
-            Nguyên liệu cần mua để bổ sung lại inventory.
-          </Text>
+          <Text style={styles.title}>{activeList?.listName ?? "Shopping List"}</Text>
+          <Text style={styles.subtitle}>Danh sách mua sắm được đồng bộ từ dữ liệu thật.</Text>
         </View>
 
-        <View style={styles.bannerButton}>
-          <View style={styles.banner}>
-            <View style={styles.bannerLeft}>
-              <Ionicons name="sparkles" size={20} color={COLORS.onPrimary} />
-              <Text style={styles.bannerText}>
-                {remainingCount} món cần mua từ meal plan và kho
-              </Text>
+        {hasItems && (
+          <TouchableOpacity activeOpacity={0.9} style={styles.bannerButton} onPress={handleCompleteList}>
+            <View style={styles.banner}>
+              <View style={styles.bannerLeft}>
+                <Ionicons name="checkmark-circle-outline" size={20} color={COLORS.onPrimary} />
+                <Text style={styles.bannerText}>Hoàn tất danh sách mua sắm</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.onPrimary} />
             </View>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.onPrimary} />
-          </View>
-        </View>
+          </TouchableOpacity>
+        )}
 
-        <View style={styles.statRow}>
-          <View style={styles.statPill}>
-            <Text style={styles.statValue}>{remainingCount}</Text>
-            <Text style={styles.statLabel}>Chưa mua</Text>
+        {showAddForm && (
+          <View style={styles.addForm}>
+            <Text style={styles.addFormTitle}>
+              {editingItem ? "Sửa nguyên liệu" : "Thêm món cần mua"}
+            </Text>
+            <TextInput
+              value={form.foodName}
+              onChangeText={(value) => setForm((prev) => ({ ...prev, foodName: value }))}
+              placeholder="VD: Cà chua bi"
+              placeholderTextColor={COLORS.onSurfaceVariant}
+              style={styles.input}
+            />
+            <View style={styles.formRow}>
+              <TextInput
+                value={form.quantity}
+                onChangeText={(value) => setForm((prev) => ({ ...prev, quantity: value }))}
+                keyboardType="decimal-pad"
+                placeholder="Số lượng"
+                placeholderTextColor={COLORS.onSurfaceVariant}
+                style={[styles.input, styles.quantityInput]}
+              />
+              <TextInput
+                value={form.unit}
+                onChangeText={(value) => setForm((prev) => ({ ...prev, unit: value }))}
+                placeholder="kg, gram..."
+                placeholderTextColor={COLORS.onSurfaceVariant}
+                style={[styles.input, styles.unitInput]}
+              />
+            </View>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={handleSubmitItem}
+              disabled={saving}
+              style={[styles.addButton, saving && styles.disabled]}
+            >
+              {saving ? (
+                <ActivityIndicator color={COLORS.onPrimary} />
+              ) : (
+                <Text style={styles.addButtonText}>
+                  {editingItem ? "Lưu thay đổi" : "Thêm vào danh sách"}
+                </Text>
+              )}
+            </TouchableOpacity>
+            {editingItem && (
+              <TouchableOpacity activeOpacity={0.85} onPress={resetForm} style={styles.cancelEditButton}>
+                <Text style={styles.cancelEditButtonText}>Hủy sửa</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          <View style={styles.statPill}>
-            <Text style={styles.statValue}>{purchasedCount}</Text>
-            <Text style={styles.statLabel}>Đã mua</Text>
-          </View>
-        </View>
-
-        {errorMessage ? (
-          <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle-outline" size={18} color="#9c3b2c" />
-            <Text style={styles.errorText}>{errorMessage}</Text>
-          </View>
-        ) : null}
+        )}
 
         {loading ? (
-          <View style={styles.loadingBlock}>
-            <ActivityIndicator color={COLORS.primary} />
-            <Text style={styles.loadingText}>Đang tải shopping list...</Text>
+          <ActivityIndicator color={COLORS.primary} size="large" style={styles.loader} />
+        ) : !hasItems && !showAddForm ? (
+          <View style={styles.emptyAddContainer}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.emptyAddOnlyButton}
+              onPress={() => setShowAddForm(true)}
+            >
+              <Ionicons name="add" size={20} color={COLORS.onPrimary} />
+              <Text style={styles.emptyAddOnlyButtonText}>Thêm nguyên liệu</Text>
+            </TouchableOpacity>
           </View>
-        ) : groups.length === 0 ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
-              <Ionicons name="basket-outline" size={30} color={COLORS.primary} />
-            </View>
-            <Text style={styles.emptyTitle}>Chưa có nguyên liệu cần mua</Text>
-            <Text style={styles.emptyText}>
-              Khi planner phát hiện thiếu nguyên liệu, bạn có thể thêm chúng vào đây.
-            </Text>
-          </View>
-        ) : (
-          groups.map((group) => {
-            const remainingInGroup = group.items.filter((item) => !item.isPurchased).length;
+        ) : hasItems ? (
+          sectionKeys.map((sectionKey) => {
+            const sectionItems = groupedItems[sectionKey];
+            if (sectionItems.length === 0) return null;
+
+            const config = SECTIONS[sectionKey];
             return (
-              <View key={group.key} style={styles.section}>
+              <View key={sectionKey} style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <View style={styles.sectionHeaderLeft}>
-                    <Ionicons name={group.icon} size={22} color={group.iconColor} />
-                    <Text style={styles.sectionTitle}>{group.title}</Text>
+                    <Ionicons name={config.icon} size={22} color={config.iconColor} />
+                    <Text style={styles.sectionTitle}>{config.title}</Text>
                   </View>
                   <View style={styles.badge}>
-                    <Text style={styles.badgeText}>
-                      {remainingInGroup}/{group.items.length} cần mua
-                    </Text>
+                    <Text style={styles.badgeText}>{sectionItems.length} items</Text>
                   </View>
                 </View>
 
                 <View style={styles.card}>
-                  {group.items.map((item, idx) => {
-                    const isLast = idx === group.items.length - 1;
-                    return (
-                      <TouchableOpacity
-                        key={item._id}
-                        activeOpacity={0.7}
-                        onPress={() => toggleItem(item)}
-                        style={[styles.itemRow, isLast && styles.itemRowLast]}
-                      >
-                        <View style={styles.checkbox}>
-                          <Ionicons
-                            name={item.isPurchased ? "checkbox" : "square-outline"}
-                            size={24}
-                            color={item.isPurchased ? COLORS.primary : COLORS.outlineVariant}
-                          />
-                        </View>
-                        <View style={styles.itemContent}>
-                          <Text
-                            style={[
-                              styles.itemName,
-                              item.isPurchased && styles.itemNameChecked,
-                            ]}
-                          >
-                            {item.foodName}
-                          </Text>
-                          <Text style={styles.itemSubtext}>
-                            {item.quantity} {item.unit} •{" "}
-                            {reasonLabels[item.reason || ""] || "Shopping list"}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
+                  {sectionItems.map((item, idx) => (
+                    <ShoppingItemRow
+                      key={item._id}
+                      item={item}
+                      isLast={idx === sectionItems.length - 1}
+                      showDeleteAction={deleteActionItemId === item._id}
+                      onDelete={() => handleDeleteItem(item)}
+                      onEdit={() => handleEditItem(item)}
+                      onShowDeleteAction={() => setDeleteActionItemId(item._id)}
+                      onToggle={() => handleToggleItem(item)}
+                    />
+                  ))}
                 </View>
               </View>
             );
           })
-        )}
+        ) : null}
       </ScrollView>
 
-      <TouchableOpacity
-        activeOpacity={0.85}
-        style={styles.fab}
-        onPress={() => loadShoppingLists(true)}
-      >
-        <Ionicons name="refresh" size={27} color={COLORS.onPrimary} />
-      </TouchableOpacity>
+      {hasItems && (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={[styles.fab, { bottom: fabBottom }]}
+          onPress={() => {
+            if (showAddForm) {
+              resetForm();
+              return;
+            }
+            setShowAddForm(true);
+          }}
+        >
+          <Ionicons name={showAddForm ? "close" : "add"} size={34} color={COLORS.onPrimary} />
+        </TouchableOpacity>
+      )}
 
       <BottomNavbar />
     </ScreenContainer>

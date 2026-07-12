@@ -2,24 +2,18 @@ import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "reac
 
 import { COLORS } from "../../../constants/colors";
 import { familyCloudStyles as styles } from "../styles/FamilyCloudScreen.styles";
-import { ROLE_LABEL } from "../types/constants";
-import { HouseholdRole } from "../types/familyCloud";
 
 interface AddMemberFormProps {
   inviteEmail: string;
-  inviteRole: Exclude<HouseholdRole, "OWNER">;
   saving: boolean;
   onChangeInviteEmail: (value: string) => void;
-  onChangeInviteRole: (role: Exclude<HouseholdRole, "OWNER">) => void;
   onSubmit: () => void;
 }
 
 export default function AddMemberForm({
   inviteEmail,
-  inviteRole,
   saving,
   onChangeInviteEmail,
-  onChangeInviteRole,
   onSubmit,
 }: AddMemberFormProps) {
   return (
@@ -34,19 +28,6 @@ export default function AddMemberForm({
         placeholderTextColor={COLORS.onSurfaceVariant}
         style={styles.input}
       />
-      <View style={styles.roleRow}>
-        {(["MEMBER", "ADMIN"] as const).map((role) => (
-          <TouchableOpacity
-            key={role}
-            onPress={() => onChangeInviteRole(role)}
-            style={[styles.roleChip, inviteRole === role && styles.roleChipActive]}
-          >
-            <Text style={[styles.roleText, inviteRole === role && styles.roleTextActive]}>
-              {ROLE_LABEL[role]}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
       <TouchableOpacity
         onPress={onSubmit}
         disabled={saving}
@@ -55,7 +36,7 @@ export default function AddMemberForm({
         {saving ? (
           <ActivityIndicator color={COLORS.onPrimary} />
         ) : (
-          <Text style={styles.primaryButtonText}>Thêm vào Family Cloud</Text>
+          <Text style={styles.primaryButtonText}>Gửi lời mời</Text>
         )}
       </TouchableOpacity>
     </View>

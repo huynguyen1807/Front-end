@@ -167,6 +167,15 @@ export default function SettingsScreen() {
             />
 
             <SettingsItem
+              icon="card-outline"
+              label="Premium & thanh toán"
+              description="Mở khóa Family Cloud và giới hạn thành viên"
+              iconColor={COLORS.secondary}
+              onPress={() => navigation.navigate("Subscription")}
+              showChevron
+            />
+
+            <SettingsItem
               icon="lock-closed-outline"
               label="Chính sách bảo mật"
               iconColor={COLORS.onSurfaceVariant}

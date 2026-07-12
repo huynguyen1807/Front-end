@@ -14,7 +14,6 @@ interface MemberListProps {
   members: HouseholdMember[];
   loading: boolean;
   canManageMembers: boolean;
-  onToggleRole: (member: HouseholdMember) => void;
   onRemoveMember: (member: HouseholdMember) => void;
 }
 
@@ -22,7 +21,6 @@ export default function MemberList({
   members,
   loading,
   canManageMembers,
-  onToggleRole,
   onRemoveMember,
 }: MemberListProps) {
   return (
@@ -50,9 +48,6 @@ export default function MemberList({
 
               {manageable && (
                 <View style={styles.memberActions}>
-                  <TouchableOpacity onPress={() => onToggleRole(member)} style={styles.actionButton}>
-                    <Ionicons name="swap-horizontal" size={18} color={COLORS.primary} />
-                  </TouchableOpacity>
                   <TouchableOpacity onPress={() => onRemoveMember(member)} style={styles.actionButton}>
                     <Ionicons name="trash-outline" size={18} color={COLORS.error} />
                   </TouchableOpacity>
