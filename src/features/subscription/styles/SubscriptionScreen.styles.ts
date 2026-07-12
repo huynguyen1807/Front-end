@@ -1,0 +1,70 @@
+import { StyleSheet } from "react-native";
+
+import { COLORS } from "../../../constants/colors";
+import { RADIUS, SPACING } from "../../../constants/spacing";
+
+export const subscriptionStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.background },
+  header: {
+    alignItems: "center",
+    borderBottomColor: COLORS.outlineVariant + "70",
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+  },
+  iconButton: {
+    alignItems: "center",
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  title: { color: COLORS.onSurface, fontSize: 18, fontWeight: "800" },
+  content: { gap: SPACING.lg, padding: SPACING.lg, paddingBottom: SPACING.xxl },
+  currentCard: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+  },
+  currentLabel: { color: COLORS.onPrimaryContainer, fontSize: 13, fontWeight: "700" },
+  currentPlan: { color: COLORS.onPrimary, fontSize: 24, fontWeight: "900", marginTop: SPACING.xs },
+  currentText: { color: COLORS.onPrimaryContainer, fontSize: 14, marginTop: SPACING.sm },
+  sectionTitle: {
+    color: COLORS.onSurfaceVariant,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+  },
+  planCard: {
+    backgroundColor: COLORS.surfaceContainerLowest,
+    borderColor: COLORS.outlineVariant + "55",
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    padding: SPACING.lg,
+  },
+  planCardSelected: { borderColor: COLORS.primary, borderWidth: 2 },
+  planHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
+  planName: { color: COLORS.onSurface, fontSize: 17, fontWeight: "800" },
+  planPrice: { color: COLORS.primary, fontSize: 16, fontWeight: "900" },
+  featureText: { color: COLORS.onSurfaceVariant, fontSize: 13, marginTop: SPACING.sm },
+  payButton: {
+    alignItems: "center",
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.full,
+    height: 50,
+    justifyContent: "center",
+  },
+  payButtonDisabled: { opacity: 0.65 },
+  payButtonText: { color: COLORS.onPrimary, fontSize: 15, fontWeight: "800" },
+  historyItem: {
+    backgroundColor: COLORS.surfaceContainerLowest,
+    borderColor: COLORS.outlineVariant + "45",
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    padding: SPACING.md,
+  },
+  historyTitle: { color: COLORS.onSurface, fontSize: 14, fontWeight: "800" },
+  historyText: { color: COLORS.onSurfaceVariant, fontSize: 12, marginTop: 2 },
+});
