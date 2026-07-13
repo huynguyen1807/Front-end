@@ -46,6 +46,12 @@ function matchesFoodName(ingredientName: string, foodName: string) {
   return Boolean(ingredient && food && (ingredient.includes(food) || food.includes(ingredient)));
 }
 
+function matchesUnit(ingredientUnit?: string, foodUnit?: string) {
+  const ingredient = normalizeName(ingredientUnit);
+  const food = normalizeName(foodUnit);
+  return !ingredient || !food || ingredient === food;
+}
+
 export function getRecipeAvailability(recipe: Recipe, foods: InventoryFood[]): RecipeAvailability {
   const requiredIngredients = (recipe.ingredients || []).filter(
     (ingredient) => ingredient.isRequired !== false
@@ -66,6 +72,7 @@ export function getRecipeAvailability(recipe: Recipe, foods: InventoryFood[]): R
   requiredIngredients.forEach((ingredient) => {
     const matchedFood = availableFoods.find((food) => {
       if (!matchesFoodName(ingredient.ingredientName, food.foodName)) return false;
+      if (!matchesUnit(ingredient.unit, food.unit)) return false;
       const requiredQty = Number(ingredient.quantity) || 0;
       const availableQty = Number(food.quantity) || 0;
       return requiredQty <= 0 || availableQty >= requiredQty;
@@ -92,6 +99,7 @@ export function getRecipeUsedFoodIds(recipe: Recipe, foods: InventoryFood[]) {
   (recipe.ingredients || []).forEach((ingredient) => {
     const matchedFood = availableFoods.find((food) => {
       if (!matchesFoodName(ingredient.ingredientName, food.foodName)) return false;
+      if (!matchesUnit(ingredient.unit, food.unit)) return false;
       const requiredQty = Number(ingredient.quantity) || 0;
       const availableQty = Number(food.quantity) || 0;
       return requiredQty <= 0 || availableQty >= requiredQty;

@@ -19,8 +19,24 @@ type RecipeCardProps = {
   disabled?: boolean;
   disabledReason?: string;
   onAddToPlan?: (recipe: Recipe) => void;
+  onAddMissingIngredients?: (recipe: Recipe) => void;
+  onSaveToRecipes?: (recipe: Recipe) => void;
+  onDismiss?: (recipe: Recipe) => void;
   onEdit?: (recipe: Recipe) => void;
   onDelete?: (recipe: Recipe) => void;
+};
+
+const difficultyText: Record<string, string> = {
+  EASY: "Dễ",
+  MEDIUM: "Vừa",
+  HARD: "Khó",
+};
+
+const sourceTypeText: Record<string, string> = {
+  SYSTEM: "Hệ thống",
+  USER_CREATED: "Cá nhân",
+  AI_GENERATED: "AI gợi ý",
+  VIDEO_EXTRACTED: "Từ video",
 };
 
 export default function RecipeCard({
@@ -29,6 +45,9 @@ export default function RecipeCard({
   disabled,
   disabledReason,
   onAddToPlan,
+  onAddMissingIngredients,
+  onSaveToRecipes,
+  onDismiss,
   onEdit,
   onDelete,
 }: RecipeCardProps) {
@@ -36,6 +55,12 @@ export default function RecipeCard({
   const time = recipe.cookingTime ? `${recipe.cookingTime} phút` : "Chưa đặt";
   const kcal = Math.round(recipe.calories || 0);
   const macro = recipe.macroSummary || { protein: 0, carbs: 0, fat: 0 };
+  const missingCount =
+    recipe.missingIngredients?.length || recipe.availability?.missingIngredients?.length || 0;
+  const isMissingIngredients =
+    recipe.availabilityStatus === "MISSING_INGREDIENTS" ||
+    recipe.availability?.canSchedule === false ||
+    missingCount > 0;
 
   const renderImage = (large = false) => {
     if (recipe.imageUrl) {
@@ -60,6 +85,16 @@ export default function RecipeCard({
     setDetailVisible(false);
   };
 
+  const addMissingIngredients = () => {
+    onAddMissingIngredients?.(recipe);
+    setDetailVisible(false);
+  };
+
+  const saveToRecipes = () => {
+    onSaveToRecipes?.(recipe);
+    setDetailVisible(false);
+  };
+
   return (
     <>
       <TouchableOpacity
@@ -76,29 +111,44 @@ export default function RecipeCard({
                 {recipe.recipeName}
               </Text>
               <Text style={styles.description} numberOfLines={2}>
-                {recipe.description || "Công thức sẵn sàng để đưa vào meal plan."}
+                {recipe.description || "Công thức sẵn sàng để đưa vào lịch bữa ăn."}
               </Text>
             </View>
-            {canManage && (
+            {(canManage || onDismiss) && (
               <View style={styles.actions}>
-                <TouchableOpacity
-                  activeOpacity={0.75}
-                  onPress={(event) => {
-                    event.stopPropagation();
-                    onEdit?.(recipe);
-                  }}
-                >
-                  <Ionicons name="create-outline" size={23} color={COLORS.onSurfaceVariant} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  activeOpacity={0.75}
-                  onPress={(event) => {
-                    event.stopPropagation();
-                    onDelete?.(recipe);
-                  }}
-                >
-                  <Ionicons name="trash-outline" size={22} color={COLORS.tertiary} />
-                </TouchableOpacity>
+                {canManage ? (
+                  <>
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        onEdit?.(recipe);
+                      }}
+                    >
+                      <Ionicons name="create-outline" size={23} color={COLORS.onSurfaceVariant} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        onDelete?.(recipe);
+                      }}
+                    >
+                      <Ionicons name="trash-outline" size={22} color={COLORS.tertiary} />
+                    </TouchableOpacity>
+                  </>
+                ) : null}
+                {onDismiss ? (
+                  <TouchableOpacity
+                    activeOpacity={0.75}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      onDismiss(recipe);
+                    }}
+                  >
+                    <Ionicons name="close-circle-outline" size={22} color={COLORS.onSurfaceVariant} />
+                  </TouchableOpacity>
+                ) : null}
               </View>
             )}
           </View>
@@ -119,8 +169,15 @@ export default function RecipeCard({
           </View>
 
           <View style={styles.tagsRow}>
-            {(recipe.tags || []).slice(0, 3).map((tag) => (
-              <View key={tag} style={styles.tag}>
+            <View style={isMissingIngredients ? styles.missingBadge : styles.readyBadge}>
+              <Text style={isMissingIngredients ? styles.missingBadgeText : styles.readyBadgeText}>
+                {isMissingIngredients
+                  ? `Thiếu ${missingCount || 1} nguyên liệu`
+                  : "Đủ nguyên liệu"}
+              </Text>
+            </View>
+            {(recipe.tags || []).slice(0, 3).map((tag, index) => (
+              <View key={`${tag}-${index}`} style={styles.tag}>
                 <Text style={styles.tagText}>{tag}</Text>
               </View>
             ))}
@@ -147,6 +204,32 @@ export default function RecipeCard({
               >
                 <Ionicons name="add" size={15} color={COLORS.onPrimary} />
                 <Text style={styles.planButtonText}>Lên lịch</Text>
+              </TouchableOpacity>
+            )}
+            {isMissingIngredients && onAddMissingIngredients && (
+              <TouchableOpacity
+                style={styles.shoppingButton}
+                activeOpacity={0.75}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  addMissingIngredients();
+                }}
+              >
+                <MaterialCommunityIcons name="basket-plus-outline" size={14} color={COLORS.primary} />
+                <Text style={styles.shoppingButtonText}>Danh sách mua</Text>
+              </TouchableOpacity>
+            )}
+            {onSaveToRecipes && (
+              <TouchableOpacity
+                style={styles.saveRecipeButton}
+                activeOpacity={0.75}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  saveToRecipes();
+                }}
+              >
+                <Ionicons name="bookmark-outline" size={14} color={COLORS.onSecondaryContainer} />
+                <Text style={styles.saveRecipeButtonText}>Lưu công thức</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -177,6 +260,25 @@ export default function RecipeCard({
                 <Text style={styles.detailDescription}>{recipe.description}</Text>
               ) : null}
 
+              <View style={isMissingIngredients ? styles.detailMissingNotice : styles.detailReadyNotice}>
+                <MaterialCommunityIcons
+                  name={isMissingIngredients ? "basket-plus-outline" : "check-decagram-outline"}
+                  size={17}
+                  color={isMissingIngredients ? COLORS.onTertiaryFixed : COLORS.primary}
+                />
+                <Text
+                  style={
+                    isMissingIngredients
+                      ? styles.detailMissingNoticeText
+                      : styles.detailReadyNoticeText
+                  }
+                >
+                  {isMissingIngredients
+                    ? `Còn thiếu ${missingCount || 1} nguyên liệu. Khi lên lịch, hệ thống sẽ hỏi thêm vào danh sách mua.`
+                    : "Tủ thực phẩm hiện tại đủ nguyên liệu để đưa vào lịch bữa ăn."}
+                </Text>
+              </View>
+
               <View style={styles.detailMetricGrid}>
                 <DetailMetric label="Kcal" value={`${kcal}`} />
                 <DetailMetric label="Protein" value={`${Math.round(macro.protein)}g`} />
@@ -186,8 +288,8 @@ export default function RecipeCard({
 
               <View style={styles.detailInfoList}>
                 <DetailInfo label="Thời gian" value={time} />
-                <DetailInfo label="Độ khó" value={recipe.difficulty || "EASY"} />
-                <DetailInfo label="Nguồn" value={recipe.sourceType || "SYSTEM"} />
+                <DetailInfo label="Độ khó" value={difficultyText[recipe.difficulty || "EASY"] || "Dễ"} />
+                <DetailInfo label="Nguồn" value={sourceTypeText[recipe.sourceType || "SYSTEM"] || "Hệ thống"} />
               </View>
 
               <DetailSection title="Nguyên liệu">
@@ -216,8 +318,8 @@ export default function RecipeCard({
 
               {recipe.tags?.length ? (
                 <View style={styles.detailTagsRow}>
-                  {recipe.tags.map((tag) => (
-                    <View key={tag} style={styles.tag}>
+                  {recipe.tags.map((tag, index) => (
+                    <View key={`${tag}-${index}`} style={styles.tag}>
                       <Text style={styles.tagText}>{tag}</Text>
                     </View>
                   ))}
@@ -227,6 +329,28 @@ export default function RecipeCard({
               {disabledReason ? (
                 <Text style={styles.detailWarning}>{disabledReason}</Text>
               ) : null}
+
+              {isMissingIngredients && onAddMissingIngredients && (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={styles.detailShoppingButton}
+                  onPress={addMissingIngredients}
+                >
+                  <MaterialCommunityIcons name="basket-plus-outline" size={16} color={COLORS.primary} />
+                  <Text style={styles.detailShoppingButtonText}>Thêm nguyên liệu thiếu vào danh sách mua</Text>
+                </TouchableOpacity>
+              )}
+
+              {onSaveToRecipes && (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={styles.detailSaveRecipeButton}
+                  onPress={saveToRecipes}
+                >
+                  <Ionicons name="bookmark-outline" size={16} color={COLORS.onSecondaryContainer} />
+                  <Text style={styles.detailSaveRecipeButtonText}>Thêm vào công thức cá nhân</Text>
+                </TouchableOpacity>
+              )}
 
               {onAddToPlan && (
                 <TouchableOpacity
@@ -370,6 +494,32 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: COLORS.onSurfaceVariant,
   },
+  readyBadge: {
+    backgroundColor: "#e7f5ee",
+    borderWidth: 1,
+    borderColor: "#b7dccb",
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  readyBadgeText: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: COLORS.primary,
+  },
+  missingBadge: {
+    backgroundColor: COLORS.tertiaryFixed,
+    borderWidth: 1,
+    borderColor: COLORS.tertiary,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  missingBadgeText: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: COLORS.onTertiaryFixed,
+  },
   warningTag: {
     maxWidth: "100%",
     backgroundColor: COLORS.tertiaryFixed,
@@ -398,6 +548,36 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "800",
     color: COLORS.onPrimary,
+  },
+  shoppingButton: {
+    minHeight: 25,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    paddingHorizontal: 9,
+    borderRadius: 4,
+  },
+  shoppingButtonText: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: COLORS.primary,
+  },
+  saveRecipeButton: {
+    minHeight: 25,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: COLORS.secondaryContainer,
+    paddingHorizontal: 9,
+    borderRadius: 4,
+  },
+  saveRecipeButtonText: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: COLORS.onSecondaryContainer,
   },
   detailBackdrop: {
     flex: 1,
@@ -447,6 +627,46 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: "700",
     marginBottom: 12,
+  },
+  detailReadyNotice: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#b7dccb",
+    backgroundColor: "#e7f5ee",
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    marginBottom: 12,
+  },
+  detailReadyNoticeText: {
+    flex: 1,
+    color: COLORS.primary,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "800",
+  },
+  detailMissingNotice: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.tertiary,
+    backgroundColor: COLORS.tertiaryFixed,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    marginBottom: 12,
+  },
+  detailMissingNoticeText: {
+    flex: 1,
+    color: COLORS.onTertiaryFixed,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "800",
   },
   detailMetricGrid: {
     flexDirection: "row",
@@ -553,6 +773,38 @@ const styles = StyleSheet.create({
   },
   detailPrimaryButtonText: {
     color: COLORS.onPrimary,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  detailShoppingButton: {
+    minHeight: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  detailShoppingButtonText: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  detailSaveRecipeButton: {
+    minHeight: 44,
+    borderRadius: 8,
+    backgroundColor: COLORS.secondaryContainer,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  detailSaveRecipeButtonText: {
+    color: COLORS.onSecondaryContainer,
     fontSize: 13,
     fontWeight: "900",
   },

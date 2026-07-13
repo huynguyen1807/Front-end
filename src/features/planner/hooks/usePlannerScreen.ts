@@ -1,15 +1,17 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 
 import {
   AdminSection,
+  BmiFormState,
   CalorieGoalKey,
   PlannerDetailTab,
   Workspace,
   calorieGoalOptions,
   createEmptyRecipeForm,
   createEmptyRecipeIngredient,
+  emptyBmiForm,
   emptyCategoryForm,
   emptyFactForm,
   emptyStorageRuleForm,
@@ -62,23 +64,30 @@ import {
   getMealPlansApi,
   getRecipesApi,
   updateMealPlanApi,
+  updateUserPreferencesApi,
 } from "../services/plannerApi";
 import {
   AiGeneratedData,
+  BmiProfile,
   FoodCategoryData,
   GeneratedMealPlanResult,
   InventoryFood,
+  MealRecommendation,
   MealPlan,
   MealPlanMeal,
+  MealStatus,
   MealType,
   NutritionCalculation,
   NutritionFact,
   NutritionReport,
   Recipe,
+  RecipeAvailabilityStatus,
   ScheduleDate,
   StorageRuleData,
   VideoRecipeExtraction,
 } from "../types/planner";
+import { calculateBmiProfile } from "../utils/bmiUtils";
+import { getFoodScheduleRule } from "../utils/foodScheduleRules";
 import {
   addDays,
   getDaysUntilExpiry,
@@ -176,12 +185,19 @@ const getFoodMacroSummary = (food: InventoryFood) => ({
 
 const buildMissingShoppingItems = (
   recipe: Recipe,
-  missingIngredientNames: string[]
+  missingIngredientNames: string[] = []
 ): MissingShoppingItem[] => {
   const missingSet = new Set(missingIngredientNames.map((name) => name.trim().toLowerCase()));
+  const sourceIngredients = recipe.missingIngredients?.length
+    ? recipe.missingIngredients
+    : recipe.ingredients || [];
 
-  return (recipe.ingredients || [])
-    .filter((ingredient) => missingSet.has(ingredient.ingredientName.trim().toLowerCase()))
+  return sourceIngredients
+    .filter(
+      (ingredient) =>
+        missingSet.size === 0 ||
+        missingSet.has(ingredient.ingredientName.trim().toLowerCase())
+    )
     .map((ingredient) => ({
       ingredientName: ingredient.ingredientName,
       categoryId: typeof ingredient.categoryId === "string" ? ingredient.categoryId : undefined,
@@ -202,6 +218,154 @@ type MissingShoppingItem = {
   unit: string;
 };
 
+type AvoidRecipeReference = {
+  recipeName?: string;
+  ingredients?: Recipe["ingredients"];
+  cookingSteps?: string[];
+  tags?: string[];
+};
+
+type RecommendationTabKey = "all" | "enough" | "missing";
+
+const emptyRecommendationBadges: Record<RecommendationTabKey, boolean> = {
+  all: false,
+  enough: false,
+  missing: false,
+};
+
+const normalizeRecipeName = (value?: string) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+const buildRecipeIngredientSignature = (recipe: Recipe) =>
+  (recipe.ingredients || [])
+    .map((ingredient) => normalizeRecipeName(ingredient.ingredientName))
+    .filter(Boolean)
+    .sort()
+    .join("|");
+
+const buildRecipeStepSignature = (recipe: Recipe) =>
+  (recipe.cookingSteps || [])
+    .map((step) => normalizeRecipeName(step.replace(/[^\p{L}\p{N}\s]/gu, "")))
+    .filter(Boolean)
+    .join("|");
+
+const getRecommendationKey = (recipe: Recipe) =>
+  recipe._id || `${normalizeRecipeName(recipe.recipeName)}-${recipe.sourceType || "recipe"}`;
+
+const getRecommendationHiddenKeys = (recipe: Recipe) => {
+  const keys = new Set<string>();
+  if (recipe._id) keys.add(`id:${recipe._id}`);
+  const normalizedName = normalizeRecipeName(recipe.recipeName);
+  if (normalizedName) keys.add(`name:${normalizedName}`);
+  const ingredientSignature = buildRecipeIngredientSignature(recipe);
+  const stepSignature = buildRecipeStepSignature(recipe);
+  if (ingredientSignature || stepSignature) {
+    keys.add(`formula:${ingredientSignature}::${stepSignature}`);
+  }
+  keys.add(`display:${getRecommendationKey(recipe)}`);
+  return Array.from(keys);
+};
+
+const buildAvoidRecipeReference = (recipe: Recipe): AvoidRecipeReference => ({
+  recipeName: recipe.recipeName,
+  ingredients: recipe.ingredients || [],
+  cookingSteps: recipe.cookingSteps || [],
+  tags: recipe.tags || [],
+});
+
+const getAvoidRecipeReferenceKey = (reference: AvoidRecipeReference) => {
+  const name = normalizeRecipeName(reference.recipeName);
+  const ingredients = (reference.ingredients || [])
+    .map((ingredient) => normalizeRecipeName(ingredient.ingredientName))
+    .filter(Boolean)
+    .sort()
+    .join("|");
+  const steps = (reference.cookingSteps || [])
+    .map((step) => normalizeRecipeName(step.replace(/[^\p{L}\p{N}\s]/gu, "")))
+    .filter(Boolean)
+    .join("|");
+  return `${name}::${ingredients}::${steps}`;
+};
+
+const getCalorieGoalKeyForTarget = (target: number) => {
+  const option = calorieGoalOptions.find(
+    (item) => target >= item.min && (item.max === undefined || target <= item.max)
+  );
+  return option?.key || "OVER_2000";
+};
+
+const getMissingRecipeIngredients = (recipe: Recipe, missingNames: string[]) => {
+  const missingSet = new Set(missingNames.map((name) => normalizeRecipeName(name)));
+  const matchedRows = (recipe.ingredients || []).filter((ingredient) =>
+    missingSet.has(normalizeRecipeName(ingredient.ingredientName))
+  );
+
+  if (matchedRows.length) {
+    return matchedRows;
+  }
+
+  return (recipe.missingIngredients || []).length ? recipe.missingIngredients || [] : [];
+};
+
+const decorateRecommendation = (
+  item: MealRecommendation,
+  foodList: InventoryFood[]
+): MealRecommendation => {
+  const availability = getRecipeAvailability(item.recipe, foodList);
+  const status: RecipeAvailabilityStatus = availability.canSchedule
+    ? "ENOUGH_INGREDIENTS"
+    : "MISSING_INGREDIENTS";
+  const missingIngredients =
+    status === "MISSING_INGREDIENTS"
+      ? getMissingRecipeIngredients(item.recipe, availability.missingIngredients)
+      : [];
+
+  return {
+    ...item,
+    availabilityStatus: status,
+    missingIngredients,
+    recipe: {
+      ...item.recipe,
+      availability,
+      availabilityStatus: status,
+      missingIngredients,
+    },
+  };
+};
+
+const buildRecipeRecommendation = (recipe: Recipe, foodList: InventoryFood[]) =>
+  decorateRecommendation(
+    {
+      recipe,
+      score: 1,
+      matchedFoods: [],
+      priorityReasons: [],
+    },
+    foodList
+  );
+
+const mergeRecommendations = (
+  primary: MealRecommendation[],
+  secondary: MealRecommendation[] = []
+) => {
+  const map = new Map<string, MealRecommendation>();
+
+  [...primary, ...secondary].forEach((item) => {
+    const recipe = item.recipe;
+    if (!recipe || recipe.isActive === false) return;
+
+    const key = getRecommendationKey(recipe);
+    if (!map.has(key)) {
+      map.set(key, item);
+    }
+  });
+
+  return Array.from(map.values());
+};
+
 export default function usePlannerScreen() {
   const [roleLoaded, setRoleLoaded] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -210,16 +374,31 @@ export default function usePlannerScreen() {
   const [adminSection, setAdminSection] = useState<AdminSection>("category");
 
   const [activeDate, setActiveDate] = useState(toDateInput(new Date()));
+  const activeDateRef = useRef(activeDate);
+  const hiddenRecommendationKeysRef = useRef(new Set<string>());
+  const hiddenRecommendationStorageKeyRef = useRef("plannerHiddenRecommendations:current");
+  const dismissedRecommendationRefsRef = useRef<AvoidRecipeReference[]>([]);
+  const dismissedRecommendationRefsStorageKeyRef = useRef(
+    "plannerDismissedRecommendationRefs:current"
+  );
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [userRecipes, setUserRecipes] = useState<Recipe[]>([]);
   const [plans, setPlans] = useState<MealPlan[]>([]);
   const [foods, setFoods] = useState<InventoryFood[]>([]);
   const [report, setReport] = useState<NutritionReport | null>(null);
   const [generatedResult, setGeneratedResult] = useState<GeneratedMealPlanResult | null>(null);
+  const [recommendedItems, setRecommendedItems] = useState<MealRecommendation[]>([]);
+  const [recommendationBadges, setRecommendationBadges] =
+    useState<Record<RecommendationTabKey, boolean>>(emptyRecommendationBadges);
   const [videoUrl, setVideoUrl] = useState("");
   const [videoExtraction, setVideoExtraction] = useState<VideoRecipeExtraction | null>(null);
   const [selectedCalorieGoal, setSelectedCalorieGoal] =
     useState<CalorieGoalKey>("RANGE_1000_1500");
+  const [dailyTargetCalories, setDailyTargetCalories] = useState(calorieGoalOptions[3].target);
+  const [dailyGoalDraft, setDailyGoalDraft] = useState(String(calorieGoalOptions[3].target));
+  const [dailyGoalModalVisible, setDailyGoalModalVisible] = useState(false);
+  const [bmiForm, setBmiForm] = useState<BmiFormState>(emptyBmiForm);
+  const [bmiProfile, setBmiProfile] = useState<BmiProfile | null>(null);
   const [selectedMealTypes, setSelectedMealTypes] = useState<MealType[]>([
     "BREAKFAST",
     "LUNCH",
@@ -349,26 +528,72 @@ export default function usePlannerScreen() {
     setAiReviewItems(reviewList);
   }, []);
 
-  const loadPlanner = useCallback(async () => {
+  const isRecommendationHidden = useCallback((recipe: Recipe) => {
+    const hiddenKeys = hiddenRecommendationKeysRef.current;
+    return getRecommendationHiddenKeys(recipe).some((key) => hiddenKeys.has(key));
+  }, []);
+
+  const persistHiddenRecommendations = useCallback(async () => {
+    const refs = dismissedRecommendationRefsRef.current.slice(-200);
+    await Promise.all([
+      AsyncStorage.setItem(
+        hiddenRecommendationStorageKeyRef.current,
+        JSON.stringify(Array.from(hiddenRecommendationKeysRef.current).slice(-500))
+      ),
+      AsyncStorage.setItem(
+        dismissedRecommendationRefsStorageKeyRef.current,
+        JSON.stringify(refs)
+      ),
+    ]);
+  }, []);
+
+  const rememberDismissedRecommendation = useCallback((recipe: Recipe) => {
+    const nextReference = buildAvoidRecipeReference(recipe);
+    const nextKey = getAvoidRecipeReferenceKey(nextReference);
+    const existing = dismissedRecommendationRefsRef.current.filter(
+      (reference) => getAvoidRecipeReferenceKey(reference) !== nextKey
+    );
+    dismissedRecommendationRefsRef.current = [nextReference, ...existing].slice(0, 200);
+  }, []);
+
+  const loadPlanner = useCallback(async (options?: { date?: string; showLoading?: boolean }) => {
     if (!roleLoaded) return;
 
+    const planDate = options?.date || activeDateRef.current;
+    const shouldShowLoading = options?.showLoading !== false;
+
     try {
-      setLoading(true);
+      if (shouldShowLoading) {
+        setLoading(true);
+      }
       const [recipeList, userRecipeList, planList, macroReport, foodList] = await Promise.all([
         getRecipesApi(),
         getUserRecipesApi(),
-        getMealPlansApi({ date: activeDate }),
-        getNutritionReportApi({ periodType: "WEEK", startDate: activeDate }),
+        getMealPlansApi({ date: planDate }),
+        getNutritionReportApi({ periodType: "WEEK", startDate: planDate }),
         getAvailableFoodsApi(),
       ]);
 
-      setRecipes(recipeList.filter(
+      const activeRecipes = recipeList.filter(
         (recipe) => recipe.isActive !== false && recipe.sourceType !== "USER_CREATED"
+      );
+
+      setRecipes(activeRecipes);
+      setUserRecipes(userRecipeList.filter(
+        (recipe) => recipe.isActive !== false && recipe.sourceType === "USER_CREATED"
       ));
-      setUserRecipes(userRecipeList.filter((recipe) => recipe.isActive !== false));
       setPlans(planList);
       setReport(macroReport);
       setFoods(foodList);
+      setRecommendedItems((current) => {
+        const refreshedCurrent = current.map((item) => decorateRecommendation(item, foodList));
+        const baseRecommendations = activeRecipes
+          .filter((recipe) => recipe.sourceType === "SYSTEM")
+          .map((recipe) => buildRecipeRecommendation(recipe, foodList));
+
+        return mergeRecommendations(refreshedCurrent, baseRecommendations)
+          .filter((item) => !isRecommendationHidden(item.recipe));
+      });
 
       if (isAdmin) {
         await loadAdminData();
@@ -376,9 +601,28 @@ export default function usePlannerScreen() {
     } catch (error: any) {
       Alert.alert("Không tải được Meal Planner", getErrorMessage(error));
     } finally {
-      setLoading(false);
+      if (shouldShowLoading) {
+        setLoading(false);
+      }
     }
-  }, [activeDate, isAdmin, loadAdminData, roleLoaded]);
+  }, [isAdmin, isRecommendationHidden, loadAdminData, roleLoaded]);
+
+  const loadScheduleForDate = useCallback(async (date: string) => {
+    try {
+      const [planList, macroReport] = await Promise.all([
+        getMealPlansApi({ date }),
+        getNutritionReportApi({ periodType: "WEEK", startDate: date }),
+      ]);
+      setPlans(planList);
+      setReport(macroReport);
+    } catch (error: any) {
+      Alert.alert("Không tải được lịch bữa ăn", getErrorMessage(error));
+    }
+  }, []);
+
+  useEffect(() => {
+    activeDateRef.current = activeDate;
+  }, [activeDate]);
 
   useEffect(() => {
     const loadRole = async () => {
@@ -386,6 +630,40 @@ export default function usePlannerScreen() {
       if (raw) {
         const userInfo = JSON.parse(raw);
         setIsAdmin(userInfo?.role === "ADMIN");
+        const userKey = userInfo?._id || userInfo?.id || userInfo?.email || "current";
+        hiddenRecommendationStorageKeyRef.current = `plannerHiddenRecommendations:${userKey}`;
+        dismissedRecommendationRefsStorageKeyRef.current =
+          `plannerDismissedRecommendationRefs:${userKey}`;
+        const storedHiddenRecommendations = await AsyncStorage.getItem(
+          hiddenRecommendationStorageKeyRef.current
+        );
+        if (storedHiddenRecommendations) {
+          const parsedHiddenRecommendations = JSON.parse(storedHiddenRecommendations);
+          hiddenRecommendationKeysRef.current = new Set(
+            Array.isArray(parsedHiddenRecommendations) ? parsedHiddenRecommendations : []
+          );
+        }
+        const storedDismissedRecommendationRefs = await AsyncStorage.getItem(
+          dismissedRecommendationRefsStorageKeyRef.current
+        );
+        if (storedDismissedRecommendationRefs) {
+          const parsedDismissedRecommendationRefs = JSON.parse(storedDismissedRecommendationRefs);
+          dismissedRecommendationRefsRef.current = Array.isArray(parsedDismissedRecommendationRefs)
+            ? parsedDismissedRecommendationRefs
+            : [];
+        }
+        const storedBmiForm = await AsyncStorage.getItem(`plannerBmiForm:${userKey}`);
+        if (storedBmiForm) {
+          const parsedBmiForm = { ...emptyBmiForm, ...JSON.parse(storedBmiForm) };
+          setBmiForm(parsedBmiForm);
+          setBmiProfile(calculateBmiProfile(parsedBmiForm));
+        }
+        const storedTarget = Number(userInfo?.preferences?.calorieTarget);
+        if (storedTarget > 0) {
+          setDailyTargetCalories(storedTarget);
+          setDailyGoalDraft(String(storedTarget));
+          setSelectedCalorieGoal(getCalorieGoalKeyForTarget(storedTarget));
+        }
       }
       setRoleLoaded(true);
     };
@@ -403,6 +681,23 @@ export default function usePlannerScreen() {
     }
   }, [isAdmin, workspace]);
 
+  const handleChangeActiveDate = useCallback(
+    (date: string) => {
+      activeDateRef.current = date;
+      setActiveDate(date);
+      void loadScheduleForDate(date);
+    },
+    [loadScheduleForDate]
+  );
+
+  const handleSelectCalorieGoal = (goalKey: CalorieGoalKey) => {
+    const option =
+      calorieGoalOptions.find((item) => item.key === goalKey) || calorieGoalOptions[3];
+    setSelectedCalorieGoal(goalKey);
+    setDailyTargetCalories(option.target);
+    setDailyGoalDraft(String(option.target));
+  };
+
   const toggleMealType = (mealType: MealType) => {
     setSelectedMealTypes((current) => {
       if (current.includes(mealType)) {
@@ -412,34 +707,145 @@ export default function usePlannerScreen() {
     });
   };
 
+  const openDailyGoalEditor = () => {
+    setDailyGoalDraft(String(dailyTargetCalories));
+    setDailyGoalModalVisible(true);
+  };
+
+  const closeDailyGoalEditor = () => {
+    setDailyGoalDraft(String(dailyTargetCalories));
+    setDailyGoalModalVisible(false);
+  };
+
+  const handleSaveDailyGoal = async () => {
+    const nextTarget = Number(dailyGoalDraft);
+    if (!Number.isFinite(nextTarget) || nextTarget <= 0) {
+      Alert.alert("Mục tiêu kcal không hợp lệ", "Nhập số kcal lớn hơn 0.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const preferences = await updateUserPreferencesApi({ calorieTarget: nextTarget });
+      const rawUserInfo = await AsyncStorage.getItem("userInfo");
+      if (rawUserInfo) {
+        const userInfo = JSON.parse(rawUserInfo);
+        await AsyncStorage.setItem(
+          "userInfo",
+          JSON.stringify({
+            ...userInfo,
+            preferences: {
+              ...(userInfo.preferences || {}),
+              ...(preferences || {}),
+              calorieTarget: nextTarget,
+            },
+          })
+        );
+      }
+      setDailyTargetCalories(nextTarget);
+      setSelectedCalorieGoal(getCalorieGoalKeyForTarget(nextTarget));
+      setDailyGoalModalVisible(false);
+    } catch (error: any) {
+      Alert.alert("Không lưu được mục tiêu kcal", getErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getBmiStorageKey = async () => {
+    const rawUserInfo = await AsyncStorage.getItem("userInfo");
+    if (!rawUserInfo) return "plannerBmiForm:current";
+
+    const userInfo = JSON.parse(rawUserInfo);
+    const userKey = userInfo?._id || userInfo?.id || userInfo?.email || "current";
+    return `plannerBmiForm:${userKey}`;
+  };
+
+  const handleSaveBmiProfile = async () => {
+    const nextProfile = calculateBmiProfile(bmiForm);
+    if (!nextProfile) {
+      Alert.alert("BMI chưa hợp lệ", "Nhập cân nặng và chiều cao hợp lệ để tính BMI.");
+      return;
+    }
+
+    const storageKey = await getBmiStorageKey();
+    await AsyncStorage.setItem(storageKey, JSON.stringify(bmiForm));
+    setBmiProfile(nextProfile);
+  };
+
+  const handleClearBmiProfile = async () => {
+    const storageKey = await getBmiStorageKey();
+    await AsyncStorage.removeItem(storageKey);
+    setBmiForm(emptyBmiForm);
+    setBmiProfile(null);
+  };
+
+  const markRecommendationTabSeen = (tab: RecommendationTabKey) => {
+    setRecommendationBadges((current) => ({ ...current, [tab]: false }));
+  };
+
+  const handleDismissRecommendation = (recipe: Recipe) => {
+    getRecommendationHiddenKeys(recipe).forEach((key) => {
+      hiddenRecommendationKeysRef.current.add(key);
+    });
+    rememberDismissedRecommendation(recipe);
+    void persistHiddenRecommendations();
+    setRecommendedItems((current) =>
+      current.filter((item) => !isRecommendationHidden(item.recipe))
+    );
+  };
+
   const handleGenerateDailyPlan = async () => {
     try {
       setSaving(true);
+      const avoidRecipeMap = new Map<string, AvoidRecipeReference>();
+      [
+        ...dismissedRecommendationRefsRef.current,
+        ...recommendedItems.map((item) => buildAvoidRecipeReference(item.recipe)),
+      ].forEach((reference) => {
+        const key = getAvoidRecipeReferenceKey(reference);
+        if (key.replace(/:/g, "")) {
+          avoidRecipeMap.set(key, reference);
+        }
+      });
       const result = await generateDailyMealPlanApi({
         planDate: activeDate,
-        calorieTarget: selectedCalorieGoalOption.target,
+        calorieTarget: dailyTargetCalories,
         calorieMin: selectedCalorieGoalOption.min,
         calorieMax: selectedCalorieGoalOption.max,
         mealTypes: selectedMealTypes,
+        bmiProfile: bmiProfile || undefined,
+        avoidRecipes: Array.from(avoidRecipeMap.values()).slice(0, 80),
       });
       setGeneratedResult(result);
-      const generatedRecipes = [
-        ...(result.generatedRecipes || []),
-        ...result.recommendations.map((item) => item.recipe),
+      const rawRecommendations: MealRecommendation[] = [
+        ...(result.recommendations || []),
+        ...(result.generatedRecipes || []).map((recipe) => ({
+          recipe,
+          score: 1,
+          matchedFoods: [],
+          priorityReasons: [],
+        })),
       ];
-      setRecipes((current) => {
-        const map = new Map<string, Recipe>();
-        [...generatedRecipes, ...current].forEach((recipe) => {
-          if (recipe?._id && recipe.isActive !== false && recipe.sourceType !== "USER_CREATED") {
-            map.set(recipe._id, recipe);
-          }
-        });
-        return Array.from(map.values());
+      const nextRecommendations = mergeRecommendations(
+        rawRecommendations.map((item) => decorateRecommendation(item, foods))
+      ).filter((item) => !isRecommendationHidden(item.recipe));
+
+      setRecommendedItems((current) => {
+        return mergeRecommendations(nextRecommendations, current)
+          .filter((item) => !isRecommendationHidden(item.recipe));
       });
-      setDetailTab("inventory");
-      await loadPlanner();
+      setRecommendationBadges({
+        all: nextRecommendations.length > 0,
+        enough: nextRecommendations.some(
+          (item) => item.availabilityStatus === "ENOUGH_INGREDIENTS"
+        ),
+        missing: nextRecommendations.some(
+          (item) => item.availabilityStatus === "MISSING_INGREDIENTS"
+        ),
+      });
     } catch (error: any) {
-      Alert.alert("Không tạo được meal plan", getErrorMessage(error));
+      Alert.alert("Không tạo được lịch bữa ăn", getErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -447,7 +853,7 @@ export default function usePlannerScreen() {
 
   const handleExtractVideo = async () => {
     if (!videoUrl.trim()) {
-      Alert.alert("Thiếu video link", "Dán link video trước khi extract recipe.");
+      Alert.alert("Thiếu link video", "Dán link video trước khi trích xuất công thức.");
       return;
     }
 
@@ -457,7 +863,7 @@ export default function usePlannerScreen() {
       setVideoExtraction(result);
       setVideoUrl("");
     } catch (error: any) {
-      Alert.alert("Không extract được recipe", getErrorMessage(error));
+      Alert.alert("Không trích xuất được công thức", getErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -528,7 +934,7 @@ export default function usePlannerScreen() {
       }
 
       closeScheduleModal();
-      await loadPlanner();
+      await loadScheduleForDate(activeDateRef.current);
     } catch (error: any) {
       Alert.alert("Không thêm được meal", getErrorMessage(error));
     } finally {
@@ -548,10 +954,25 @@ export default function usePlannerScreen() {
       await addMissingIngredientsToShoppingListApi(missingIngredientPrompt.items);
       setMissingIngredientPrompt(null);
     } catch (error: any) {
-      Alert.alert("Không thêm được shopping list", getErrorMessage(error));
+      Alert.alert("Không thêm được danh sách mua", getErrorMessage(error));
     } finally {
       setSaving(false);
     }
+  };
+
+  const handlePromptRecipeMissingIngredients = (recipe: Recipe) => {
+    const availability = getRecipeAvailability(recipe, foods);
+    const items = buildMissingShoppingItems(recipe, availability.missingIngredients);
+
+    if (!items.length) {
+      Alert.alert("Đủ nguyên liệu", "Công thức này hiện không có nguyên liệu thiếu cần thêm vào danh sách mua.");
+      return;
+    }
+
+    setMissingIngredientPrompt({
+      sourceName: recipe.recipeName,
+      items,
+    });
   };
 
   const handleAddRecipeToPlan = async (recipe: Recipe) => {
@@ -597,7 +1018,7 @@ export default function usePlannerScreen() {
       }
 
       setDetailTab("schedule");
-      await loadPlanner();
+      await loadScheduleForDate(activeDateRef.current);
     } catch (error: any) {
       Alert.alert("Không thêm được meal", getErrorMessage(error));
     } finally {
@@ -606,6 +1027,12 @@ export default function usePlannerScreen() {
   };
 
   const handleAddFoodToPlan = async (food: InventoryFood) => {
+    const scheduleRule = getFoodScheduleRule(food);
+    if (!scheduleRule.canScheduleDirectly) {
+      Alert.alert("Cần tạo công thức", scheduleRule.reason);
+      return;
+    }
+
     if (Number(food.quantity) <= 0 || food.status === "EXPIRED") {
       setMissingIngredientPrompt({
         sourceName: food.foodName,
@@ -653,7 +1080,7 @@ export default function usePlannerScreen() {
       }
 
       setDetailTab("schedule");
-      await loadPlanner();
+      await loadScheduleForDate(activeDateRef.current);
     } catch (error: any) {
       Alert.alert("Không thêm được thực phẩm", getErrorMessage(error));
     } finally {
@@ -669,7 +1096,25 @@ export default function usePlannerScreen() {
           : normalizeMealForApi(meal)
       );
       await updateMealPlanApi(plan._id, { planDate: activeDate, meals });
-      await loadPlanner();
+      await loadScheduleForDate(activeDateRef.current);
+    } catch (error: any) {
+      Alert.alert("Không cập nhật được meal", getErrorMessage(error));
+    }
+  };
+
+  const handleUpdateMealStatus = async (
+    plan: MealPlan,
+    mealIndex: number,
+    status: MealStatus
+  ) => {
+    try {
+      const meals = plan.meals.map((meal, index) =>
+        index === mealIndex
+          ? { ...normalizeMealForApi(meal), status }
+          : normalizeMealForApi(meal)
+      );
+      await updateMealPlanApi(plan._id, { planDate: activeDate, meals });
+      await loadScheduleForDate(activeDateRef.current);
     } catch (error: any) {
       Alert.alert("Không cập nhật được meal", getErrorMessage(error));
     }
@@ -681,14 +1126,14 @@ export default function usePlannerScreen() {
         .filter((_, index) => index !== mealIndex)
         .map(normalizeMealForApi);
       await updateMealPlanApi(plan._id, { planDate: activeDate, meals });
-      await loadPlanner();
+      await loadScheduleForDate(activeDateRef.current);
     } catch (error: any) {
       Alert.alert("Không xóa được meal", getErrorMessage(error));
     }
   };
 
   const handleDeletePlan = (plan: MealPlan) => {
-    Alert.alert("Xóa meal plan", "Xóa toàn bộ meal plan ngày này?", [
+    Alert.alert("Xóa lịch bữa ăn", "Xóa toàn bộ lịch bữa ăn ngày này?", [
       { text: "Hủy", style: "cancel" },
       {
         text: "Xóa",
@@ -696,9 +1141,9 @@ export default function usePlannerScreen() {
         onPress: async () => {
           try {
             await deleteMealPlanApi(plan._id);
-            await loadPlanner();
+            await loadScheduleForDate(activeDateRef.current);
           } catch (error: any) {
-            Alert.alert("Không xóa được meal plan", getErrorMessage(error));
+            Alert.alert("Không xóa được lịch bữa ăn", getErrorMessage(error));
           }
         },
       },
@@ -751,6 +1196,42 @@ export default function usePlannerScreen() {
   const buildRecipePayload = () => buildRecipePayloadFromForm(recipeForm, "SYSTEM");
   const buildUserRecipePayload = () => buildRecipePayloadFromForm(userRecipeForm);
 
+  const buildRecipePayloadFromRecipe = (recipe: Recipe) => ({
+    recipeName: recipe.recipeName.trim(),
+    description: recipe.description?.trim() || undefined,
+    imageUrl: recipe.imageUrl?.trim() || undefined,
+    cookingSteps: recipe.cookingSteps || [],
+    cookingTime: recipe.cookingTime,
+    difficulty: recipe.difficulty || "EASY",
+    calories: recipe.calories,
+    macroSummary: recipe.macroSummary || { protein: 0, carbs: 0, fat: 0 },
+    tags: recipe.tags || [],
+    ingredients: recipe.ingredients || [],
+    recalculateNutrition: false,
+  });
+
+  const handleSaveRecommendedRecipe = async (recipe: Recipe) => {
+    const recipeName = normalizeRecipeName(recipe.recipeName);
+    const alreadySaved = userRecipes.some(
+      (item) => normalizeRecipeName(item.recipeName) === recipeName
+    );
+
+    if (alreadySaved) {
+      Alert.alert("Công thức đã có", "Công thức này đã nằm trong danh sách công thức cá nhân.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await createUserRecipeApi(buildRecipePayloadFromRecipe(recipe));
+      await loadPlanner({ showLoading: false });
+    } catch (error: any) {
+      Alert.alert("Không thêm được công thức", getErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleCalculateRecipeNutrition = async () => {
     const ingredients = buildIngredientsFromForm(recipeForm);
 
@@ -780,7 +1261,7 @@ export default function usePlannerScreen() {
   const handleSaveRecipe = async () => {
     if (!isAdmin) return;
     if (!recipeForm.recipeName.trim()) {
-      Alert.alert("Thiếu tên recipe", "Vui lòng nhập tên công thức.");
+      Alert.alert("Thiếu tên công thức", "Vui lòng nhập tên công thức.");
       return;
     }
 
@@ -795,7 +1276,7 @@ export default function usePlannerScreen() {
       resetRecipeForm();
       await loadPlanner();
     } catch (error: any) {
-      Alert.alert("Không lưu được recipe", getErrorMessage(error));
+      Alert.alert("Không lưu được công thức", getErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -803,7 +1284,7 @@ export default function usePlannerScreen() {
 
   const handleSaveUserRecipe = async () => {
     if (!userRecipeForm.recipeName.trim()) {
-      Alert.alert("Thiếu tên recipe", "Vui lòng nhập tên công thức.");
+      Alert.alert("Thiếu tên công thức", "Vui lòng nhập tên công thức.");
       return false;
     }
 
@@ -819,7 +1300,7 @@ export default function usePlannerScreen() {
       await loadPlanner();
       return true;
     } catch (error: any) {
-      Alert.alert("Không lưu được recipe cá nhân", getErrorMessage(error));
+      Alert.alert("Không lưu được công thức cá nhân", getErrorMessage(error));
       return false;
     } finally {
       setSaving(false);
@@ -827,7 +1308,7 @@ export default function usePlannerScreen() {
   };
 
   const handleDeleteUserRecipe = (recipe: Recipe) => {
-    Alert.alert("Xóa recipe", `Xóa "${recipe.recipeName}"?`, [
+    Alert.alert("Xóa công thức", `Xóa "${recipe.recipeName}"?`, [
       { text: "Hủy", style: "cancel" },
       {
         text: "Xóa",
@@ -837,7 +1318,7 @@ export default function usePlannerScreen() {
             await deleteUserRecipeApi(recipe._id);
             await loadPlanner();
           } catch (error: any) {
-            Alert.alert("Không xóa được recipe", getErrorMessage(error));
+            Alert.alert("Không xóa được công thức", getErrorMessage(error));
           }
         },
       },
@@ -846,7 +1327,7 @@ export default function usePlannerScreen() {
 
   const handleDeleteRecipe = (recipe: Recipe) => {
     if (!isAdmin) return;
-    Alert.alert("Xóa recipe", `Xóa "${recipe.recipeName}"?`, [
+    Alert.alert("Xóa công thức", `Xóa "${recipe.recipeName}"?`, [
       { text: "Hủy", style: "cancel" },
       {
         text: "Xóa",
@@ -856,7 +1337,7 @@ export default function usePlannerScreen() {
             await deleteAdminRecipeApi(recipe._id);
             await loadPlanner();
           } catch (error: any) {
-            Alert.alert("Không xóa được recipe", getErrorMessage(error));
+            Alert.alert("Không xóa được công thức", getErrorMessage(error));
           }
         },
       },
@@ -1032,10 +1513,13 @@ export default function usePlannerScreen() {
     adminSection,
     setAdminSection,
     activeDate,
-    setActiveDate,
+    setActiveDate: handleChangeActiveDate,
+    handleChangeActiveDate,
     dates,
     recipes,
     userRecipes,
+    recommendedItems,
+    recommendationBadges,
     plans,
     foods,
     report,
@@ -1043,9 +1527,21 @@ export default function usePlannerScreen() {
     videoUrl,
     setVideoUrl,
     videoExtraction,
-    targetCalories: String(selectedCalorieGoalOption.target),
+    targetCalories: String(dailyTargetCalories),
+    dailyTargetCalories,
+    dailyGoalDraft,
+    setDailyGoalDraft,
+    dailyGoalModalVisible,
+    openDailyGoalEditor,
+    closeDailyGoalEditor,
+    handleSaveDailyGoal,
+    bmiForm,
+    setBmiForm,
+    bmiProfile,
+    handleSaveBmiProfile,
+    handleClearBmiProfile,
     selectedCalorieGoal,
-    setSelectedCalorieGoal,
+    setSelectedCalorieGoal: handleSelectCalorieGoal,
     selectedCalorieGoalOption,
     selectedMealTypes,
     selectedMealType,
@@ -1083,11 +1579,16 @@ export default function usePlannerScreen() {
     calculation,
     loadPlanner,
     toggleMealType,
+    markRecommendationTabSeen,
+    handleDismissRecommendation,
     handleGenerateDailyPlan,
+    handleSaveRecommendedRecipe,
     handleExtractVideo,
     handleAddRecipeToPlan,
+    handlePromptRecipeMissingIngredients,
     handleAddFoodToPlan,
     handleCycleMealStatus,
+    handleUpdateMealStatus,
     handleRemoveMeal,
     handleDeletePlan,
     handleSaveCategory,

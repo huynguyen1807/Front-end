@@ -2,7 +2,7 @@ import { MealStatus, MealType, StorageRuleType } from "../types/planner";
 
 export type Workspace = "meal" | "admin";
 export type AdminSection = "category" | "storage" | "nutrition" | "recipe" | "review";
-export type PlannerDetailTab = "inventory" | "schedule" | "macro" | "calories" | "recipes" | "video";
+export type PlannerDetailTab = "inventory" | "schedule" | "macro" | "bmi" | "recipes" | "video";
 export type CalorieGoalKey =
   | "UNDER_100"
   | "RANGE_100_500"
@@ -10,6 +10,10 @@ export type CalorieGoalKey =
   | "RANGE_1000_1500"
   | "RANGE_1500_2000"
   | "OVER_2000";
+
+export type BmiGender = "MALE" | "FEMALE" | "OTHER";
+export type BmiActivityLevel = "LOW" | "MODERATE" | "HIGH";
+export type BmiGoal = "MAINTAIN" | "WEIGHT_LOSS" | "MUSCLE_GAIN" | "HEALTHY_EATING";
 
 export type RecipeIngredientFormState = {
   id: string;
@@ -37,6 +41,15 @@ export type RecipeFormState = {
   ingredientName: string;
   ingredientQuantity: string;
   ingredientUnit: string;
+};
+
+export type BmiFormState = {
+  weightKg: string;
+  heightCm: string;
+  age: string;
+  gender: BmiGender;
+  activityLevel: BmiActivityLevel;
+  goal: BmiGoal;
 };
 
 export type NutritionFactFormState = {
@@ -118,6 +131,34 @@ export const emptyStorageRuleForm: StorageRuleFormState = {
   warningMessage: "",
   priority: "0",
 };
+
+export const emptyBmiForm: BmiFormState = {
+  weightKg: "",
+  heightCm: "",
+  age: "",
+  gender: "OTHER",
+  activityLevel: "MODERATE",
+  goal: "HEALTHY_EATING",
+};
+
+export const bmiGenderOptions: Array<{ key: BmiGender; label: string }> = [
+  { key: "OTHER", label: "Khác" },
+  { key: "MALE", label: "Nam" },
+  { key: "FEMALE", label: "Nữ" },
+];
+
+export const bmiActivityOptions: Array<{ key: BmiActivityLevel; label: string }> = [
+  { key: "LOW", label: "Ít vận động" },
+  { key: "MODERATE", label: "Vừa phải" },
+  { key: "HIGH", label: "Vận động cao" },
+];
+
+export const bmiGoalOptions: Array<{ key: BmiGoal; label: string }> = [
+  { key: "HEALTHY_EATING", label: "Ăn khỏe" },
+  { key: "MAINTAIN", label: "Duy trì" },
+  { key: "WEIGHT_LOSS", label: "Giảm cân" },
+  { key: "MUSCLE_GAIN", label: "Tăng cơ" },
+];
 
 export const calorieGoalOptions: Array<{
   key: CalorieGoalKey;

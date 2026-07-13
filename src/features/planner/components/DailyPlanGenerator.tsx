@@ -35,10 +35,10 @@ export default function DailyPlanGenerator({
 }: DailyPlanGeneratorProps) {
   return (
     <Section
-      title="Generate Daily Meal Plan"
-      subtitle="AI tạo recipe gợi ý từ inventory theo mức calories đã chọn, ưu tiên đồ sắp hết hạn và sở thích."
+      title="Tạo kế hoạch bữa ăn"
+      subtitle="AI tạo món gợi ý từ tủ thực phẩm theo mức calories đã chọn, ưu tiên đồ sắp hết hạn và sở thích."
     >
-      <Field label="Calories option">
+      <Field label="Mức calories">
         <View style={styles.segmentRow}>
           {calorieGoalOptions.map((option) => (
             <ChipButton
@@ -50,7 +50,7 @@ export default function DailyPlanGenerator({
           ))}
         </View>
       </Field>
-      <Field label="Meal slots">
+      <Field label="Khung bữa ăn">
         <View style={styles.segmentRow}>
           {mealTypeOptions.map((option) => (
             <ChipButton
@@ -64,7 +64,7 @@ export default function DailyPlanGenerator({
       </Field>
       <View style={styles.actionRow}>
         <ActionButton
-          label="Generate recipes"
+          label="Tạo món gợi ý"
           icon="star-four-points-outline"
           disabled={saving}
           onPress={onGenerate}
@@ -74,10 +74,31 @@ export default function DailyPlanGenerator({
         <View style={styles.inlineNotice}>
           <MaterialCommunityIcons name="check-decagram-outline" size={18} color={COLORS.primary} />
           <Text style={styles.inlineNoticeText}>
-            Đã chuẩn bị {generatedResult.generatedRecipes?.length || generatedResult.recommendations.length} recipe gợi ý từ {generatedResult.inventoryPriority.length} thực phẩm trong tủ. Chọn recipe phù hợp ở Recommended Recipes để đưa vào lịch.
+            Đã chuẩn bị {generatedResult.generatedRecipes?.length || generatedResult.recommendations.length} món gợi ý từ {generatedResult.inventoryPriority.length} thực phẩm trong tủ. Chọn món phù hợp ở Món được gợi ý để đưa vào lịch.
           </Text>
         </View>
       )}
+      {generatedResult?.mealCalorieAllocations?.length ? (
+        <View style={styles.metricGrid}>
+          {generatedResult.mealCalorieAllocations.map((allocation) => {
+            const mealLabel =
+              mealTypeOptions.find((option) => option.key === allocation.mealType)?.label ||
+              allocation.mealType;
+            const maxText = Number.isFinite(allocation.max)
+              ? `${Math.round(allocation.max || 0)}`
+              : "+";
+
+            return (
+              <View key={allocation.mealType} style={styles.metric}>
+                <Text style={styles.metricValue}>{Math.round(allocation.target)} kcal</Text>
+                <Text style={styles.metricLabel}>
+                  {mealLabel}: {Math.round(allocation.min)}-{maxText}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
     </Section>
   );
 }

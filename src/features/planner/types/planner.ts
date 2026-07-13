@@ -18,10 +18,13 @@ export interface MacroSummary {
 export interface RecipeIngredient {
   ingredientName: string;
   categoryId?: string;
+  categoryName?: string;
   quantity: number;
   unit: string;
   isRequired?: boolean;
 }
+
+export type RecipeAvailabilityStatus = "ENOUGH_INGREDIENTS" | "MISSING_INGREDIENTS";
 
 export interface Recipe {
   _id: string;
@@ -38,6 +41,14 @@ export interface Recipe {
   sourceType: RecipeSourceType;
   isActive?: boolean;
   availability?: RecipeAvailability;
+  availabilityStatus?: RecipeAvailabilityStatus;
+  missingIngredients?: RecipeIngredient[];
+  targetMealType?: MealType;
+  targetCalories?: number;
+  calorieRange?: {
+    min: number;
+    max?: number;
+  };
 }
 
 export interface InventoryFood {
@@ -87,6 +98,14 @@ export interface MealPlan {
 export interface MealRecommendation {
   recipe: Recipe;
   score: number;
+  availabilityStatus?: RecipeAvailabilityStatus;
+  missingIngredients?: RecipeIngredient[];
+  targetMealType?: MealType;
+  targetCalories?: number;
+  calorieRange?: {
+    min: number;
+    max?: number;
+  };
   matchedFoods: Array<{
     _id: string;
     foodName: string;
@@ -114,6 +133,29 @@ export interface GeneratedMealPlanResult {
   recommendations: MealRecommendation[];
   planDate?: string;
   calorieTarget: number;
+  calorieRange?: {
+    min: number;
+    max?: number;
+  };
+  mealCalorieAllocations?: Array<{
+    mealType: MealType;
+    min: number;
+    max?: number;
+    target: number;
+  }>;
+  generatedCaloriesTotal?: number;
+}
+
+export interface BmiProfile {
+  weightKg: number;
+  heightCm: number;
+  age?: number;
+  gender?: "MALE" | "FEMALE" | "OTHER";
+  activityLevel?: "LOW" | "MODERATE" | "HIGH";
+  goal?: "MAINTAIN" | "WEIGHT_LOSS" | "MUSCLE_GAIN" | "HEALTHY_EATING";
+  bmi: number;
+  category: "UNDERWEIGHT" | "NORMAL" | "OVERWEIGHT" | "OBESE";
+  categoryLabel: string;
 }
 
 export interface RecipeAvailability {

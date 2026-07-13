@@ -1,6 +1,23 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import appJson from '../../app.json';
 import { apiClient } from './apiClient';
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function getExpoProjectId(): string | null {
+  const projectId = appJson.expo?.extra?.eas?.projectId;
+
+  if (typeof projectId !== 'string' || !UUID_PATTERN.test(projectId)) {
+    console.warn(
+      '[PushNotification] Invalid Expo EAS projectId. Check app.json -> expo.extra.eas.projectId.'
+    );
+    return null;
+  }
+
+  return projectId;
+}
 
 // Cấu hình hiển thị notification khi app đang foreground
 Notifications.setNotificationHandler({
@@ -37,8 +54,11 @@ export async function registerForPushNotifications(): Promise<void> {
     }
 
     // Lấy Expo Push Token
+    const projectId = getExpoProjectId();
+    if (!projectId) return;
+
     const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: 'freshfriends', // Expo project slug
+      projectId,
     });
     const token = tokenData.data;
 

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   Image,
@@ -38,6 +38,7 @@ type UserRecipePanelProps = {
   onEditRecipe: (recipe: Recipe) => void;
   onDeleteRecipe: (recipe: Recipe) => void;
   onAddToPlan: (recipe: Recipe) => void;
+  onAddMissingIngredients: (recipe: Recipe) => void;
 };
 
 const difficultyOptions: Array<{ key: RecipeFormState["difficulty"]; label: string }> = [
@@ -49,6 +50,9 @@ const difficultyOptions: Array<{ key: RecipeFormState["difficulty"]; label: stri
 const ensureIngredients = (ingredients?: RecipeIngredientFormState[]) =>
   ingredients?.length ? ingredients : [createEmptyRecipeIngredient()];
 
+type RecipeSortMode = "name" | "calories" | "difficulty";
+type RecipeAvailabilityFilter = "all" | "enough" | "missing";
+
 export default function UserRecipePanel({
   recipes,
   recipeForm,
@@ -59,8 +63,86 @@ export default function UserRecipePanel({
   onEditRecipe,
   onDeleteRecipe,
   onAddToPlan,
+  onAddMissingIngredients,
 }: UserRecipePanelProps) {
   const [recipeModalVisible, setRecipeModalVisible] = useState(false);
+  const [allRecipesVisible, setAllRecipesVisible] = useState(false);
+  const [recipeSearch, setRecipeSearch] = useState("");
+  const [recipeSortMode, setRecipeSortMode] = useState<RecipeSortMode>("name");
+  const [recipeAvailabilityFilter, setRecipeAvailabilityFilter] =
+    useState<RecipeAvailabilityFilter>("all");
+
+  const visibleRecipes = useMemo(() => {
+    const keyword = recipeSearch.trim().toLowerCase();
+    const textFiltered = keyword
+      ? recipes.filter((recipe) =>
+          [
+            recipe.recipeName,
+            recipe.description,
+            ...(recipe.tags || []),
+            ...(recipe.ingredients || []).map((ingredient) => ingredient.ingredientName),
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(keyword)
+        )
+      : recipes;
+    const filtered = textFiltered.filter((recipe) => {
+      const availability = availabilityByRecipeId[recipe._id];
+      if (recipeAvailabilityFilter === "enough") {
+        return availability?.canSchedule !== false;
+      }
+      if (recipeAvailabilityFilter === "missing") {
+        return availability?.canSchedule === false;
+      }
+      return true;
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (recipeSortMode === "calories") {
+        return (Number(b.calories) || 0) - (Number(a.calories) || 0);
+      }
+
+      if (recipeSortMode === "difficulty") {
+        return String(a.difficulty || "").localeCompare(String(b.difficulty || ""));
+      }
+
+      return a.recipeName.localeCompare(b.recipeName, "vi");
+    });
+  }, [availabilityByRecipeId, recipeAvailabilityFilter, recipeSearch, recipeSortMode, recipes]);
+
+  const getRecipeCardState = (recipe: Recipe) => {
+    const availability = availabilityByRecipeId[recipe._id] || {
+      canSchedule: true,
+      matchedIngredients: [],
+      missingIngredients: [],
+    };
+    const missingSet = new Set(
+      availability.missingIngredients.map((ingredient) => ingredient.trim().toLowerCase())
+    );
+    const missingIngredients = availability.canSchedule
+      ? []
+      : (recipe.ingredients || []).filter((ingredient) =>
+          missingSet.has(ingredient.ingredientName.trim().toLowerCase())
+        );
+    const disabledReason = availability.canSchedule
+      ? undefined
+      : `Thiếu: ${availability.missingIngredients.join(", ")}`;
+
+    return {
+      availability,
+      disabledReason,
+      recipe: {
+        ...recipe,
+        availability,
+        availabilityStatus: availability.canSchedule
+          ? ("ENOUGH_INGREDIENTS" as const)
+          : ("MISSING_INGREDIENTS" as const),
+        missingIngredients,
+      },
+    };
+  };
 
   const openCreateRecipe = () => {
     setRecipeForm(createEmptyRecipeForm());
@@ -89,7 +171,7 @@ export default function UserRecipePanel({
     if (!permission.granted) {
       Alert.alert(
         "Không có quyền truy cập",
-        "Bạn cần cấp quyền thư viện ảnh để chọn ảnh recipe."
+        "Bạn cần cấp quyền thư viện ảnh để chọn ảnh công thức."
       );
       return;
     }
@@ -170,7 +252,7 @@ export default function UserRecipePanel({
     <>
       <View style={styles.formBlock}>
         <Text style={styles.formBlockTitle}>Thông tin chính</Text>
-        <AdminField label="Tên recipe">
+        <AdminField label="Tên công thức">
           <TextInput
             style={styles.input}
             value={recipeForm.recipeName}
@@ -229,7 +311,7 @@ export default function UserRecipePanel({
       </View>
 
       <View style={styles.formBlock}>
-        <Text style={styles.formBlockTitle}>Ảnh recipe</Text>
+        <Text style={styles.formBlockTitle}>Ảnh công thức</Text>
         <AdminField label="URL ảnh hoặc ảnh từ thư viện">
           <TextInput
             style={styles.input}
@@ -270,7 +352,7 @@ export default function UserRecipePanel({
           />
         </View>
         <Text style={styles.formBlockSubtitle}>
-          Nhập tên giống inventory để hệ thống kiểm tra đủ/thiếu nguyên liệu khi đưa vào lịch.
+          Nhập tên giống tủ thực phẩm để hệ thống kiểm tra đủ/thiếu nguyên liệu khi đưa vào lịch.
         </Text>
         {ensureIngredients(recipeForm.ingredients).map((ingredient, index) => (
           <View key={ingredient.id} style={styles.formBlock}>
@@ -424,7 +506,7 @@ export default function UserRecipePanel({
 
       <View style={styles.actionRow}>
         <AdminActionButton
-          label={recipeForm.id ? "Update recipe" : "Thêm recipe"}
+          label={recipeForm.id ? "Cập nhật công thức" : "Thêm công thức"}
           icon="content-save-outline"
           onPress={saveRecipeFromModal}
           disabled={saving}
@@ -436,13 +518,20 @@ export default function UserRecipePanel({
 
   return (
     <AdminSection
-      title="Recipe"
-      subtitle="Recipe cá nhân của bạn. Recipe thiếu nguyên liệu trong inventory sẽ bị làm mờ và không thể đưa vào lịch."
+      title="Công thức"
+      subtitle="Công thức cá nhân của bạn. Công thức thiếu nguyên liệu trong tủ thực phẩm sẽ bị làm mờ và không thể đưa vào lịch."
     >
       <View style={styles.formBlockHeader}>
-        <Text style={styles.formBlockTitle}>Recipe của bạn</Text>
+        <Text style={styles.formBlockTitle}>Công thức của bạn</Text>
         <AdminActionButton
-          label="Thêm recipe"
+          label="Xem tất cả"
+          icon="format-list-bulleted"
+          secondary
+          onPress={() => setAllRecipesVisible(true)}
+          disabled={recipes.length === 0}
+        />
+        <AdminActionButton
+          label="Thêm công thức"
           icon="plus"
           onPress={openCreateRecipe}
           disabled={saving}
@@ -450,32 +539,110 @@ export default function UserRecipePanel({
       </View>
 
       {recipes.length === 0 ? (
-        <Text style={styles.emptyText}>Bạn chưa có recipe cá nhân.</Text>
+        <Text style={styles.emptyText}>Bạn chưa có công thức cá nhân.</Text>
       ) : (
         recipes.map((recipe) => {
-          const availability = availabilityByRecipeId[recipe._id] || {
-            canSchedule: true,
-            matchedIngredients: [],
-            missingIngredients: [],
-          };
-          const disabledReason = availability.canSchedule
-            ? undefined
-            : `Thiếu: ${availability.missingIngredients.join(", ")}`;
+          const cardState = getRecipeCardState(recipe);
 
           return (
             <RecipeCard
               key={recipe._id}
-              recipe={recipe}
+              recipe={cardState.recipe}
               canManage
-              disabled={!availability.canSchedule}
-              disabledReason={disabledReason}
+              disabled={!cardState.availability.canSchedule}
+              disabledReason={cardState.disabledReason}
               onAddToPlan={onAddToPlan}
+              onAddMissingIngredients={onAddMissingIngredients}
               onEdit={openEditRecipe}
               onDelete={onDeleteRecipe}
             />
           );
         })
       )}
+
+      <Modal
+        visible={allRecipesVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAllRecipesVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Tất cả công thức</Text>
+              <TouchableOpacity
+                activeOpacity={0.78}
+                style={styles.iconButton}
+                onPress={() => setAllRecipesVisible(false)}
+              >
+                <Ionicons name="close" size={22} color={COLORS.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.input}
+              value={recipeSearch}
+              onChangeText={setRecipeSearch}
+              placeholder="Tìm theo tên, tag, nguyên liệu..."
+            />
+            <Text style={styles.formBlockSubtitle}>Lọc theo nguyên liệu</Text>
+            <View style={styles.segmentRow}>
+              {[
+                { key: "all" as const, label: "Tất cả" },
+                { key: "enough" as const, label: "Đủ nguyên liệu" },
+                { key: "missing" as const, label: "Thiếu nguyên liệu" },
+              ].map((item) => (
+                <AdminChipButton
+                  key={item.key}
+                  label={item.label}
+                  active={recipeAvailabilityFilter === item.key}
+                  onPress={() => setRecipeAvailabilityFilter(item.key)}
+                />
+              ))}
+            </View>
+            <Text style={styles.formBlockSubtitle}>Sắp xếp</Text>
+            <View style={styles.segmentRow}>
+              {[
+                { key: "name" as const, label: "Tên" },
+                { key: "calories" as const, label: "Kcal cao" },
+                { key: "difficulty" as const, label: "Độ khó" },
+              ].map((item) => (
+                <AdminChipButton
+                  key={item.key}
+                  label={item.label}
+                  active={recipeSortMode === item.key}
+                  onPress={() => setRecipeSortMode(item.key)}
+                />
+              ))}
+            </View>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScrollContent}
+            >
+              {visibleRecipes.length === 0 ? (
+                <Text style={styles.emptyText}>Không tìm thấy công thức phù hợp.</Text>
+              ) : (
+                visibleRecipes.map((recipe) => {
+                  const cardState = getRecipeCardState(recipe);
+
+                  return (
+                    <RecipeCard
+                      key={`all-${recipe._id}`}
+                      recipe={cardState.recipe}
+                      canManage
+                      disabled={!cardState.availability.canSchedule}
+                      disabledReason={cardState.disabledReason}
+                      onAddToPlan={onAddToPlan}
+                      onAddMissingIngredients={onAddMissingIngredients}
+                      onEdit={openEditRecipe}
+                      onDelete={onDeleteRecipe}
+                    />
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={recipeModalVisible}
@@ -487,7 +654,7 @@ export default function UserRecipePanel({
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {recipeForm.id ? "Update recipe" : "Thêm recipe"}
+                {recipeForm.id ? "Cập nhật công thức" : "Thêm công thức"}
               </Text>
               <TouchableOpacity
                 activeOpacity={0.78}

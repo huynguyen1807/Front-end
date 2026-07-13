@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { DimensionValue, StyleSheet, Text, View } from "react-native";
+import { DimensionValue, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
 import { COLORS } from "../../../constants/colors";
@@ -9,12 +9,14 @@ type DailyGoalCardProps = {
   currentCalories: number;
   targetCalories?: number;
   macroSummary?: MacroSummary;
+  onPress?: () => void;
 };
 
 export default function DailyGoalCard({
   currentCalories,
   targetCalories = 2000,
   macroSummary = { protein: 0, carbs: 0, fat: 0 },
+  onPress,
 }: DailyGoalCardProps) {
   const currentKcal = Math.round(currentCalories);
   const totalKcal = Math.max(1, targetCalories);
@@ -32,8 +34,20 @@ export default function DailyGoalCard({
   const strokeDashoffset = circumference - percentage * circumference;
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity
+      activeOpacity={onPress ? 0.86 : 1}
+      disabled={!onPress}
+      onPress={onPress}
+      style={styles.card}
+      accessibilityRole={onPress ? "button" : undefined}
+    >
+      <View style={styles.titleRow}>
       <Text style={styles.title}>MỤC TIÊU HẰNG NGÀY</Text>
+
+        {onPress ? (
+          <MaterialCommunityIcons name="pencil-circle-outline" size={22} color={COLORS.primary} />
+        ) : null}
+      </View>
 
       <View style={styles.calorieRow}>
         <Text style={styles.currentKcal}>{currentKcal.toLocaleString("vi-VN")}</Text>
@@ -101,7 +115,7 @@ export default function DailyGoalCard({
           color={COLORS.tertiary}
         />
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -159,8 +173,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
     color: COLORS.onSurface,
-    marginBottom: 8,
     letterSpacing: 0,
+  },
+  titleRow: {
+    minHeight: 26,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginBottom: 8,
   },
   calorieRow: {
     flexDirection: "row",

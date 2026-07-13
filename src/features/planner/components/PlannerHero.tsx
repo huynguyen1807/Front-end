@@ -34,7 +34,7 @@ export default function PlannerHero({
     <View style={styles.hero}>
       <View style={styles.heroHeader}>
         <View>
-          <Text style={styles.eyebrow}>Meal + Recipe + Nutrition</Text>
+          <Text style={styles.eyebrow}>Bữa ăn + Công thức + Dinh dưỡng</Text>
           <Text style={styles.heroTitle}>Smart Meal Workspace</Text>
         </View>
         <MaterialCommunityIcons name="silverware-fork-knife" size={30} color={COLORS.primary} />
@@ -43,7 +43,7 @@ export default function PlannerHero({
         <MiniStat label="Inventory" value={String(foods.length)} />
         <MiniStat label="Near expiry" value={String(nearExpiryCount)} />
         <MiniStat label="Meals" value={String(mealCount)} />
-        {isAdmin && <MiniStat label="AI review" value={String(aiReviewCount)} />}
+        {isAdmin && <MiniStat label="AI cần duyệt" value={String(aiReviewCount)} />}
       </View>
       {isAdmin && (
         <View style={styles.workspaceSwitch}>

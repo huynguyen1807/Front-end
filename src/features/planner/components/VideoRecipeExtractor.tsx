@@ -21,8 +21,8 @@ export default function VideoRecipeExtractor({
 }: VideoRecipeExtractorProps) {
   return (
     <Section
-      title="Extract Recipe from Video"
-      subtitle="Dán link YouTube, TikTok hoặc Facebook để tạo bản nháp recipe từ video."
+      title="Trích xuất công thức từ video"
+      subtitle="Dán link YouTube, TikTok hoặc Facebook để tạo bản nháp công thức từ video."
     >
       <View style={styles.inputWithButton}>
         <TextInput

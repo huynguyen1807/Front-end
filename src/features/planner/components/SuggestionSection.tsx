@@ -37,14 +37,14 @@ export default function SuggestionSection({
 
       <View style={styles.banner}>
         <Text style={styles.bannerText}>
-          Dữ liệu công thức được dùng để lên meal plan, tự tính calorie và macro.
+          Dữ liệu công thức được dùng để lên lịch bữa ăn, tự tính calorie và macro.
         </Text>
       </View>
 
       {loading ? (
         <ActivityIndicator color={COLORS.primary} style={styles.loader} />
       ) : recipes.length === 0 ? (
-        <Text style={styles.emptyText}>Chưa có recipe data. Hãy tạo công thức đầu tiên.</Text>
+        <Text style={styles.emptyText}>Chưa có dữ liệu công thức. Hãy tạo công thức đầu tiên.</Text>
       ) : (
         recipes.map((recipe) => (
           <RecipeCard
