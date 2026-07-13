@@ -19,21 +19,16 @@ import {
   createStorageLocationApi,
 } from '../services/foodApi';
 import { FoodCategory, StorageLocation } from '../types/inventory';
+import {
+  getCategoryDisplayName,
+  getFoodSaveAlert,
+  sortFoodCategories,
+} from '../utils/inventoryDisplay';
 
 const SOURCE_TYPES = [
   { key: 'SUPERMARKET', label: 'Siêu thị' },
   { key: 'MARKET', label: 'Chợ' },
 ] as const;
-
-// Danh mục mặc định nếu DB chưa có seed
-const DEFAULT_CATEGORIES: FoodCategory[] = [
-  { _id: '__thit', categoryName: 'Thịt & Hải sản' },
-  { _id: '__rau', categoryName: 'Rau củ quả' },
-  { _id: '__sua', categoryName: 'Sữa & Trứng' },
-  { _id: '__do_kho', categoryName: 'Đồ khô' },
-  { _id: '__nuoc', categoryName: 'Đồ uống' },
-  { _id: '__khac', categoryName: 'Khác' },
-];
 
 // Storage mặc định nếu user chưa tạo
 const DEFAULT_STORAGES = [
@@ -53,19 +48,18 @@ export default function AddFoodScreen() {
   const [categories, setCategories] = useState<FoodCategory[]>([]);
   const [locations, setLocations] = useState<StorageLocation[]>([]);
   const [suggestion, setSuggestion] = useState<string | null>(null);
-  const [selectedCategoryName, setSelectedCategoryName] = useState('');
 
   const [form, setForm] = useState({
     foodName: prefill?.foodName ?? '',
-    categoryId: '',
-    storageLocationId: '',
-    storageTypeKey: 'REFRIGERATOR' as string, // dùng khi chưa có location trong DB
+    categoryId: prefill?.categoryId ?? '',
+    storageLocationId: prefill?.storageLocationId ?? '',
+    storageTypeKey: (prefill?.storageTypeKey ?? 'REFRIGERATOR') as string, // dùng khi chưa có location trong DB
     sourceType: (prefill?.sourceType ?? 'SUPERMARKET') as 'SUPERMARKET' | 'MARKET',
     expiryType: (prefill?.expiryType ?? 'MANUAL') as 'MANUAL' | 'SCANNED' | 'AI_PREDICTED',
     purchaseDate: new Date().toISOString().split('T')[0],
     expiryDate: prefill?.expiryDate ?? '',
     quantity: prefill?.quantity ?? '',
-    unit: 'kg',
+    unit: prefill?.unit ?? 'kg',
     imageUrl: prefill?.imageUrl ?? '',
   });
 
@@ -75,31 +69,38 @@ export default function AddFoodScreen() {
   useEffect(() => {
     Promise.all([getFoodCategoriesApi(), getStorageLocationsApi()])
       .then(([cats, locs]) => {
-        // Nếu DB có category → dùng DB, không thì dùng mặc định
-        const catList = cats.length > 0 ? cats : DEFAULT_CATEGORIES;
+        const catList = sortFoodCategories(cats);
+        const prefillCategoryName = String(prefill?.categoryName || '').trim().toLowerCase();
+        const matchedPrefillCategory = catList.find((cat) => cat._id === prefill?.categoryId)
+          || catList.find((cat) =>
+            [cat.categoryName, cat.displayName]
+              .filter(Boolean)
+              .some((name) => String(name).trim().toLowerCase() === prefillCategoryName)
+          );
+        const matchedPrefillLocation = locs.find((loc) => loc._id === prefill?.storageLocationId)
+          || locs.find((loc) => loc.storageType === prefill?.storageTypeKey);
         setCategories(catList);
         setLocations(locs);
         setForm((f) => ({
           ...f,
-          categoryId: catList[0]._id,
+          categoryId: matchedPrefillCategory?._id || f.categoryId || catList[0]?._id || '',
+          storageLocationId: matchedPrefillLocation?._id || f.storageLocationId || locs[0]?._id || '',
+          storageTypeKey: prefill?.storageTypeKey || matchedPrefillLocation?.storageType || f.storageTypeKey,
         }));
-        setSelectedCategoryName(catList[0].categoryName);
-        if (locs.length) {
-          setForm((f) => ({ ...f, storageLocationId: locs[0]._id }));
-        }
       })
       .catch(() => {
-        // Nếu API lỗi, vẫn hiện danh mục mặc định
-        setCategories(DEFAULT_CATEGORIES);
-        setForm((f) => ({ ...f, categoryId: DEFAULT_CATEGORIES[0]._id }));
-        setSelectedCategoryName(DEFAULT_CATEGORIES[0].categoryName);
+        setCategories([]);
+        setForm((f) => ({ ...f, categoryId: '' }));
       })
       .finally(() => setFetchingData(false));
   }, []);
 
   // Gợi ý bảo quản khi đổi category (chỉ với real categoryId từ DB)
   useEffect(() => {
-    if (!form.categoryId || form.categoryId.startsWith('__')) return;
+    if (!form.categoryId) {
+      setSuggestion(null);
+      return;
+    }
     getStorageSuggestionApi(form.categoryId)
       .then((s) => setSuggestion(s?.instruction ?? null))
       .catch(() => setSuggestion(null));
@@ -160,6 +161,10 @@ export default function AddFoodScreen() {
     if (!quantity) {
       Alert.alert('Thiếu thông tin', 'Vui lòng nhập số lượng'); return;
     }
+    if (!categoryId) {
+      Alert.alert('Chưa có danh mục', 'Admin cần tạo danh mục thực phẩm trong hệ thống trước khi thêm inventory.');
+      return;
+    }
 
     if (purchaseDate && expiryDate) {
       const pDate = new Date(purchaseDate);
@@ -186,35 +191,9 @@ export default function AddFoodScreen() {
         setForm((f) => ({ ...f, storageLocationId: created._id }));
       }
 
-      // ── Nếu category là mock (chưa có DB) → skip categoryId hoặc dùng placeholder ─
-      // Backend vẫn cần categoryId hợp lệ → nếu là mock ID, ta tạo category tạm
-      let finalCategoryId = categoryId;
-      if (categoryId.startsWith('__')) {
-        // Thử tạo category nếu chưa tồn tại (backend có thể đã có)
-        try {
-          const res = await fetch(`${require('../../../config/env').getApiUrl()}/api/foods/categories`, {
-            headers: { 'Content-Type': 'application/json' }
-          });
-          // Nếu không tìm được category phù hợp, dùng category đầu tiên thực sự có trong DB
-          // hoặc skip → backend sẽ báo lỗi rõ hơn
-          const data = await res.json();
-          if (data.data?.length) finalCategoryId = data.data[0]._id;
-        } catch (_) {}
-      }
-
-      if (!finalCategoryId || finalCategoryId.startsWith('__')) {
-        Alert.alert(
-          'Chưa có danh mục',
-          'Admin chưa tạo danh mục thực phẩm trong hệ thống. Vui lòng liên hệ Member 4 để seed dữ liệu.',
-          [{ text: 'OK' }]
-        );
-        setLoading(false);
-        return;
-      }
-
       const newItem = await createFoodApi({
         foodName: foodName.trim(),
-        categoryId: finalCategoryId,
+        categoryId,
         storageLocationId,
         imageUrl: form.imageUrl || undefined,
         sourceType: form.sourceType,
@@ -226,7 +205,15 @@ export default function AddFoodScreen() {
       });
 
       dispatch(addFoodItem(newItem));
-      Alert.alert('✅ Thành công', `Đã thêm "${newItem.foodName}" vào tủ!`, [
+      const saveAlert = getFoodSaveAlert(newItem);
+      if (saveAlert) {
+        Alert.alert(saveAlert.title, saveAlert.message, [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+        return;
+      }
+
+      Alert.alert('Thành công', `Đã thêm "${newItem.foodName}" vào tủ!`, [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err: any) {
@@ -298,11 +285,10 @@ export default function AddFoodScreen() {
                   style={[styles.chip, form.categoryId === cat._id && styles.chipActive]}
                   onPress={() => {
                     setForm((f) => ({ ...f, categoryId: cat._id }));
-                    setSelectedCategoryName(cat.categoryName);
                   }}
                 >
                   <Text style={[styles.chipText, form.categoryId === cat._id && styles.chipTextActive]}>
-                    {cat.categoryName}
+                    {getCategoryDisplayName(cat)}
                   </Text>
                 </TouchableOpacity>
               ))}

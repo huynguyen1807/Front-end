@@ -1,9 +1,16 @@
-import React, { useState } from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useRef, useState } from "react";
+import { Animated, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
 import { MaterialIcons } from "@expo/vector-icons";
 import { COLORS } from "../../../constants/colors";
 import { RADIUS, SPACING } from "../../../constants/spacing";
 import { FoodItem } from "../types/inventory";
+import {
+  FOOD_STATUS_CONFIG,
+  getCategoryDisplayName,
+  getDaysLeft,
+  getInventoryUrgencyLabel,
+} from "../utils/inventoryDisplay";
 
 type InventoryCardProps = {
   item: FoodItem;
@@ -13,27 +20,45 @@ type InventoryCardProps = {
   onPress?: () => void;
 };
 
-const STATUS_CONFIG = {
-  SAFE:        { color: COLORS.primary,   label: "Còn tốt",     icon: "check-circle" as const },
-  NEAR_EXPIRY: { color: "#F59E0B",        label: "Sắp hết hạn", icon: "warning" as const },
-  EXPIRED:     { color: COLORS.tertiary,  label: "Hết hạn",     icon: "error" as const },
-  NEED_CHECK:  { color: COLORS.onSurfaceVariant, label: "Cần kiểm tra", icon: "help" as const },
-};
-
-function getDaysLeft(expiryDate: string): number {
-  const diff = new Date(expiryDate).getTime() - Date.now();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
-
 export default function InventoryCard({ item, onEdit, onDelete, onConsume, onPress }: InventoryCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const swipeableRef = useRef<Swipeable>(null);
 
-  const cfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.SAFE;
+  const cfg = FOOD_STATUS_CONFIG[item.status] ?? FOOD_STATUS_CONFIG.SAFE;
   const daysLeft = getDaysLeft(item.expiryDate);
   const freshnessScore = item.freshnessScore ?? 0;
-  const isUrgent = daysLeft <= 1;
+  const urgentLabel = getInventoryUrgencyLabel(item);
 
-  return (
+  const handleDelete = () => {
+    swipeableRef.current?.close();
+    onDelete?.();
+  };
+
+  const renderRightAction = (
+    _progress: Animated.AnimatedInterpolation<number>,
+    dragX: Animated.AnimatedInterpolation<number>
+  ) => {
+    const scale = dragX.interpolate({
+      inputRange: [-90, 0],
+      outputRange: [1, 0.65],
+      extrapolate: "clamp",
+    });
+
+    return (
+      <TouchableOpacity
+        activeOpacity={0.85}
+        style={styles.deleteSwipeAction}
+        onPress={handleDelete}
+      >
+        <Animated.View style={[styles.deleteSwipeInner, { transform: [{ scale }] }]}>
+          <MaterialIcons name="delete-outline" size={24} color={COLORS.onTertiary} />
+          <Text style={styles.deleteSwipeText}>Xoá</Text>
+        </Animated.View>
+      </TouchableOpacity>
+    );
+  };
+
+  const card = (
     <TouchableOpacity activeOpacity={0.9} style={styles.card} onPress={onPress}>
       {/* Image + badge */}
       <View style={styles.imageWrapper}>
@@ -44,14 +69,14 @@ export default function InventoryCard({ item, onEdit, onDelete, onConsume, onPre
             <MaterialIcons name="fastfood" size={40} color={COLORS.primary + "60"} />
           </View>
         )}
-        {isUrgent && (
+        {urgentLabel && (
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>Cần dùng ngay!</Text>
+            <Text style={styles.badgeText}>{urgentLabel}</Text>
           </View>
         )}
         {/* Status badge */}
         <View style={[styles.statusBadge, { backgroundColor: cfg.color + "22" }]}>
-          <MaterialIcons name={cfg.icon} size={12} color={cfg.color} />
+          <MaterialIcons name={cfg.icon as keyof typeof MaterialIcons.glyphMap} size={12} color={cfg.color} />
           <Text style={[styles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
         </View>
       </View>
@@ -72,7 +97,7 @@ export default function InventoryCard({ item, onEdit, onDelete, onConsume, onPre
         </Text>
 
         <Text style={styles.category}>
-          {item.categoryId?.categoryName ?? ""}
+          {getCategoryDisplayName(item.categoryId)}
         </Text>
 
         {/* Freshness bar */}
@@ -111,6 +136,25 @@ export default function InventoryCard({ item, onEdit, onDelete, onConsume, onPre
         )}
       </View>
     </TouchableOpacity>
+  );
+
+  if (!onDelete) return card;
+
+  return (
+    <Swipeable
+      ref={swipeableRef}
+      friction={2}
+      overshootRight={false}
+      rightThreshold={45}
+      renderRightActions={renderRightAction}
+      onSwipeableOpen={(direction) => {
+        if (direction === "right") {
+          handleDelete();
+        }
+      }}
+    >
+      {card}
+    </Swipeable>
   );
 }
 
@@ -169,5 +213,23 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceContainer,
   },
   actionText: { fontSize: 12, fontWeight: "700" },
+  deleteSwipeAction: {
+    width: 92,
+    marginLeft: 10,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.tertiary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteSwipeInner: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  deleteSwipeText: {
+    color: COLORS.onTertiary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
 });
 

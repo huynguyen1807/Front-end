@@ -69,8 +69,17 @@ export interface InventoryFood {
     nutritionFactId?: string;
     unit?: string;
   };
-  categoryId?: string | { _id: string; categoryName: string };
+  categoryId?: string | { _id: string; categoryName: string } | null;
   storageLocationId?: string | { _id: string; storageName: string; storageType: string };
+}
+
+export interface UsedFoodUsage {
+  foodItemId: string | InventoryFood;
+  foodName: string;
+  quantityUsed: number;
+  unit: string;
+  calories?: number;
+  macroSummary?: MacroSummary;
 }
 
 export interface MealPlanMeal {
@@ -83,6 +92,8 @@ export interface MealPlanMeal {
   macroSummary?: MacroSummary;
   status: MealStatus;
   usedFoodItemIds?: string[];
+  usedFoods?: UsedFoodUsage[];
+  inventoryApplied?: boolean;
 }
 
 export interface MealPlan {
@@ -202,7 +213,7 @@ export interface NutritionReport {
 export interface NutritionFact {
   _id: string;
   foodName: string;
-  categoryId?: string | { _id: string; categoryName: string };
+  categoryId?: string | { _id: string; categoryName: string } | null;
   caloriesPerUnit: number;
   unit: "g" | "ml" | "item" | "serving";
   protein: number;
@@ -223,7 +234,7 @@ export type StorageRuleType = "REFRIGERATOR" | "OUTSIDE" | "FREEZER" | "PANTRY" 
 
 export interface StorageRuleData {
   _id: string;
-  categoryId: string | { _id: string; categoryName: string };
+  categoryId: string | { _id: string; categoryName: string } | null;
   storageType: StorageRuleType;
   estimatedDays: number;
   instruction?: string;

@@ -6,18 +6,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../../constants/colors";
 import { RADIUS, SPACING } from "../../../constants/spacing";
 import { FoodItem } from "../types/inventory";
-
-const STATUS_CONFIG = {
-  SAFE: { color: COLORS.primary, label: "Còn tốt", icon: "check-circle" as const },
-  NEAR_EXPIRY: { color: "#F59E0B", label: "Sắp hết hạn", icon: "warning" as const },
-  EXPIRED: { color: COLORS.tertiary, label: "Hết hạn", icon: "error" as const },
-  NEED_CHECK: { color: COLORS.onSurfaceVariant, label: "Cần kiểm tra", icon: "help" as const },
-};
-
-function getDaysLeft(expiryDate: string): number {
-  const diff = new Date(expiryDate).getTime() - Date.now();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
+import {
+  FOOD_STATUS_CONFIG,
+  getCategoryDisplayName,
+  getDaysLeft,
+  getInventoryUrgencyLabel,
+} from "../utils/inventoryDisplay";
 
 function formatDate(dateString?: string) {
   if (!dateString) return "N/A";
@@ -32,10 +26,10 @@ export default function FoodDetailScreen() {
   const route = useRoute<any>();
   const { item } = route.params as { item: FoodItem };
 
-  const cfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.SAFE;
+  const cfg = FOOD_STATUS_CONFIG[item.status] ?? FOOD_STATUS_CONFIG.SAFE;
   const daysLeft = getDaysLeft(item.expiryDate);
   const freshnessScore = item.freshnessScore ?? 0;
-  const isUrgent = daysLeft <= 1;
+  const urgentLabel = getInventoryUrgencyLabel(item);
   const nutrition = item.nutrition;
   const calories = nutrition?.calories ?? item.calories ?? 0;
   const macroSummary = nutrition?.macroSummary ?? item.macroSummary ?? { protein: 0, carbs: 0, fat: 0 };
@@ -61,9 +55,9 @@ export default function FoodDetailScreen() {
               <MaterialIcons name="fastfood" size={80} color={COLORS.primary + "60"} />
             </View>
           )}
-          {isUrgent && (
+          {urgentLabel && (
             <View style={styles.urgentBadge}>
-              <Text style={styles.urgentText}>Cần dùng ngay!</Text>
+              <Text style={styles.urgentText}>{urgentLabel}</Text>
             </View>
           )}
         </View>
@@ -72,12 +66,12 @@ export default function FoodDetailScreen() {
           <View style={styles.nameRow}>
             <Text style={styles.name}>{item.foodName}</Text>
             <View style={[styles.statusBadge, { backgroundColor: cfg.color + "22" }]}>
-              <MaterialIcons name={cfg.icon} size={14} color={cfg.color} />
+              <MaterialIcons name={cfg.icon as keyof typeof MaterialIcons.glyphMap} size={14} color={cfg.color} />
               <Text style={[styles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
             </View>
           </View>
 
-          <Text style={styles.category}>{item.categoryId?.categoryName ?? "Chưa phân loại"}</Text>
+          <Text style={styles.category}>{getCategoryDisplayName(item.categoryId)}</Text>
 
           <View style={styles.card}>
             <View style={styles.progressHeader}>
@@ -135,7 +129,7 @@ export default function FoodDetailScreen() {
               icon="event-busy"
               label="Ngày hết hạn:"
               value={formatDate(item.expiryDate)}
-              danger={isUrgent}
+              danger={!!urgentLabel}
             />
           </View>
         </View>

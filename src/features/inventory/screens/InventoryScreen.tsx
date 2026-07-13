@@ -1,11 +1,11 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
   RefreshControl, Platform, Alert, StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 import BottomNavbar from '../../../components/layout/BottomNavbar';
 import ScreenContainer from '../../../components/layout/ScreenContainer';
@@ -23,6 +23,7 @@ const FILTERS: { key: InventoryFilter; label: string; danger?: boolean }[] = [
   { key: 'SAFE', label: 'Còn tốt' },
   { key: 'NEAR_EXPIRY', label: 'Sắp hết hạn', danger: true },
   { key: 'EXPIRED', label: 'Hết hạn', danger: true },
+  { key: 'NEED_CHECK', label: 'Cần kiểm tra', danger: true },
 ];
 
 export default function InventoryDashboardScreen() {
@@ -38,7 +39,11 @@ export default function InventoryDashboardScreen() {
     dispatch(fetchSummary());
   }, [activeFilter, dispatch]);
 
-  useEffect(() => { load(); }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const handleDelete = (item: FoodItem) => {
     Alert.alert('Xoá thực phẩm', `Xoá "${item.foodName}"?`, [
@@ -81,6 +86,10 @@ export default function InventoryDashboardScreen() {
         <View style={[styles.summaryBox, styles.dangerBox]}>
           <Text style={[styles.summaryNum, { color: COLORS.tertiary }]}>{summary.expired}</Text>
           <Text style={styles.summaryLabel}>Hết hạn</Text>
+        </View>
+        <View style={[styles.summaryBox, styles.checkBox]}>
+          <Text style={[styles.summaryNum, { color: COLORS.onSurfaceVariant }]}>{summary.needCheck ?? 0}</Text>
+          <Text style={styles.summaryLabel}>Cần kiểm tra</Text>
         </View>
       </View>
 
@@ -160,6 +169,7 @@ const styles = StyleSheet.create({
   safeBox: { borderColor: 'rgba(34,197,94,0.3)' },
   warnBox: { borderColor: 'rgba(245,158,11,0.3)' },
   dangerBox: { borderColor: 'rgba(239,68,68,0.3)' },
+  checkBox: { borderColor: 'rgba(100,116,139,0.35)' },
   summaryNum: { fontSize: 20, fontWeight: '800', color: COLORS.onSurface },
   summaryLabel: { fontSize: 11, color: COLORS.onSurfaceVariant, marginTop: 2 },
   chipRow: { paddingHorizontal: 16, paddingBottom: 8, gap: 8 },

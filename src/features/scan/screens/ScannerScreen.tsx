@@ -10,7 +10,7 @@ import TopNavbar from "../../../components/layout/TopNavbar";
 import CameraView from "../components/CameraView";
 import ScanResultCard from "../components/ScanResultCard";
 import { scannerScreenStyles as styles } from "../styles/ScannerScreen.styles";
-import { ScanResult, StorageLocation } from "../types/scan";
+import { FoodRecognition, ScanResult, StorageLocation } from "../types/scan";
 import { COLORS } from "../../../constants/colors";
 import { useAppDispatch } from "../../../redux/hooks";
 // addFoodItem từ inventorySlice chỉ nhận FoodItem từ API - scan feature cần integrate riêng
@@ -27,6 +27,12 @@ export default function ScannerScreen() {
   const [isScanning, setIsScanning] = useState(false);
   const [currentResult, setCurrentResult] = useState<ScanResult | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
+
+  const mapStorageToBackend = (storage: StorageLocation) => {
+    if (storage === "fridge") return "REFRIGERATOR";
+    if (storage === "freezer") return "FREEZER";
+    return "OUTSIDE";
+  };
 
   // Handle camera capture
   const handleCameraCapture = async (photo: any) => {
@@ -61,7 +67,8 @@ export default function ScannerScreen() {
   const handleAddToInventory = (
     quantity: string,
     storage: StorageLocation,
-    date: string
+    date: string,
+    recognition: FoodRecognition
   ) => {
     if (!currentResult) return;
 
@@ -73,10 +80,20 @@ export default function ScannerScreen() {
 
     navigation.navigate('AddFood', {
       prefill: {
-        foodName: currentResult.foodRecognition.productName,
+        foodName: recognition.productName,
         imageUrl: currentResult.imageUrl ?? '',
         expiryDate: isoExpiry,
         quantity: quantity,
+        unit: recognition.estimatedQuantity?.unit || currentResult.foodRecognition.estimatedQuantity?.unit || 'kg',
+        categoryId: recognition.categoryId,
+        categoryName: recognition.categoryName || recognition.category,
+        storageLocationId:
+          storage === currentResult.storageSuggestion.location
+            ? currentResult.storageSuggestion.storageLocationId
+            : undefined,
+        storageTypeKey: currentResult.storageSuggestion.storageType || mapStorageToBackend(storage),
+        nutritionInfo: currentResult.nutritionInfo,
+        scanConfidence: recognition.confidence,
         sourceType: 'SUPERMARKET',
         expiryType: 'SCANNED',
       }

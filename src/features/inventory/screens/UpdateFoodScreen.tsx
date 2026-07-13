@@ -26,6 +26,11 @@ import {
   updateFoodApi,
 } from "../services/foodApi";
 import { FoodCategory, FoodItem, StorageLocation } from "../types/inventory";
+import {
+  getCategoryDisplayName,
+  getFoodSaveAlert,
+  sortFoodCategories,
+} from "../utils/inventoryDisplay";
 
 const SOURCE_TYPES = [
   { key: "SUPERMARKET", label: "Siêu thị" },
@@ -70,11 +75,12 @@ export default function UpdateFoodScreen() {
   useEffect(() => {
     Promise.all([getFoodCategoriesApi(), getStorageLocationsApi()])
       .then(([categoryList, locationList]) => {
-        setCategories(categoryList);
+        const sortedCategories = sortFoodCategories(categoryList);
+        setCategories(sortedCategories);
         setLocations(locationList);
         setForm((current) => ({
           ...current,
-          categoryId: current.categoryId || categoryList[0]?._id || "",
+          categoryId: current.categoryId || sortedCategories[0]?._id || "",
           storageLocationId: current.storageLocationId || locationList[0]?._id || "",
         }));
       })
@@ -158,6 +164,14 @@ export default function UpdateFoodScreen() {
       });
 
       dispatch(updateFoodItem(updated));
+      const saveAlert = getFoodSaveAlert(updated);
+      if (saveAlert) {
+        Alert.alert(saveAlert.title, saveAlert.message, [
+          { text: "OK", onPress: () => navigation.goBack() },
+        ]);
+        return;
+      }
+
       Alert.alert("Đã cập nhật", `"${updated.foodName}" đã được lưu.`, [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
@@ -246,7 +260,7 @@ export default function UpdateFoodScreen() {
                 {categories.map((category) => (
                   <Chip
                     key={category._id}
-                    label={category.categoryName}
+                    label={getCategoryDisplayName(category)}
                     active={form.categoryId === category._id}
                     onPress={() => setForm((current) => ({ ...current, categoryId: category._id }))}
                   />

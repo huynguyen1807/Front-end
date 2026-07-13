@@ -90,10 +90,11 @@ import { calculateBmiProfile } from "../utils/bmiUtils";
 import { getFoodScheduleRule } from "../utils/foodScheduleRules";
 import {
   addDays,
+  buildUsedFoodUsage,
   getDaysUntilExpiry,
   getErrorMessage,
   getRecipeAvailability,
-  getRecipeUsedFoodIds,
+  getRecipeUsedFoods,
   normalizeMealForApi,
   toDateInput,
 } from "../utils/plannerUtils";
@@ -174,14 +175,13 @@ const buildCookingStepsFromForm = (formState: RecipeFormState) => {
   return draftStep ? [...steps, draftStep] : steps;
 };
 
-const getFoodCalories = (food: InventoryFood) =>
-  Number(food.calories ?? food.nutrition?.calories) || 0;
-
-const getFoodMacroSummary = (food: InventoryFood) => ({
-  protein: Number(food.macroSummary?.protein ?? food.nutrition?.macroSummary.protein) || 0,
-  carbs: Number(food.macroSummary?.carbs ?? food.nutrition?.macroSummary.carbs) || 0,
-  fat: Number(food.macroSummary?.fat ?? food.nutrition?.macroSummary.fat) || 0,
-});
+const getDefaultFoodPortion = (food: InventoryFood) => {
+  const quantity = Number(food.quantity) || 0;
+  const unit = String(food.unit || "").toLowerCase();
+  if (quantity <= 0) return "1";
+  if (unit === "g" || unit === "ml") return String(Math.min(quantity, 100));
+  return String(Math.min(quantity, 1));
+};
 
 const buildMissingShoppingItems = (
   recipe: Recipe,
@@ -407,6 +407,7 @@ export default function usePlannerScreen() {
   const [scheduleDraft, setScheduleDraft] = useState<ScheduleDraft>(null);
   const [scheduleMealType, setScheduleMealType] = useState<MealType>("BREAKFAST");
   const [scheduleTime, setScheduleTime] = useState(mealTypeOptions[0].time);
+  const [scheduleFoodQuantity, setScheduleFoodQuantity] = useState("1");
   const [selectedMealType, setSelectedMealType] = useState<MealType>("LUNCH");
   const [missingIngredientPrompt, setMissingIngredientPrompt] = useState<{
     sourceName: string;
@@ -609,12 +610,14 @@ export default function usePlannerScreen() {
 
   const loadScheduleForDate = useCallback(async (date: string) => {
     try {
-      const [planList, macroReport] = await Promise.all([
+      const [planList, macroReport, foodList] = await Promise.all([
         getMealPlansApi({ date }),
         getNutritionReportApi({ periodType: "WEEK", startDate: date }),
+        getAvailableFoodsApi(),
       ]);
       setPlans(planList);
       setReport(macroReport);
+      setFoods(foodList);
     } catch (error: any) {
       Alert.alert("Không tải được lịch bữa ăn", getErrorMessage(error));
     }
@@ -874,6 +877,9 @@ export default function usePlannerScreen() {
     setScheduleDraft(draft);
     setScheduleMealType(defaultOption.key);
     setScheduleTime(defaultOption.time);
+    if (draft.type === "food") {
+      setScheduleFoodQuantity(getDefaultFoodPortion(draft.food));
+    }
   };
 
   const handleSelectScheduleMealType = (mealType: MealType) => {
@@ -884,6 +890,7 @@ export default function usePlannerScreen() {
 
   const closeScheduleModal = () => {
     setScheduleDraft(null);
+    setScheduleFoodQuantity("1");
   };
 
   const saveMealToPlan = async (meal: MealPlanMeal) => {
@@ -908,6 +915,7 @@ export default function usePlannerScreen() {
       setSaving(true);
       if (scheduleDraft.type === "recipe") {
         const { recipe } = scheduleDraft;
+        const usedFoods = getRecipeUsedFoods(recipe, foods);
         await saveMealToPlan({
           mealType: scheduleMealType,
           recipeId: recipe._id,
@@ -917,18 +925,37 @@ export default function usePlannerScreen() {
           calories: recipe.calories || 0,
           macroSummary: recipe.macroSummary || { protein: 0, carbs: 0, fat: 0 },
           status: "PENDING",
-          usedFoodItemIds: getRecipeUsedFoodIds(recipe, foods),
+          usedFoods,
+          usedFoodItemIds: usedFoods.map((usage) => usage.foodItemId as string),
         });
       } else {
         const { food } = scheduleDraft;
+        const quantityUsed = Number(scheduleFoodQuantity.replace(",", "."));
+        if (!Number.isFinite(quantityUsed) || quantityUsed <= 0) {
+          Alert.alert("Số lượng không hợp lệ", "Vui lòng nhập số lượng thực phẩm muốn dùng lớn hơn 0.");
+          return;
+        }
+        if (quantityUsed > Number(food.quantity)) {
+          Alert.alert(
+            "Không đủ số lượng",
+            `Trong kho chỉ còn ${food.quantity} ${food.unit}. Vui lòng chọn lượng nhỏ hơn hoặc bằng số lượng hiện có.`
+          );
+          return;
+        }
+        const usedFood = buildUsedFoodUsage(food, quantityUsed, food.unit);
+        if (!usedFood) {
+          Alert.alert("Không tính được khẩu phần", "Vui lòng kiểm tra lại số lượng và đơn vị thực phẩm.");
+          return;
+        }
         await saveMealToPlan({
           mealType: scheduleMealType,
           recipeName: food.foodName,
           imageUrl: food.imageUrl,
           scheduledTime: scheduleTime,
-          calories: getFoodCalories(food),
-          macroSummary: getFoodMacroSummary(food),
+          calories: usedFood.calories || 0,
+          macroSummary: usedFood.macroSummary || { protein: 0, carbs: 0, fat: 0 },
           status: "PENDING",
+          usedFoods: [usedFood],
           usedFoodItemIds: [food._id],
         });
       }
@@ -986,44 +1013,6 @@ export default function usePlannerScreen() {
     }
 
     openScheduleDraft({ type: "recipe", recipe });
-    return;
-
-    try {
-      setSaving(true);
-      const option =
-        mealTypeOptions.find((item) => item.key === selectedMealType) || mealTypeOptions[1];
-      const meal: MealPlanMeal = {
-        mealType: selectedMealType,
-        recipeId: recipe._id,
-        recipeName: recipe.recipeName,
-        imageUrl: recipe.imageUrl,
-        scheduledTime: option.time,
-        calories: recipe.calories || 0,
-        macroSummary: recipe.macroSummary || { protein: 0, carbs: 0, fat: 0 },
-        status: "PENDING",
-        usedFoodItemIds: getRecipeUsedFoodIds(recipe, foods),
-      };
-
-      if (plans[0]) {
-        await updateMealPlanApi(plans[0]._id, {
-          planDate: activeDate,
-          meals: [...plans[0].meals.map(normalizeMealForApi), meal],
-        });
-      } else {
-        await createMealPlanApi({
-          planDate: activeDate,
-          goal: "Balanced daily meals",
-          meals: [meal],
-        });
-      }
-
-      setDetailTab("schedule");
-      await loadScheduleForDate(activeDateRef.current);
-    } catch (error: any) {
-      Alert.alert("Không thêm được meal", getErrorMessage(error));
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleAddFoodToPlan = async (food: InventoryFood) => {
@@ -1049,43 +1038,6 @@ export default function usePlannerScreen() {
     }
 
     openScheduleDraft({ type: "food", food });
-    return;
-
-    try {
-      setSaving(true);
-      const option =
-        mealTypeOptions.find((item) => item.key === selectedMealType) || mealTypeOptions[1];
-      const meal: MealPlanMeal = {
-        mealType: selectedMealType,
-        recipeName: food.foodName,
-        imageUrl: food.imageUrl,
-        scheduledTime: option.time,
-        calories: getFoodCalories(food),
-        macroSummary: getFoodMacroSummary(food),
-        status: "PENDING",
-        usedFoodItemIds: [food._id],
-      };
-
-      if (plans[0]) {
-        await updateMealPlanApi(plans[0]._id, {
-          planDate: activeDate,
-          meals: [...plans[0].meals.map(normalizeMealForApi), meal],
-        });
-      } else {
-        await createMealPlanApi({
-          planDate: activeDate,
-          goal: "Balanced daily meals",
-          meals: [meal],
-        });
-      }
-
-      setDetailTab("schedule");
-      await loadScheduleForDate(activeDateRef.current);
-    } catch (error: any) {
-      Alert.alert("Không thêm được thực phẩm", getErrorMessage(error));
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleCycleMealStatus = async (plan: MealPlan, mealIndex: number) => {
@@ -1550,6 +1502,8 @@ export default function usePlannerScreen() {
     scheduleMealType,
     scheduleTime,
     setScheduleTime,
+    scheduleFoodQuantity,
+    setScheduleFoodQuantity,
     handleSelectScheduleMealType,
     closeScheduleModal,
     handleConfirmScheduleMeal,
