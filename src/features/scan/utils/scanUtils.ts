@@ -25,9 +25,10 @@ export const scanProductFromImage = async (
     // Call real AI service when backend is ready
     return await scanProductComplete(imageUri);
   } catch (error) {
-    // Fallback to mock data if API fails
-    console.warn('Using mock data for development');
-    return getMockScanResult(imageUri);
+    console.warn('[Scan] AI scan failed', error);
+    throw error instanceof Error
+      ? error
+      : new Error('KhÃ´ng thá»ƒ nháº­n diá»‡n thá»±c pháº©m tá»« áº£nh nÃ y');
   }
 };
 

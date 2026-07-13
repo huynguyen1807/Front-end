@@ -8,14 +8,19 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { scannerScreenStyles as styles } from "../styles/ScannerScreen.styles";
-import { ScanResult, StorageLocation, STORAGE_LOCATIONS } from "../types/scan";
+import { FoodRecognition, ScanResult, StorageLocation, STORAGE_LOCATIONS } from "../types/scan";
 import { COLORS } from "../../../constants/colors";
 import { SPACING } from "../../../constants/spacing";
 import { useState } from "react";
 
 type ScanResultCardProps = {
   result: ScanResult;
-  onAddToInventory: (quantity: string, storage: StorageLocation, date: string) => void;
+  onAddToInventory: (
+    quantity: string,
+    storage: StorageLocation,
+    date: string,
+    recognition: FoodRecognition
+  ) => void;
   onRescan: () => void;
 };
 
@@ -24,21 +29,45 @@ export default function ScanResultCard({
   onAddToInventory,
   onRescan,
 }: ScanResultCardProps) {
-  const [quantity, setQuantity] = useState("1");
+  const [quantity, setQuantity] = useState(
+    result.foodRecognition.estimatedQuantity?.quantity
+      ? String(result.foodRecognition.estimatedQuantity.quantity)
+      : "1"
+  );
   const [storageType, setStorageType] = useState<StorageLocation>(
     result.storageSuggestion.location
   );
   const [expiryDate, setExpiryDate] = useState(result.expiryDate);
   const [showStorageDropdown, setShowStorageDropdown] = useState(false);
   const [expandedMeal, setExpandedMeal] = useState<number | null>(null);
+  const [selectedCandidateIndex, setSelectedCandidateIndex] = useState(0);
+
+  const candidates = result.foodRecognition.candidates || [];
+  const selectedCandidate = candidates[selectedCandidateIndex];
+  const selectedRecognition: FoodRecognition = selectedCandidate
+    ? {
+        ...result.foodRecognition,
+        productName: selectedCandidate.foodName,
+        normalizedName: selectedCandidate.normalizedName,
+        category: selectedCandidate.categoryName || result.foodRecognition.category,
+        categoryId: selectedCandidate.categoryId,
+        categoryName: selectedCandidate.categoryName,
+        confidence: selectedCandidate.confidence,
+      }
+    : result.foodRecognition;
+  const warnings = selectedRecognition.warnings || result.foodRecognition.warnings || [];
+  const canAddToInventory =
+    selectedRecognition.isFood !== false &&
+    Boolean(selectedRecognition.productName?.trim()) &&
+    selectedRecognition.confidence >= 0.2;
 
   const handleAddToInventory = () => {
-    onAddToInventory(quantity, storageType, expiryDate);
+    onAddToInventory(quantity, storageType, expiryDate, selectedRecognition);
   };
 
   const quantityNum = parseInt(quantity) || 1;
-  const productName = result.foodRecognition.productName;
-  const confidence = Math.round(result.foodRecognition.confidence * 100);
+  const productName = selectedRecognition.productName;
+  const confidence = Math.round(selectedRecognition.confidence * 100);
 
   return (
     <ScrollView style={styles.resultSection} showsVerticalScrollIndicator={false}>
@@ -58,9 +87,145 @@ export default function ScanResultCard({
       <View style={{ marginBottom: SPACING.lg }}>
         <Text style={styles.productName}>{productName}</Text>
         <Text style={{ color: COLORS.onSurfaceVariant, fontSize: 12, marginTop: 4 }}>
-          Độ chính xác: {confidence}% • {result.foodRecognition.category}
+          Độ chính xác: {confidence}% • {selectedRecognition.categoryName || selectedRecognition.category}
         </Text>
       </View>
+
+      {warnings.length > 0 && (
+        <View
+          style={{
+            backgroundColor: "#FEF3C7",
+            borderColor: "#F59E0B",
+            borderWidth: 1,
+            padding: SPACING.md,
+            borderRadius: 12,
+            marginBottom: SPACING.lg,
+          }}
+        >
+          <Text style={{ color: "#92400E", fontSize: 13, fontWeight: "700", marginBottom: 4 }}>
+            Can kiem tra lai
+          </Text>
+          {warnings.map((warning, index) => (
+            <Text key={`warning-${index}-${warning}`} style={{ color: "#92400E", fontSize: 12, lineHeight: 17 }}>
+              • {warning}
+            </Text>
+          ))}
+        </View>
+      )}
+
+      {false && warnings.length > 0 && (
+        <View
+          style={{
+            backgroundColor: "#FEF3C7",
+            borderColor: "#F59E0B",
+            borderWidth: 1,
+            padding: SPACING.md,
+            borderRadius: 12,
+            marginBottom: SPACING.lg,
+          }}
+        >
+          <Text style={{ color: "#92400E", fontSize: 13, fontWeight: "700", marginBottom: 4 }}>
+            Cáº§n kiá»ƒm tra láº¡i
+          </Text>
+          {warnings.map((warning, index) => (
+            <Text key={`${warning}-${index}`} style={{ color: "#92400E", fontSize: 12, lineHeight: 17 }}>
+              â€¢ {warning}
+            </Text>
+          ))}
+        </View>
+      )}
+
+      {candidates.length > 1 && (
+        <View style={{ marginBottom: SPACING.lg }}>
+          <Text style={styles.sectionLabel}>AI co the la</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={{ flexDirection: "row", gap: SPACING.sm }}>
+              {candidates.map((candidate, index) => {
+                const active = selectedCandidateIndex === index;
+                return (
+                  <TouchableOpacity
+                    key={`candidate-${candidate.foodName}-${candidate.categoryId || candidate.categoryName || "cat"}-${index}`}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 9,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: active ? COLORS.primary : COLORS.outlineVariant,
+                      backgroundColor: active ? COLORS.primaryContainer : COLORS.surfaceContainer,
+                    }}
+                    onPress={() => setSelectedCandidateIndex(index)}
+                  >
+                    <Text
+                      style={{
+                        color: active ? COLORS.onPrimaryContainer : COLORS.onSurface,
+                        fontWeight: "700",
+                        fontSize: 12,
+                      }}
+                    >
+                      {candidate.foodName}
+                    </Text>
+                    <Text
+                      style={{
+                        color: active ? COLORS.onPrimaryContainer : COLORS.onSurfaceVariant,
+                        fontSize: 11,
+                        marginTop: 2,
+                      }}
+                    >
+                      {Math.round(candidate.confidence * 100)}% • {candidate.categoryName || "Danh muc"}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+      )}
+
+      {false && candidates.length > 1 && (
+        <View style={{ marginBottom: SPACING.lg }}>
+          <Text style={styles.sectionLabel}>AI cÃ³ thá»ƒ lÃ </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={{ flexDirection: "row", gap: SPACING.sm }}>
+              {candidates.map((candidate, index) => {
+                const active = selectedCandidateIndex === index;
+                return (
+                  <TouchableOpacity
+                    key={`${candidate.foodName}-${candidate.categoryId || candidate.categoryName || "cat"}-${index}`}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 9,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: active ? COLORS.primary : COLORS.outlineVariant,
+                      backgroundColor: active ? COLORS.primaryContainer : COLORS.surfaceContainer,
+                    }}
+                    onPress={() => setSelectedCandidateIndex(index)}
+                  >
+                    <Text
+                      style={{
+                        color: active ? COLORS.onPrimaryContainer : COLORS.onSurface,
+                        fontWeight: "700",
+                        fontSize: 12,
+                      }}
+                    >
+                      {candidate.foodName}
+                    </Text>
+                    <Text
+                      style={{
+                        color: active ? COLORS.onPrimaryContainer : COLORS.onSurfaceVariant,
+                        fontSize: 11,
+                        marginTop: 2,
+                      }}
+                    >
+                      {Math.round(candidate.confidence * 100)}% â€¢ {candidate.categoryName || "Danh má»¥c"}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+      )}
 
       {/* AI Prediction & Expiry Date */}
       <View
@@ -459,8 +624,9 @@ export default function ScanResultCard({
           <Text style={styles.secondaryButtonText}>Quét lại</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.button, styles.primaryButton]}
+          style={[styles.button, styles.primaryButton, !canAddToInventory && { opacity: 0.45 }]}
           onPress={handleAddToInventory}
+          disabled={!canAddToInventory}
         >
           <Text style={styles.primaryButtonText}>Thêm vào kho</Text>
         </TouchableOpacity>

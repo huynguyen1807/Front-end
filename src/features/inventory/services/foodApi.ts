@@ -1,7 +1,7 @@
 import { apiClient } from '../../../services/apiClient';
 
 // ─── Food Items ───────────────────────────────────────────────────────────────
-export const getFoodsApi = async (filter?: 'SAFE' | 'NEAR_EXPIRY' | 'EXPIRED') => {
+export const getFoodsApi = async (filter?: 'SAFE' | 'NEAR_EXPIRY' | 'EXPIRED' | 'NEED_CHECK') => {
   const params = filter ? { filter } : {};
   const res = await apiClient.get('/api/foods', { params });
   return res.data.data;

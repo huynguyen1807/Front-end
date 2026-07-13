@@ -2,12 +2,48 @@ export type FoodRecognition = {
   productName: string;
   category: string;
   confidence: number;
+  isFood?: boolean;
+  normalizedName?: string;
+  categoryId?: string;
+  categoryName?: string;
+  candidates?: FoodRecognitionCandidate[];
+  visualEvidence?: string[];
+  estimatedQuantity?: {
+    quantity: number;
+    unit: string;
+  };
+  storageSuggestion?: StorageSuggestion;
+  expiryEstimate?: {
+    predictedDays: number;
+    expiryDate: string;
+    explanation?: string;
+  };
+  nutritionEstimate?: NutritionInfo;
+  warnings?: string[];
+  errorCode?: string;
+  providerError?: string;
+  retryAfterSeconds?: number;
+  modelAttempts?: string[];
+  aiProvider?: string;
+  modelUsed?: string;
+};
+
+export type FoodRecognitionCandidate = {
+  foodName: string;
+  normalizedName?: string;
+  categoryId?: string;
+  categoryName?: string;
+  confidence: number;
+  reason?: string;
 };
 
 export type StorageSuggestion = {
   location: StorageLocation;
+  storageType?: string;
+  storageLocationId?: string;
   description: string;
   temperature: string;
+  estimatedDays?: number;
 };
 
 export type MealSuggestion = {
@@ -23,6 +59,8 @@ export type NutritionInfo = {
   protein: number;
   carbs: number;
   fat: number;
+  source?: string;
+  matched?: boolean;
 };
 
 export type ScanResult = {

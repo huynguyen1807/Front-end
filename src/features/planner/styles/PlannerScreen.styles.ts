@@ -109,6 +109,41 @@ export const plannerStyles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 10,
   },
+  quantityPanel: {
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+    borderRadius: 8,
+    backgroundColor: COLORS.surfaceContainer,
+    padding: 12,
+    marginBottom: 12,
+  },
+  quantityLabel: {
+    color: COLORS.onSurface,
+    fontSize: 13,
+    fontWeight: "900",
+    marginBottom: 8,
+  },
+  quantityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  quantityInput: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  quantityUnit: {
+    minWidth: 44,
+    color: COLORS.onSurface,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  quantityHint: {
+    color: COLORS.onSurfaceVariant,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 8,
+  },
   goalInput: {
     minHeight: 52,
     backgroundColor: COLORS.surfaceContainerLowest,
@@ -382,11 +417,20 @@ export const plannerStyles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 18,
   },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   detailSheet: {
     maxHeight: "86%",
     borderRadius: 8,
     backgroundColor: COLORS.surface,
     padding: 14,
+  },
+  scheduleSheet: {
+    maxHeight: "90%",
+  },
+  scheduleSheetContent: {
+    paddingBottom: 8,
   },
   goalSheet: {
     borderRadius: 8,

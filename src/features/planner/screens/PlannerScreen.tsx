@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   RefreshControl,
@@ -410,8 +411,18 @@ export default function PlannerScreen() {
         animationType="fade"
         onRequestClose={planner.closeScheduleModal}
       >
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingView}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+        >
         <View style={styles.detailBackdrop}>
-          <View style={styles.detailSheet}>
+          <View style={[styles.detailSheet, styles.scheduleSheet]}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scheduleSheetContent}
+            >
             <View style={styles.detailHeader}>
               <Text style={styles.detailTitle}>
                 {planner.scheduleDraft?.type === "recipe"
@@ -445,6 +456,26 @@ export default function PlannerScreen() {
               onChangeText={planner.setScheduleTime}
               placeholder="HH:mm"
             />
+            {planner.scheduleDraft?.type === "food" ? (
+              <View style={styles.quantityPanel}>
+                <Text style={styles.quantityLabel}>Số lượng dùng</Text>
+                <View style={styles.quantityRow}>
+                  <TextInput
+                    style={[styles.input, styles.quantityInput]}
+                    keyboardType="decimal-pad"
+                    value={planner.scheduleFoodQuantity}
+                    onChangeText={planner.setScheduleFoodQuantity}
+                    placeholder="Nhập số lượng"
+                  />
+                  <Text style={styles.quantityUnit}>
+                    {planner.scheduleDraft.food.unit}
+                  </Text>
+                </View>
+                <Text style={styles.quantityHint}>
+                  Còn {planner.scheduleDraft.food.quantity} {planner.scheduleDraft.food.unit} trong kho.
+                </Text>
+              </View>
+            ) : null}
             <View style={styles.actionRow}>
               <TouchableOpacity
                 activeOpacity={0.82}
@@ -462,8 +493,10 @@ export default function PlannerScreen() {
                 <Text style={styles.cancelScheduleButtonText}>Hủy</Text>
               </TouchableOpacity>
             </View>
+            </ScrollView>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal

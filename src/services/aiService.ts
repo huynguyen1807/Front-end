@@ -5,6 +5,17 @@ import { ScanResult, FoodRecognition, StorageSuggestion, MealSuggestion, Nutriti
  * AI Service - Handles all AI-related API calls using apiClient (Axios with Auth headers)
  */
 
+const getApiErrorMessage = (error: any, fallback: string) => {
+  const data = error?.response?.data;
+  return (
+    data?.message ||
+    data?.warnings?.[0] ||
+    data?.error ||
+    error?.message ||
+    fallback
+  );
+};
+
 /**
  * Recognize food from image
  */
@@ -16,13 +27,17 @@ export const recognizeFood = async (imageUri: string): Promise<FoodRecognition> 
     name: 'food-image.jpg',
   } as any);
 
-  const response = await apiClient.post('/api/ai/recognize-food', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  try {
+    const response = await apiClient.post('/api/ai/recognize-food', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
 
-  return response.data;
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getApiErrorMessage(error, 'Khong the nhan dien thuc pham tu anh nay.'));
+  }
 };
 
 /**
@@ -87,6 +102,20 @@ export const getNutritionInfo = async (
   return response.data;
 };
 
+const addDaysAsDisplayDate = (days: number) =>
+  new Date(Date.now() + days * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB');
+
+const defaultStorageSuggestion: StorageSuggestion = {
+  location: 'outside',
+  storageType: 'OUTSIDE',
+  description: 'Bao quan noi kho, thoang mat va kiem tra lai truoc khi them vao kho.',
+  temperature: '20-25C',
+  estimatedDays: 3,
+};
+
+const isRecognizedFood = (foodRecognition: FoodRecognition) =>
+  foodRecognition.isFood !== false && foodRecognition.confidence >= 0.2;
+
 /**
  * Analyze cooking video (extract recipe details)
  */
@@ -139,52 +168,69 @@ export const scanProductComplete = async (
   imageUri: string,
   storageLocation?: string
 ): Promise<ScanResult> => {
-  try {
-    // Step 1: Recognize food from image
-    const foodRecognition = await recognizeFood(imageUri);
-
-    // Step 2: Predict expiry date
-    const expiryPrediction = await predictExpiryDate(
-      foodRecognition.productName,
-      storageLocation || 'outside'
+  const foodRecognition = await recognizeFood(imageUri);
+  if (foodRecognition.errorCode) {
+    throw new Error(
+      foodRecognition.warnings?.[0] ||
+      'Gemini khong kha dung de nhan dien anh nay.'
     );
+  }
 
-    // Step 3: Get storage suggestions
-    const storageSuggestions = await getStorageSuggestions(
-      foodRecognition.productName
-    );
+  const recognizedFood = isRecognizedFood(foodRecognition);
 
-    // Step 4: Get meal suggestions
-    const mealSuggestions = await getMealSuggestions(
-      foodRecognition.productName
-    );
+  let bestStorage = foodRecognition.storageSuggestion || defaultStorageSuggestion;
+  if (!foodRecognition.storageSuggestion && recognizedFood) {
+    try {
+      const storageSuggestions = await getStorageSuggestions(foodRecognition.productName);
+      bestStorage = storageSuggestions[0] || bestStorage;
+    } catch (error) {
+      console.warn('[Scan] storage suggestion fallback', error);
+    }
+  }
 
-    // Step 5: Get nutrition info
-    let nutritionInfo;
+  let expiryPrediction = foodRecognition.expiryEstimate || {
+    predictedDays: bestStorage.estimatedDays || 3,
+    expiryDate: addDaysAsDisplayDate(bestStorage.estimatedDays || 3),
+    explanation: bestStorage.description,
+  };
+  if (!foodRecognition.expiryEstimate && recognizedFood) {
+    try {
+      expiryPrediction = await predictExpiryDate(
+        foodRecognition.productName,
+        storageLocation || bestStorage.location || 'outside'
+      );
+    } catch (error) {
+      console.warn('[Scan] expiry prediction fallback', error);
+    }
+  }
+
+  let mealSuggestions: MealSuggestion[] = [];
+  if (recognizedFood) {
+    try {
+      const meals = await getMealSuggestions(foodRecognition.productName);
+      mealSuggestions = Array.isArray(meals) ? meals.slice(0, 3) : [];
+    } catch (error) {
+      console.warn('[Scan] meal suggestions unavailable', error);
+    }
+  }
+
+  let nutritionInfo = foodRecognition.nutritionEstimate;
+  if (!nutritionInfo && recognizedFood) {
     try {
       nutritionInfo = await getNutritionInfo(foodRecognition.productName);
     } catch (error) {
-      // Nutrition is optional, continue without it
+      console.warn('[Scan] nutrition unavailable', error);
     }
-
-    // Pick the best storage suggestion or default
-    const bestStorage = storageSuggestions[0] || {
-      location: 'outside' as const,
-      description: 'Bảo quan ở nhiệt độ phòng',
-      temperature: '15-25°C',
-    };
-
-    return {
-      id: `${Date.now()}`,
-      foodRecognition,
-      aiPredictedDays: expiryPrediction.predictedDays,
-      expiryDate: expiryPrediction.expiryDate,
-      storageSuggestion: bestStorage,
-      mealSuggestions: mealSuggestions.slice(0, 3), // Top 3 suggestions
-      nutritionInfo,
-      imageUrl: imageUri,
-    };
-  } catch (error) {
-    throw error;
   }
+
+  return {
+    id: `${Date.now()}`,
+    foodRecognition,
+    aiPredictedDays: expiryPrediction.predictedDays,
+    expiryDate: expiryPrediction.expiryDate,
+    storageSuggestion: bestStorage,
+    mealSuggestions,
+    nutritionInfo,
+    imageUrl: imageUri,
+  };
 };

@@ -1,7 +1,7 @@
 // Types match backend API response
 export type FoodStatus = 'SAFE' | 'NEAR_EXPIRY' | 'EXPIRED' | 'NEED_CHECK';
 export type StorageTypeBackend = 'REFRIGERATOR' | 'OUTSIDE' | 'FREEZER' | 'PANTRY' | 'KITCHEN_CABINET' | 'CUSTOM';
-export type InventoryFilter = 'all' | 'SAFE' | 'NEAR_EXPIRY' | 'EXPIRED';
+export type InventoryFilter = 'all' | 'SAFE' | 'NEAR_EXPIRY' | 'EXPIRED' | 'NEED_CHECK';
 
 // Legacy UI filter (dùng trong filter chips)
 export type UIFilter = 'all' | 'fridge' | 'outside' | 'expiring';
@@ -9,7 +9,12 @@ export type UIFilter = 'all' | 'fridge' | 'outside' | 'expiring';
 export type FoodCategory = {
   _id: string;
   categoryName: string;
+  displayName?: string;
   description?: string;
+  aliases?: string[];
+  keywords?: string[];
+  foodExamples?: string[];
+  sortOrder?: number;
 };
 
 export type StorageLocation = {
@@ -27,6 +32,8 @@ export type FoodItem = {
   unit: string;
   status: FoodStatus;
   freshnessScore: number;
+  categoryWarning?: string;
+  recommendedCategoryName?: string;
   calories?: number;
   macroSummary?: {
     protein: number;
@@ -50,6 +57,8 @@ export type FoodItem = {
   expiryType: 'MANUAL' | 'SCANNED' | 'AI_PREDICTED';
   categoryId: FoodCategory;
   storageLocationId: StorageLocation;
+  isConsumed?: boolean;
+  consumedAt?: string;
 };
 
 export type FoodSummary = {
@@ -57,6 +66,7 @@ export type FoodSummary = {
   safe: number;
   nearExpiry: number;
   expired: number;
+  needCheck?: number;
 };
 
 export type StorageSuggestion = {
