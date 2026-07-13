@@ -9,7 +9,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
 import { COLORS } from '../../../constants/colors';
-import { useAppDispatch } from '../../../redux/hooks';
+import { useAppDispatch, useAppSelector } from '../../../redux/hooks';
 import { addFoodItem } from '../redux/inventorySlice';
 import {
   createFoodApi,
@@ -18,6 +18,8 @@ import {
   getStorageSuggestionApi,
   createStorageLocationApi,
 } from '../services/foodApi';
+import { getMyHouseholdsApi } from '../../familyCloud/services/familyCloudApi';
+import { MyHousehold } from '../../familyCloud/types/familyCloud';
 import { FoodCategory, StorageLocation } from '../types/inventory';
 import {
   getCategoryDisplayName,
@@ -42,12 +44,17 @@ export default function AddFoodScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const dispatch = useAppDispatch();
+  const context = useAppSelector((state: any) => state.inventory.context);
 
   const prefill = route.params?.prefill;
 
   const [categories, setCategories] = useState<FoodCategory[]>([]);
   const [locations, setLocations] = useState<StorageLocation[]>([]);
   const [suggestion, setSuggestion] = useState<string | null>(null);
+
+  // Selector state
+  const [households, setHouseholds] = useState<MyHousehold[]>([]);
+  const [selectedContext, setSelectedContext] = useState<{ ownerType: 'USER' | 'HOUSEHOLD'; householdId?: string }>(context);
 
   const [form, setForm] = useState({
     foodName: prefill?.foodName ?? '',
@@ -67,8 +74,13 @@ export default function AddFoodScreen() {
   const [fetchingData, setFetchingData] = useState(true);
 
   useEffect(() => {
-    Promise.all([getFoodCategoriesApi(), getStorageLocationsApi()])
-      .then(([cats, locs]) => {
+    Promise.all([
+      getFoodCategoriesApi().catch(err => []),
+      getStorageLocationsApi(selectedContext.ownerType, selectedContext.householdId).catch(err => []),
+      getMyHouseholdsApi().catch(err => [])
+    ])
+      .then(([cats, locs, hhs]) => {
+        setHouseholds(hhs);
         const catList = sortFoodCategories(cats);
         const prefillCategoryName = String(prefill?.categoryName || '').trim().toLowerCase();
         const matchedPrefillCategory = catList.find((cat) => cat._id === prefill?.categoryId)
@@ -79,6 +91,7 @@ export default function AddFoodScreen() {
           );
         const matchedPrefillLocation = locs.find((loc) => loc._id === prefill?.storageLocationId)
           || locs.find((loc) => loc.storageType === prefill?.storageTypeKey);
+
         setCategories(catList);
         setLocations(locs);
         setForm((f) => ({
@@ -88,12 +101,8 @@ export default function AddFoodScreen() {
           storageTypeKey: prefill?.storageTypeKey || matchedPrefillLocation?.storageType || f.storageTypeKey,
         }));
       })
-      .catch(() => {
-        setCategories([]);
-        setForm((f) => ({ ...f, categoryId: '' }));
-      })
       .finally(() => setFetchingData(false));
-  }, []);
+  }, [selectedContext]);
 
   // Gợi ý bảo quản khi đổi category (chỉ với real categoryId từ DB)
   useEffect(() => {
@@ -185,7 +194,7 @@ export default function AddFoodScreen() {
           storageName: label.replace(/^\S+\s/, ''), // bỏ emoji
           storageType: storageTypeKey,
           isDefault: true,
-        });
+        }, selectedContext.ownerType, selectedContext.householdId);
         storageLocationId = created._id;
         setLocations((prev) => [...prev, created]);
         setForm((f) => ({ ...f, storageLocationId: created._id }));
@@ -202,7 +211,7 @@ export default function AddFoodScreen() {
         expiryDate,
         quantity: Number(quantity),
         unit,
-      });
+      }, selectedContext.ownerType, selectedContext.householdId);
 
       dispatch(addFoodItem(newItem));
       const saveAlert = getFoodSaveAlert(newItem);
@@ -241,173 +250,208 @@ export default function AddFoodScreen() {
           <MaterialIcons name="arrow-back" size={24} color={COLORS.onSurface} />
         </TouchableOpacity>
         <Text style={styles.title}>Thêm thực phẩm</Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity onPress={() => navigation.navigate('Scanner')}>
+          <MaterialIcons name="document-scanner" size={24} color={COLORS.primary} />
+        </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }} 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
-        {/* ── Ảnh ── */}
-        <TouchableOpacity style={styles.imagePicker} onPress={showImageOptions}>
-          {form.imageUrl ? (
-            <Image source={{ uri: form.imageUrl }} style={styles.imagePreview} />
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <MaterialIcons name="add-a-photo" size={36} color={COLORS.primary} />
-              <Text style={styles.imageHint}>Thêm ảnh (tuỳ chọn)</Text>
+          {/* ── Nơi lưu (Context Selector) ── */}
+          {households.length > 0 && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={styles.label}>Thêm vào kho</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                <TouchableOpacity
+                  style={[
+                    styles.contextChip,
+                    selectedContext.ownerType === 'USER' && styles.contextChipActive
+                  ]}
+                  onPress={() => setSelectedContext({ ownerType: 'USER' })}
+                >
+                  <MaterialIcons name="person" size={16} color={selectedContext.ownerType === 'USER' ? COLORS.primary : COLORS.onSurfaceVariant} />
+                  <Text style={[styles.contextChipText, selectedContext.ownerType === 'USER' && styles.contextChipTextActive]}>Cá nhân</Text>
+                </TouchableOpacity>
+                {households.map(hh => (
+                  <TouchableOpacity
+                    key={hh.household._id}
+                    style={[
+                      styles.contextChip,
+                      selectedContext.householdId === hh.household._id && styles.contextChipActive
+                    ]}
+                    onPress={() => setSelectedContext({ ownerType: 'HOUSEHOLD', householdId: hh.household._id })}
+                  >
+                    <MaterialIcons name="groups" size={16} color={selectedContext.householdId === hh.household._id ? COLORS.primary : COLORS.onSurfaceVariant} />
+                    <Text style={[styles.contextChipText, selectedContext.householdId === hh.household._id && styles.contextChipTextActive]}>{hh.household.householdName}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           )}
-        </TouchableOpacity>
 
-        {/* ── Tên ── */}
-        <Text style={styles.label}>Tên thực phẩm *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="VD: Thịt bò, Rau cải..."
-          placeholderTextColor={COLORS.onSurfaceVariant + '80'}
-          value={form.foodName}
-          onChangeText={(v) => setForm((f) => ({ ...f, foodName: v }))}
-        />
+          {/* ── Ảnh ── */}
+          <TouchableOpacity style={styles.imagePicker} onPress={showImageOptions}>
+            {form.imageUrl ? (
+              <Image source={{ uri: form.imageUrl }} style={styles.imagePreview} />
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <MaterialIcons name="add-a-photo" size={36} color={COLORS.primary} />
+                <Text style={styles.imageHint}>Thêm ảnh (tuỳ chọn)</Text>
+              </View>
+            )}
+          </TouchableOpacity>
 
-        {/* ── Danh mục ── */}
-        <Text style={styles.label}>Danh mục *</Text>
-        {categories.length === 0 ? (
-          <Text style={styles.hint}>⚠️ Chưa có danh mục – Admin cần seed dữ liệu</Text>
-        ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-            <View style={styles.chipRow}>
-              {categories.map((cat) => (
-                <TouchableOpacity
-                  key={cat._id}
-                  style={[styles.chip, form.categoryId === cat._id && styles.chipActive]}
-                  onPress={() => {
-                    setForm((f) => ({ ...f, categoryId: cat._id }));
-                  }}
-                >
-                  <Text style={[styles.chipText, form.categoryId === cat._id && styles.chipTextActive]}>
-                    {getCategoryDisplayName(cat)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+          {/* ── Tên ── */}
+          <Text style={styles.label}>Tên thực phẩm *</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="VD: Thịt bò, Rau cải..."
+            placeholderTextColor={COLORS.onSurfaceVariant + '80'}
+            value={form.foodName}
+            onChangeText={(v) => setForm((f) => ({ ...f, foodName: v }))}
+          />
+
+          {/* ── Danh mục ── */}
+          <Text style={styles.label}>Danh mục *</Text>
+          {categories.length === 0 ? (
+            <Text style={styles.hint}>⚠️ Chưa có danh mục – Admin cần seed dữ liệu</Text>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+              <View style={styles.chipRow}>
+                {categories.map((cat) => (
+                  <TouchableOpacity
+                    key={cat._id}
+                    style={[styles.chip, form.categoryId === cat._id && styles.chipActive]}
+                    onPress={() => {
+                      setForm((f) => ({ ...f, categoryId: cat._id }));
+                    }}
+                  >
+                    <Text style={[styles.chipText, form.categoryId === cat._id && styles.chipTextActive]}>
+                      {getCategoryDisplayName(cat)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          )}
+
+          {suggestion && (
+            <View style={styles.suggestionBox}>
+              <MaterialIcons name="lightbulb" size={16} color="#F59E0B" />
+              <Text style={styles.suggestionText}>{suggestion}</Text>
             </View>
-          </ScrollView>
-        )}
+          )}
 
-        {suggestion && (
-          <View style={styles.suggestionBox}>
-            <MaterialIcons name="lightbulb" size={16} color="#F59E0B" />
-            <Text style={styles.suggestionText}>{suggestion}</Text>
-          </View>
-        )}
-
-        {/* ── Vị trí lưu trữ ── */}
-        <Text style={styles.label}>Vị trí lưu trữ *</Text>
-        {locations.length > 0 ? (
+          {/* ── Vị trí lưu trữ ── */}
+          <Text style={styles.label}>Vị trí lưu trữ *</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
             <View style={styles.chipRow}>
+              {/* Existing locations */}
               {locations.map((loc) => (
                 <TouchableOpacity
                   key={loc._id}
                   style={[styles.chip, form.storageLocationId === loc._id && styles.chipActive]}
-                  onPress={() => setForm((f) => ({ ...f, storageLocationId: loc._id }))}
+                  onPress={() => setForm((f) => ({ ...f, storageLocationId: loc._id, storageTypeKey: '' }))}
                 >
                   <Text style={[styles.chipText, form.storageLocationId === loc._id && styles.chipTextActive]}>
                     {loc.storageName}
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
-          </ScrollView>
-        ) : (
-          <>
-            <Text style={styles.hint}>Chưa có vị trí – chọn loại để tự động tạo:</Text>
-            <View style={[styles.chipRow, { marginBottom: 16 }]}>
-              {DEFAULT_STORAGES.map((s) => (
+
+              {/* Missing default locations (suggest to create) */}
+              {DEFAULT_STORAGES.filter(
+                (def) => !locations.some((loc) => loc.storageType === def.key)
+              ).map((s) => (
                 <TouchableOpacity
                   key={s.key}
-                  style={[styles.chip, form.storageTypeKey === s.key && styles.chipActive]}
+                  style={[
+                    styles.chip,
+                    form.storageTypeKey === s.key && styles.chipActive,
+                    { borderStyle: 'dashed' }
+                  ]}
                   onPress={() => setForm((f) => ({ ...f, storageTypeKey: s.key, storageLocationId: '' }))}
                 >
                   <Text style={[styles.chipText, form.storageTypeKey === s.key && styles.chipTextActive]}>
-                    {s.label}
+                    + {s.label}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-          </>
-        )}
+          </ScrollView>
 
-        {/* ── Số lượng + Đơn vị ── */}
-        <View style={styles.row}>
-          <View style={{ flex: 1, marginRight: 8 }}>
-            <Text style={styles.label}>Số lượng *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="1"
-              keyboardType="numeric"
-              value={form.quantity}
-              onChangeText={(v) => setForm((f) => ({ ...f, quantity: v }))}
-            />
+          {/* ── Số lượng + Đơn vị ── */}
+          <View style={styles.row}>
+            <View style={{ flex: 1, marginRight: 8 }}>
+              <Text style={styles.label}>Số lượng *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="1"
+                keyboardType="numeric"
+                value={form.quantity}
+                onChangeText={(v) => setForm((f) => ({ ...f, quantity: v }))}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Đơn vị</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="kg, cái, túi..."
+                value={form.unit}
+                onChangeText={(v) => setForm((f) => ({ ...f, unit: v }))}
+              />
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Đơn vị</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="kg, cái, túi..."
-              value={form.unit}
-              onChangeText={(v) => setForm((f) => ({ ...f, unit: v }))}
-            />
+
+          {/* ── Nguồn gốc ── */}
+          <Text style={styles.label}>Nguồn gốc</Text>
+          <View style={[styles.chipRow, { marginBottom: 16 }]}>
+            {SOURCE_TYPES.map((s) => (
+              <TouchableOpacity
+                key={s.key}
+                style={[styles.chip, form.sourceType === s.key && styles.chipActive]}
+                onPress={() => setForm((f) => ({ ...f, sourceType: s.key }))}
+              >
+                <Text style={[styles.chipText, form.sourceType === s.key && styles.chipTextActive]}>
+                  {s.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
-        </View>
 
-        {/* ── Nguồn gốc ── */}
-        <Text style={styles.label}>Nguồn gốc</Text>
-        <View style={[styles.chipRow, { marginBottom: 16 }]}>
-          {SOURCE_TYPES.map((s) => (
-            <TouchableOpacity
-              key={s.key}
-              style={[styles.chip, form.sourceType === s.key && styles.chipActive]}
-              onPress={() => setForm((f) => ({ ...f, sourceType: s.key }))}
-            >
-              <Text style={[styles.chipText, form.sourceType === s.key && styles.chipTextActive]}>
-                {s.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+          {/* ── Ngày mua ── */}
+          <Text style={styles.label}>Ngày mua</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="YYYY-MM-DD"
+            value={form.purchaseDate}
+            onChangeText={(v) => setForm((f) => ({ ...f, purchaseDate: v }))}
+          />
 
-        {/* ── Ngày mua ── */}
-        <Text style={styles.label}>Ngày mua</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="YYYY-MM-DD"
-          value={form.purchaseDate}
-          onChangeText={(v) => setForm((f) => ({ ...f, purchaseDate: v }))}
-        />
+          {/* ── Ngày hết hạn ── */}
+          <Text style={styles.label}>Ngày hết hạn *</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="YYYY-MM-DD"
+            value={form.expiryDate}
+            onChangeText={(v) => setForm((f) => ({ ...f, expiryDate: v }))}
+          />
 
-        {/* ── Ngày hết hạn ── */}
-        <Text style={styles.label}>Ngày hết hạn *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="YYYY-MM-DD"
-          value={form.expiryDate}
-          onChangeText={(v) => setForm((f) => ({ ...f, expiryDate: v }))}
-        />
-
-        {/* ── Submit ── */}
-        <TouchableOpacity
-          style={[styles.button, loading && { opacity: 0.6 }]}
-          onPress={handleSubmit}
-          disabled={loading}
-        >
-          {loading
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.buttonText}>Thêm thực phẩm</Text>
-          }
-        </TouchableOpacity>
+          {/* ── Submit ── */}
+          <TouchableOpacity
+            style={[styles.button, loading && { opacity: 0.6 }]}
+            onPress={handleSubmit}
+            disabled={loading}
+          >
+            {loading
+              ? <ActivityIndicator color="#fff" />
+              : <Text style={styles.buttonText}>Thêm thực phẩm</Text>
+            }
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -424,7 +468,36 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 18, fontWeight: '700', color: COLORS.onSurface },
   content: { padding: 16, paddingBottom: 48 },
-  label: { fontSize: 13, fontWeight: '600', color: COLORS.onSurface, marginBottom: 6, marginTop: 4 },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.onSurfaceVariant,
+    marginBottom: 6,
+  },
+  contextChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: COLORS.surfaceContainer,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    gap: 6,
+  },
+  contextChipActive: {
+    backgroundColor: COLORS.surfaceContainerHighest,
+    borderColor: COLORS.primary,
+  },
+  contextChipText: {
+    fontSize: 14,
+    color: COLORS.onSurfaceVariant,
+    fontWeight: '500',
+  },
+  contextChipTextActive: {
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
   hint: { fontSize: 12, color: COLORS.onSurfaceVariant, marginBottom: 12, fontStyle: 'italic' },
   input: {
     backgroundColor: COLORS.surfaceContainer, borderWidth: 1, borderColor: COLORS.outlineVariant,

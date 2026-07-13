@@ -1,4 +1,4 @@
-import { View, Animated, Text, TouchableOpacity, Platform } from "react-native";
+import { View, Animated, Text, TouchableOpacity, Platform, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { scannerScreenStyles as styles } from "../styles/ScannerScreen.styles";
 import { useEffect, useRef, useState } from "react";
@@ -45,10 +45,13 @@ export default function CameraView({
     setIsCameraReady(true);
   };
 
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const handleTakePicture = async () => {
-    if (!isCameraReady || isScanning) return;
+    if (!isCameraReady || isScanning || isProcessing) return;
 
     try {
+      setIsProcessing(true);
       const camera = cameraRef?.current || localCameraRef.current;
       if (!camera) return;
 
@@ -60,6 +63,8 @@ export default function CameraView({
       onCapture?.(photo);
     } catch (error) {
       console.error('Error taking picture:', error);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -71,8 +76,10 @@ export default function CameraView({
         ref={cameraRef || localCameraRef}
         style={styles.cameraPlaceholder}
         onCameraReady={handleCameraReady}
-      >
-        {/* Overlay: Scan Frame */}
+      />
+      
+      {/* Overlay: Scan Frame */}
+      <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]} pointerEvents="none">
         <Animated.View
           style={[
             styles.scanFrame,
@@ -81,9 +88,11 @@ export default function CameraView({
             },
           ]}
         />
+      </View>
 
-        {/* Overlay: Detection Label */}
-        {isScanning && (
+      {/* Overlay: Detection Label */}
+      {isScanning && (
+        <View style={[StyleSheet.absoluteFill, { justifyContent: 'flex-start', alignItems: 'center', paddingTop: 40 }]} pointerEvents="none">
           <View style={styles.detectionLabel}>
             <MaterialCommunityIcons
               name="motion-sensor"
@@ -92,17 +101,19 @@ export default function CameraView({
             />
             <Text style={styles.detectionText}>AI ĐANG NHẬN DIỆN...</Text>
           </View>
-        )}
+        </View>
+      )}
 
-        {/* Overlay: Capture Button */}
-        {!isScanning && isCameraReady && (
+      {/* Overlay: Capture Button */}
+      {!isScanning && isCameraReady && (
+        <View style={[StyleSheet.absoluteFill, { justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 40 }]} pointerEvents="box-none">
           <TouchableOpacity
             style={[
               styles.captureButton,
-              { opacity: isScanning ? 0.5 : 1 }
+              { opacity: isScanning || isProcessing ? 0.5 : 1 }
             ]}
             onPress={handleTakePicture}
-            disabled={isScanning}
+            disabled={isScanning || isProcessing}
           >
             <View style={styles.captureButtonInner}>
               <MaterialCommunityIcons
@@ -112,8 +123,8 @@ export default function CameraView({
               />
             </View>
           </TouchableOpacity>
-        )}
-      </ExpoCamera>
+        </View>
+      )}
     </View>
   );
 }

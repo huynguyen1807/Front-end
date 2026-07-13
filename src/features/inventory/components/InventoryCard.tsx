@@ -21,7 +21,6 @@ type InventoryCardProps = {
 };
 
 export default function InventoryCard({ item, onEdit, onDelete, onConsume, onPress }: InventoryCardProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const swipeableRef = useRef<Swipeable>(null);
 
   const cfg = FOOD_STATUS_CONFIG[item.status] ?? FOOD_STATUS_CONFIG.SAFE;
@@ -59,81 +58,47 @@ export default function InventoryCard({ item, onEdit, onDelete, onConsume, onPre
   };
 
   const card = (
-    <TouchableOpacity activeOpacity={0.9} style={styles.card} onPress={onPress}>
-      {/* Image + badge */}
-      <View style={styles.imageWrapper}>
+    <TouchableOpacity activeOpacity={0.8} style={styles.card} onPress={onPress}>
+      {/* Small thumbnail on the left */}
+      <View style={styles.thumbnailWrapper}>
         {item.imageUrl ? (
-          <Image source={{ uri: item.imageUrl }} style={styles.image} />
+          <Image source={{ uri: item.imageUrl }} style={styles.thumbnail} />
         ) : (
-          <View style={[styles.image, styles.imagePlaceholder]}>
-            <MaterialIcons name="fastfood" size={40} color={COLORS.primary + "60"} />
+          <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
+            <MaterialIcons name="fastfood" size={24} color={COLORS.primary + "80"} />
           </View>
         )}
         {urgentLabel && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{urgentLabel}</Text>
+          <View style={styles.urgentBadge}>
+            <Text style={styles.urgentBadgeText}>!</Text>
           </View>
         )}
-        {/* Status badge */}
-        <View style={[styles.statusBadge, { backgroundColor: cfg.color + "22" }]}>
-          <MaterialIcons name={cfg.icon as keyof typeof MaterialIcons.glyphMap} size={12} color={cfg.color} />
-          <Text style={[styles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
-        </View>
       </View>
 
-      {/* Content */}
+      {/* Content on the right */}
       <View style={styles.content}>
-        <View style={styles.nameRow}>
+        <View style={styles.topRow}>
           <Text style={styles.name} numberOfLines={1}>{item.foodName}</Text>
-          {/* Menu button */}
-          <TouchableOpacity onPress={() => setMenuOpen((v) => !v)} style={styles.menuBtn}>
-            <MaterialIcons name="more-vert" size={20} color={COLORS.onSurfaceVariant} />
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.meta}>
-          {item.quantity} {item.unit}
-          {item.storageLocationId?.storageName ? ` • ${item.storageLocationId.storageName}` : ""}
-        </Text>
-
-        <Text style={styles.category}>
-          {getCategoryDisplayName(item.categoryId)}
-        </Text>
-
-        {/* Freshness bar */}
-        <View style={styles.progressHeader}>
           <Text style={[styles.daysLeft, { color: cfg.color }]}>
-            {daysLeft > 0 ? `${daysLeft} ngày còn lại` : daysLeft === 0 ? "Hết hạn hôm nay" : `Quá hạn ${Math.abs(daysLeft)} ngày`}
+            {daysLeft > 0 ? `${daysLeft} ngày` : daysLeft === 0 ? "Hôm nay" : `Quá ${Math.abs(daysLeft)} ngày`}
           </Text>
-          <Text style={styles.percent}>{freshnessScore}%</Text>
-        </View>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${freshnessScore}%`, backgroundColor: cfg.color }]} />
         </View>
 
-        {/* Action menu */}
-        {menuOpen && (
-          <View style={styles.actionRow}>
-            {onEdit && (
-              <TouchableOpacity style={styles.actionBtn} onPress={() => { setMenuOpen(false); onEdit(); }}>
-                <MaterialIcons name="edit" size={16} color={COLORS.primary} />
-                <Text style={[styles.actionText, { color: COLORS.primary }]}>Sửa</Text>
-              </TouchableOpacity>
-            )}
-            {onConsume && (
-              <TouchableOpacity style={styles.actionBtn} onPress={() => { setMenuOpen(false); onConsume(); }}>
-                <MaterialIcons name="check-circle-outline" size={16} color="#16A34A" />
-                <Text style={[styles.actionText, { color: "#16A34A" }]}>Đã dùng</Text>
-              </TouchableOpacity>
-            )}
-            {onDelete && (
-              <TouchableOpacity style={styles.actionBtn} onPress={() => { setMenuOpen(false); onDelete(); }}>
-                <MaterialIcons name="delete-outline" size={16} color={COLORS.tertiary} />
-                <Text style={[styles.actionText, { color: COLORS.tertiary }]}>Xoá</Text>
-              </TouchableOpacity>
-            )}
+        <View style={styles.midRow}>
+          <Text style={styles.meta} numberOfLines={1}>
+            {item.quantity} {item.unit} • {getCategoryDisplayName(item.categoryId)}
+          </Text>
+        </View>
+
+        {/* Freshness Bar */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${freshnessScore}%`, backgroundColor: cfg.color }]} />
           </View>
-        )}
+          <View style={[styles.statusBadge, { backgroundColor: cfg.color + "22" }]}>
+            <Text style={[styles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
+          </View>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -162,60 +127,108 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.surfaceContainerLowest,
     borderRadius: RADIUS.lg,
-    overflow: "hidden",
+    padding: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     borderWidth: 1,
     borderColor: "rgba(189, 202, 191, 0.35)",
     shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    shadowOpacity: 0.02,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
-  imageWrapper: { height: 140, position: "relative" },
-  image: { width: "100%", height: "100%" },
-  imagePlaceholder: { backgroundColor: COLORS.surfaceContainer, justifyContent: "center", alignItems: "center" },
-  badge: {
-    position: "absolute", top: SPACING.md, right: SPACING.md,
-    backgroundColor: COLORS.tertiary, paddingHorizontal: SPACING.md, paddingVertical: 5,
-    borderRadius: RADIUS.full,
+  thumbnailWrapper: {
+    position: 'relative',
   },
-  badgeText: { color: COLORS.onTertiary, fontSize: 12, fontWeight: "700" },
-  statusBadge: {
-    position: "absolute", bottom: SPACING.sm, left: SPACING.sm,
-    flexDirection: "row", alignItems: "center", gap: 4,
-    paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.full,
-  },
-  statusText: { fontSize: 11, fontWeight: "700" },
-  content: { padding: SPACING.lg },
-  nameRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  name: { fontSize: 16, fontWeight: "800", color: COLORS.onSurface, flex: 1 },
-  menuBtn: { padding: 4 },
-  meta: { marginTop: 2, fontSize: 13, color: COLORS.onSurfaceVariant },
-  category: { fontSize: 12, color: COLORS.primary, marginTop: 2, fontWeight: "600" },
-  progressHeader: {
-    marginTop: SPACING.lg, marginBottom: 5,
-    flexDirection: "row", justifyContent: "space-between",
-  },
-  daysLeft: { fontSize: 12, fontWeight: "800" },
-  percent: { fontSize: 12, color: COLORS.onSurfaceVariant, opacity: 0.65 },
-  progressTrack: {
-    height: 7, backgroundColor: COLORS.surfaceContainer,
-    borderRadius: RADIUS.full, overflow: "hidden",
-  },
-  progressFill: { height: "100%", borderRadius: RADIUS.full },
-  actionRow: {
-    flexDirection: "row", gap: 8, marginTop: SPACING.md,
-    paddingTop: SPACING.md, borderTopWidth: 1, borderTopColor: COLORS.outlineVariant,
-  },
-  actionBtn: {
-    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 4, paddingVertical: 8, borderRadius: RADIUS.md,
+  thumbnail: {
+    width: 64,
+    height: 64,
+    borderRadius: RADIUS.md,
     backgroundColor: COLORS.surfaceContainer,
   },
-  actionText: { fontSize: 12, fontWeight: "700" },
+  thumbnailPlaceholder: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  urgentBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: COLORS.tertiary,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.surfaceContainerLowest,
+  },
+  urgentBadgeText: {
+    color: COLORS.onTertiary,
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  name: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: COLORS.onSurface,
+    flex: 1,
+    marginRight: 8,
+  },
+  daysLeft: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  midRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  meta: {
+    fontSize: 13,
+    color: COLORS.onSurfaceVariant,
+    flex: 1,
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: COLORS.surfaceContainer,
+    borderRadius: RADIUS.full,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: RADIUS.full,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: RADIUS.sm,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
   deleteSwipeAction: {
-    width: 92,
-    marginLeft: 10,
+    width: 80,
+    marginLeft: 8,
     borderRadius: RADIUS.lg,
     backgroundColor: COLORS.tertiary,
     alignItems: "center",
@@ -228,7 +241,7 @@ const styles = StyleSheet.create({
   },
   deleteSwipeText: {
     color: COLORS.onTertiary,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
   },
 });

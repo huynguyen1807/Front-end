@@ -9,6 +9,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  StyleSheet,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -26,7 +27,7 @@ import {
   getShoppingListsApi,
   updateShoppingListItemApi,
 } from "../services/shoppingApi";
-import { shoppingScreenStyles as styles } from "../styles/ShoppingScreen.styles";
+import { shoppingScreenStyles as baseStyles } from "../styles/ShoppingScreen.styles";
 import { ShoppingList, ShoppingListItem } from "../types/shopping";
 
 type SectionKey = "pending" | "purchased";
@@ -165,7 +166,9 @@ function ShoppingItemRow({
 
 export default function ShoppingScreen() {
   const insets = useSafeAreaInsets();
+  const [viewMode, setViewMode] = useState<"ACTIVE" | "HISTORY">("ACTIVE");
   const [lists, setLists] = useState<ShoppingList[]>([]);
+  const [historyLists, setHistoryLists] = useState<ShoppingList[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -199,8 +202,13 @@ export default function ShoppingScreen() {
   const loadShoppingLists = async () => {
     setLoading(true);
     try {
-      const data = await getShoppingListsApi("ACTIVE");
-      setLists(data);
+      if (viewMode === "ACTIVE") {
+        const data = await getShoppingListsApi("ACTIVE");
+        setLists(data);
+      } else {
+        const data = await getShoppingListsApi("COMPLETED");
+        setHistoryLists(data);
+      }
     } catch (error: any) {
       Alert.alert("Không tải được Shopping List", getErrorMessage(error));
     } finally {
@@ -210,7 +218,7 @@ export default function ShoppingScreen() {
 
   useEffect(() => {
     loadShoppingLists();
-  }, []);
+  }, [viewMode]);
 
   useEffect(() => {
     const loadFamilyContext = async () => {
@@ -373,7 +381,30 @@ export default function ShoppingScreen() {
       >
         <NearbyStoresSection />
 
-        <View style={styles.titleContainer}>
+        <View style={styles.contextToggleRow}>
+          <View style={styles.contextToggleContainer}>
+            <TouchableOpacity 
+              style={[styles.contextToggleBtn, viewMode === 'ACTIVE' && styles.contextToggleBtnActive]}
+              onPress={() => setViewMode('ACTIVE')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="basket" size={14} color={viewMode === 'ACTIVE' ? COLORS.primary : COLORS.onSurfaceVariant} />
+              <Text style={[styles.contextToggleText, viewMode === 'ACTIVE' && styles.contextToggleTextActive]}>Cần mua</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.contextToggleBtn, viewMode === 'HISTORY' && styles.contextToggleBtnActive]}
+              onPress={() => setViewMode('HISTORY')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="time" size={14} color={viewMode === 'HISTORY' ? COLORS.primary : COLORS.onSurfaceVariant} />
+              <Text style={[styles.contextToggleText, viewMode === 'HISTORY' && styles.contextToggleTextActive]}>Lịch sử</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {viewMode === "ACTIVE" ? (
+          <>
+            <View style={styles.titleContainer}>
           <Text style={styles.title}>{activeList?.listName ?? "Shopping List"}</Text>
           <Text style={styles.subtitle}>Danh sách mua sắm được đồng bộ từ dữ liệu thật.</Text>
         </View>
@@ -490,9 +521,42 @@ export default function ShoppingScreen() {
             );
           })
         ) : null}
+        </>
+        ) : (
+          /* History View */
+          <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
+            {loading ? (
+              <ActivityIndicator color={COLORS.primary} size="large" />
+            ) : historyLists.length === 0 ? (
+              <View style={styles.emptyAddContainer}>
+                <Ionicons name="receipt-outline" size={48} color={COLORS.outlineVariant} />
+                <Text style={[styles.title, { marginTop: 16, fontSize: 16, color: COLORS.onSurfaceVariant }]}>Chưa có lịch sử mua sắm</Text>
+              </View>
+            ) : (
+              historyLists.map(list => (
+                <View key={list._id} style={[styles.card, { marginBottom: 16, padding: 16 }]}>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: COLORS.onSurface }}>{list.listName}</Text>
+                  <Text style={{ fontSize: 12, color: COLORS.onSurfaceVariant, marginTop: 4 }}>
+                    Hoàn tất: {new Date(list.updatedAt).toLocaleDateString("vi-VN")}
+                  </Text>
+                  <View style={{ marginTop: 12 }}>
+                    {list.items.map((item, idx) => (
+                      <View key={item._id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                        <Ionicons name={item.isPurchased ? "checkmark-circle" : "close-circle"} size={16} color={item.isPurchased ? COLORS.primary : COLORS.outlineVariant} />
+                        <Text style={{ marginLeft: 8, fontSize: 14, color: item.isPurchased ? COLORS.onSurface : COLORS.onSurfaceVariant, textDecorationLine: item.isPurchased ? 'none' : 'line-through' }}>
+                          {item.foodName} ({item.quantity} {item.unit})
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        )}
       </ScrollView>
 
-      {hasItems && (
+      {hasItems && viewMode === "ACTIVE" && (
         <TouchableOpacity
           activeOpacity={0.85}
           style={[styles.fab, { bottom: fabBottom }]}
@@ -512,3 +576,43 @@ export default function ShoppingScreen() {
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  ...baseStyles,
+  contextToggleRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    marginBottom: 8,
+  },
+  contextToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surfaceContainerHighest,
+    borderRadius: 20,
+    padding: 4,
+  },
+  contextToggleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  contextToggleBtnActive: {
+    backgroundColor: COLORS.surfaceContainerLowest,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  contextToggleText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.onSurfaceVariant,
+  },
+  contextToggleTextActive: {
+    color: COLORS.primary,
+  },
+});
