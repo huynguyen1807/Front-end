@@ -146,6 +146,18 @@ export interface GeneratedMealPlanResult {
   generatedCaloriesTotal?: number;
 }
 
+export interface BmiProfile {
+  weightKg: number;
+  heightCm: number;
+  age?: number;
+  gender?: "MALE" | "FEMALE" | "OTHER";
+  activityLevel?: "LOW" | "MODERATE" | "HIGH";
+  goal?: "MAINTAIN" | "WEIGHT_LOSS" | "MUSCLE_GAIN" | "HEALTHY_EATING";
+  bmi: number;
+  category: "UNDERWEIGHT" | "NORMAL" | "OVERWEIGHT" | "OBESE";
+  categoryLabel: string;
+}
+
 export interface RecipeAvailability {
   canSchedule: boolean;
   matchedIngredients: string[];

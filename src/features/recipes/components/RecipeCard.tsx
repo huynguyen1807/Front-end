@@ -26,6 +26,19 @@ type RecipeCardProps = {
   onDelete?: (recipe: Recipe) => void;
 };
 
+const difficultyText: Record<string, string> = {
+  EASY: "Dễ",
+  MEDIUM: "Vừa",
+  HARD: "Khó",
+};
+
+const sourceTypeText: Record<string, string> = {
+  SYSTEM: "Hệ thống",
+  USER_CREATED: "Cá nhân",
+  AI_GENERATED: "AI gợi ý",
+  VIDEO_EXTRACTED: "Từ video",
+};
+
 export default function RecipeCard({
   recipe,
   canManage,
@@ -98,7 +111,7 @@ export default function RecipeCard({
                 {recipe.recipeName}
               </Text>
               <Text style={styles.description} numberOfLines={2}>
-                {recipe.description || "Công thức sẵn sàng để đưa vào meal plan."}
+                {recipe.description || "Công thức sẵn sàng để đưa vào lịch bữa ăn."}
               </Text>
             </View>
             {(canManage || onDismiss) && (
@@ -163,8 +176,8 @@ export default function RecipeCard({
                   : "Đủ nguyên liệu"}
               </Text>
             </View>
-            {(recipe.tags || []).slice(0, 3).map((tag) => (
-              <View key={tag} style={styles.tag}>
+            {(recipe.tags || []).slice(0, 3).map((tag, index) => (
+              <View key={`${tag}-${index}`} style={styles.tag}>
                 <Text style={styles.tagText}>{tag}</Text>
               </View>
             ))}
@@ -203,7 +216,7 @@ export default function RecipeCard({
                 }}
               >
                 <MaterialCommunityIcons name="basket-plus-outline" size={14} color={COLORS.primary} />
-                <Text style={styles.shoppingButtonText}>Shopping list</Text>
+                <Text style={styles.shoppingButtonText}>Danh sách mua</Text>
               </TouchableOpacity>
             )}
             {onSaveToRecipes && (
@@ -216,7 +229,7 @@ export default function RecipeCard({
                 }}
               >
                 <Ionicons name="bookmark-outline" size={14} color={COLORS.onSecondaryContainer} />
-                <Text style={styles.saveRecipeButtonText}>Thêm vào recipe</Text>
+                <Text style={styles.saveRecipeButtonText}>Lưu công thức</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -261,8 +274,8 @@ export default function RecipeCard({
                   }
                 >
                   {isMissingIngredients
-                    ? `Còn thiếu ${missingCount || 1} nguyên liệu. Khi lên lịch, hệ thống sẽ hỏi thêm vào shopping list.`
-                    : "Inventory hiện tại đủ nguyên liệu để đưa vào lịch bữa ăn."}
+                    ? `Còn thiếu ${missingCount || 1} nguyên liệu. Khi lên lịch, hệ thống sẽ hỏi thêm vào danh sách mua.`
+                    : "Tủ thực phẩm hiện tại đủ nguyên liệu để đưa vào lịch bữa ăn."}
                 </Text>
               </View>
 
@@ -275,8 +288,8 @@ export default function RecipeCard({
 
               <View style={styles.detailInfoList}>
                 <DetailInfo label="Thời gian" value={time} />
-                <DetailInfo label="Độ khó" value={recipe.difficulty || "EASY"} />
-                <DetailInfo label="Nguồn" value={recipe.sourceType || "SYSTEM"} />
+                <DetailInfo label="Độ khó" value={difficultyText[recipe.difficulty || "EASY"] || "Dễ"} />
+                <DetailInfo label="Nguồn" value={sourceTypeText[recipe.sourceType || "SYSTEM"] || "Hệ thống"} />
               </View>
 
               <DetailSection title="Nguyên liệu">
@@ -305,8 +318,8 @@ export default function RecipeCard({
 
               {recipe.tags?.length ? (
                 <View style={styles.detailTagsRow}>
-                  {recipe.tags.map((tag) => (
-                    <View key={tag} style={styles.tag}>
+                  {recipe.tags.map((tag, index) => (
+                    <View key={`${tag}-${index}`} style={styles.tag}>
                       <Text style={styles.tagText}>{tag}</Text>
                     </View>
                   ))}
@@ -324,7 +337,7 @@ export default function RecipeCard({
                   onPress={addMissingIngredients}
                 >
                   <MaterialCommunityIcons name="basket-plus-outline" size={16} color={COLORS.primary} />
-                  <Text style={styles.detailShoppingButtonText}>Thêm nguyên liệu thiếu vào shopping list</Text>
+                  <Text style={styles.detailShoppingButtonText}>Thêm nguyên liệu thiếu vào danh sách mua</Text>
                 </TouchableOpacity>
               )}
 
@@ -335,7 +348,7 @@ export default function RecipeCard({
                   onPress={saveToRecipes}
                 >
                   <Ionicons name="bookmark-outline" size={16} color={COLORS.onSecondaryContainer} />
-                  <Text style={styles.detailSaveRecipeButtonText}>Thêm vào recipe cá nhân</Text>
+                  <Text style={styles.detailSaveRecipeButtonText}>Thêm vào công thức cá nhân</Text>
                 </TouchableOpacity>
               )}
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { COLORS } from "../../../constants/colors";
 import { InventoryFood, MacroSummary } from "../types/planner";
+import { getFoodScheduleRule } from "../utils/foodScheduleRules";
 import { getCategoryName, getDaysUntilExpiry } from "../utils/plannerUtils";
 import { plannerStyles as styles } from "../styles/PlannerScreen.styles";
 
@@ -84,6 +85,7 @@ export default function InventoryBucket({
           {foods.slice(0, 10).map((food) => {
             const macro = getFoodMacro(food);
             const calories = getFoodCalories(food);
+            const scheduleRule = getFoodScheduleRule(food);
 
             return (
               <TouchableOpacity
@@ -109,16 +111,25 @@ export default function InventoryBucket({
                     <Text style={styles.foodMacroText}>F {Math.round(macro.fat)}g</Text>
                   </View>
                   <TouchableOpacity
+                    disabled={!scheduleRule.canScheduleDirectly}
                     activeOpacity={0.78}
-                    style={styles.foodPlanButton}
+                    style={[
+                      styles.foodPlanButton,
+                      !scheduleRule.canScheduleDirectly && styles.disabledButton,
+                    ]}
                     onPress={(event) => {
                       event.stopPropagation();
                       onAddToPlan(food);
                     }}
                   >
                     <Ionicons name="add" size={14} color={COLORS.onPrimary} />
-                    <Text style={styles.foodPlanButtonText}>Lên lịch</Text>
+                    <Text style={styles.foodPlanButtonText}>{scheduleRule.actionLabel}</Text>
                   </TouchableOpacity>
+                  {!scheduleRule.canScheduleDirectly ? (
+                    <Text style={styles.foodMeta} numberOfLines={2}>
+                      {scheduleRule.reason}
+                    </Text>
+                  ) : null}
                 </View>
               </TouchableOpacity>
             );
@@ -147,6 +158,14 @@ export default function InventoryBucket({
               </View>
               <ScrollView showsVerticalScrollIndicator={false}>
                 {renderFoodImage(selectedFood, true)}
+                {!getFoodScheduleRule(selectedFood).canScheduleDirectly ? (
+                  <View style={styles.inlineNotice}>
+                    <MaterialCommunityIcons name="chef-hat" size={18} color={COLORS.primary} />
+                    <Text style={styles.inlineNoticeText}>
+                      {getFoodScheduleRule(selectedFood).reason}
+                    </Text>
+                  </View>
+                ) : null}
                 <View style={styles.detailMetricGrid}>
                   <DetailMetric label="Kcal" value={`${getFoodCalories(selectedFood)}`} />
                   <DetailMetric label="Protein" value={`${Math.round(getFoodMacro(selectedFood).protein)}g`} />
@@ -161,8 +180,12 @@ export default function InventoryBucket({
                   <DetailInfo label="Vị trí lưu trữ" value={getStorageName(selectedFood.storageLocationId) || "Chưa đặt"} />
                 </View>
                 <TouchableOpacity
+                  disabled={!getFoodScheduleRule(selectedFood).canScheduleDirectly}
                   activeOpacity={0.8}
-                  style={styles.detailPrimaryButton}
+                  style={[
+                    styles.detailPrimaryButton,
+                    !getFoodScheduleRule(selectedFood).canScheduleDirectly && styles.disabledButton,
+                  ]}
                   onPress={() => {
                     onAddToPlan(selectedFood);
                     setSelectedFood(null);

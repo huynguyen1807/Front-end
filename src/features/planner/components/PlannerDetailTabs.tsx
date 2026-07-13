@@ -13,11 +13,11 @@ type PlannerDetailTabsProps = {
 
 const tabs: Array<{ key: PlannerDetailTab; label: string }> = [
   { key: "inventory", label: "Thực phẩm" },
-  { key: "recipes", label: "Recipe" },
+  { key: "recipes", label: "Công thức" },
   { key: "schedule", label: "Lịch trình bữa ăn" },
-  { key: "calories", label: "Calculate Meal Calories" },
-  { key: "macro", label: "Macro Report" },
-  { key: "video", label: "Extract Recipe from Video" },
+  { key: "bmi", label: "Chỉ số BMI" },
+  { key: "macro", label: "Báo cáo macro" },
+  { key: "video", label: "Trích xuất từ video" },
 ];
 
 export default function PlannerDetailTabs({

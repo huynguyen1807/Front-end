@@ -20,6 +20,7 @@ import { COLORS } from "../../../constants/colors";
 import AdminDataConsole from "../../adminData/components/AdminDataConsole";
 import RecipeCard from "../../recipes/components/RecipeCard";
 import UserRecipePanel from "../../recipes/components/UserRecipePanel";
+import BodyMassIndexPanel from "../components/BodyMassIndexPanel";
 import DailyGoalCard from "../components/DailyGoalCard";
 import DailyPlanGenerator from "../components/DailyPlanGenerator";
 import InventoryBucket from "../components/InventoryBucket";
@@ -67,7 +68,7 @@ export default function PlannerScreen() {
       return (
         <Section
           title="Thực phẩm"
-          subtitle="Thực phẩm hiện có trong inventory. Có thể đưa trực tiếp vào lịch bữa ăn và vẫn tính kcal/macros như recipe."
+          subtitle="Thực phẩm hiện có trong tủ. Có thể đưa trực tiếp vào lịch bữa ăn và vẫn tính kcal/macros như công thức."
         >
           <InventoryBucket
             title="Sắp hết hạn"
@@ -81,20 +82,6 @@ export default function PlannerScreen() {
             foods={planner.inventoryBuckets.safe}
             onAddToPlan={planner.handleAddFoodToPlan}
           />
-          {planner.generatedResult && (
-            <MetricGrid
-              metrics={[
-                {
-                  label: "Inventory ưu tiên",
-                  value: `${planner.generatedResult.inventoryPriority.length} món`,
-                },
-                {
-                  label: "Recipe match",
-                  value: `${planner.generatedResult.recommendations.length} gợi ý`,
-                },
-              ]}
-            />
-          )}
         </Section>
       );
     }
@@ -106,7 +93,7 @@ export default function PlannerScreen() {
           activeDate={planner.activeDate}
           plans={planner.plans}
           onChangeDate={planner.setActiveDate}
-          onCycleMealStatus={planner.handleCycleMealStatus}
+          onUpdateMealStatus={planner.handleUpdateMealStatus}
           onRemoveMeal={planner.handleRemoveMeal}
           onDeletePlan={planner.handleDeletePlan}
         />
@@ -115,7 +102,7 @@ export default function PlannerScreen() {
 
     if (planner.detailTab === "macro") {
       return (
-        <Section title="Macro Report" subtitle="Tổng hợp tuần dựa trên meal plan đã lưu.">
+        <Section title="Báo cáo macro" subtitle="Tổng hợp tuần dựa trên lịch bữa ăn đã lưu.">
           {planner.report ? (
             <MetricGrid
               metrics={[
@@ -139,21 +126,16 @@ export default function PlannerScreen() {
       );
     }
 
-    if (planner.detailTab === "calories") {
+    if (planner.detailTab === "bmi") {
       return (
-        <Section
-          title="Calculate Meal Calories"
-          subtitle="Calories và macro được tính theo từng meal trong daily plan."
-        >
-          <MetricGrid
-            metrics={[
-              { label: "Daily calories", value: `${Math.round(planner.dayTotals.calories)} kcal` },
-              { label: "Protein", value: `${Math.round(planner.dayTotals.macroSummary.protein)}g` },
-              { label: "Carbs", value: `${Math.round(planner.dayTotals.macroSummary.carbs)}g` },
-              { label: "Fat", value: `${Math.round(planner.dayTotals.macroSummary.fat)}g` },
-            ]}
-          />
-        </Section>
+        <BodyMassIndexPanel
+          form={planner.bmiForm}
+          profile={planner.bmiProfile}
+          saving={planner.saving}
+          onChangeForm={planner.setBmiForm}
+          onSave={planner.handleSaveBmiProfile}
+          onClear={planner.handleClearBmiProfile}
+        />
       );
     }
 
@@ -169,6 +151,7 @@ export default function PlannerScreen() {
           onEditRecipe={planner.fillUserRecipeForm}
           onDeleteRecipe={planner.handleDeleteUserRecipe}
           onAddToPlan={planner.handleAddRecipeToPlan}
+          onAddMissingIngredients={planner.handlePromptRecipeMissingIngredients}
         />
       );
     }
@@ -222,8 +205,8 @@ export default function PlannerScreen() {
             />
 
             <Section
-              title="Recommended Recipes"
-              subtitle="AI tạo recipe từ inventory, ưu tiên thực phẩm sắp hết hạn, kcal mục tiêu và sở thích."
+              title="Món được gợi ý"
+              subtitle="AI tạo món từ tủ thực phẩm, ưu tiên thực phẩm sắp hết hạn, kcal mục tiêu và sở thích."
             >
               <ScrollView
                 horizontal
@@ -266,13 +249,13 @@ export default function PlannerScreen() {
                 <ActivityIndicator color={COLORS.primary} style={styles.loader} />
               ) : filteredRecommendedItems.length === 0 ? (
                 <Text style={styles.emptyText}>
-                  Chưa có recipe gợi ý. Bấm Generate plan để AI tạo recipe từ inventory.
+                  Chưa có món gợi ý. Bấm Tạo món gợi ý để AI tạo món từ tủ thực phẩm.
                 </Text>
               ) : (
                 <>
-                  {topRecommendedItems.map((item) => (
+                  {topRecommendedItems.map((item, index) => (
                     <RecipeCard
-                      key={item.recipe._id}
+                      key={`${item.recipe._id || item.recipe.recipeName}-${index}`}
                       recipe={item.recipe}
                       onAddToPlan={planner.handleAddRecipeToPlan}
                       onAddMissingIngredients={planner.handlePromptRecipeMissingIngredients}
@@ -284,7 +267,10 @@ export default function PlannerScreen() {
                     <TouchableOpacity
                       activeOpacity={0.8}
                       style={styles.seeAllButton}
-                      onPress={() => setRecommendedModalVisible(true)}
+                      onPress={() => {
+                        planner.markRecommendationTabSeen(recommendedFilter);
+                        setRecommendedModalVisible(true);
+                      }}
                     >
                       <Text style={styles.seeAllButtonText}>Xem tất cả</Text>
                     </TouchableOpacity>
@@ -353,7 +339,7 @@ export default function PlannerScreen() {
         <View style={styles.detailBackdrop}>
           <View style={styles.detailSheet}>
             <View style={styles.detailHeader}>
-              <Text style={styles.detailTitle}>Recommended Recipes</Text>
+              <Text style={styles.detailTitle}>Món được gợi ý</Text>
               <TouchableOpacity
                 activeOpacity={0.8}
                 style={styles.detailCloseButton}
@@ -363,9 +349,9 @@ export default function PlannerScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
-              {filteredRecommendedItems.map((item) => (
+              {filteredRecommendedItems.map((item, index) => (
                 <RecipeCard
-                  key={item.recipe._id}
+                  key={`${item.recipe._id || item.recipe.recipeName}-${index}`}
                   recipe={item.recipe}
                   onAddToPlan={planner.handleAddRecipeToPlan}
                   onAddMissingIngredients={planner.handlePromptRecipeMissingIngredients}
@@ -494,8 +480,8 @@ export default function PlannerScreen() {
             <Text style={styles.noticeTitle}>Thiếu nguyên liệu</Text>
             <Text style={styles.noticeText}>
               {planner.missingIngredientPrompt?.sourceName
-                ? `"${planner.missingIngredientPrompt.sourceName}" còn thiếu vài nguyên liệu. Bạn có muốn thêm vào shopping list để mua bổ sung không?`
-                : "Bạn có muốn thêm các nguyên liệu thiếu vào shopping list không?"}
+                ? `"${planner.missingIngredientPrompt.sourceName}" còn thiếu vài nguyên liệu. Bạn có muốn thêm vào danh sách mua để bổ sung không?`
+                : "Bạn có muốn thêm các nguyên liệu thiếu vào danh sách mua không?"}
             </Text>
             <View style={styles.noticeList}>
               {planner.missingIngredientPrompt?.items.map((item, index) => (
@@ -517,7 +503,7 @@ export default function PlannerScreen() {
                 disabled={planner.saving}
                 onPress={planner.handleAddMissingIngredientsToShoppingList}
               >
-                <Text style={styles.noticePrimaryButtonText}>Thêm vào shopping list</Text>
+                <Text style={styles.noticePrimaryButtonText}>Thêm vào danh sách mua</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 activeOpacity={0.82}

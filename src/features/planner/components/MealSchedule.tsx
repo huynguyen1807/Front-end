@@ -1,7 +1,9 @@
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useState } from "react";
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { COLORS } from "../../../constants/colors";
-import { MealPlan, MealPlanMeal, ScheduleDate } from "../types/planner";
+import { MealPlan, MealPlanMeal, MealStatus, ScheduleDate } from "../types/planner";
 import TimelineItem from "./TimelineItem";
 
 type MealScheduleProps = {
@@ -9,9 +11,15 @@ type MealScheduleProps = {
   activeDate: string;
   plans: MealPlan[];
   onChangeDate: (date: string) => void;
-  onCycleMealStatus: (plan: MealPlan, mealIndex: number) => void;
+  onUpdateMealStatus: (plan: MealPlan, mealIndex: number, status: MealStatus) => void;
   onRemoveMeal: (plan: MealPlan, mealIndex: number) => void;
   onDeletePlan: (plan: MealPlan) => void;
+};
+
+type SelectedMeal = {
+  plan: MealPlan;
+  meal: MealPlanMeal;
+  mealIndex: number;
 };
 
 const mealTypeLabel: Record<string, string> = {
@@ -48,17 +56,37 @@ function getScheduleTotals(plans: MealPlan[]) {
   );
 }
 
+function getStatusText(status: MealStatus) {
+  if (status === "COMPLETED") return "Đã hoàn thành";
+  if (status === "PREPARING") return "Đang chuẩn bị";
+  return "Chưa thực hiện";
+}
+
 export default function MealSchedule({
   dates,
   activeDate,
   plans,
   onChangeDate,
-  onCycleMealStatus,
+  onUpdateMealStatus,
   onRemoveMeal,
   onDeletePlan,
 }: MealScheduleProps) {
+  const [selectedMeal, setSelectedMeal] = useState<SelectedMeal | null>(null);
   const totals = getScheduleTotals(plans);
   const hasMeals = plans.length > 0 && plans.some((plan) => plan.meals.length > 0);
+  const selectedMacro = selectedMeal?.meal.macroSummary || { carbs: 0, protein: 0, fat: 0 };
+
+  const updateSelectedMealStatus = (status: MealStatus) => {
+    if (!selectedMeal) return;
+    onUpdateMealStatus(selectedMeal.plan, selectedMeal.mealIndex, status);
+    setSelectedMeal(null);
+  };
+
+  const removeSelectedMeal = () => {
+    if (!selectedMeal) return;
+    onRemoveMeal(selectedMeal.plan, selectedMeal.mealIndex);
+    setSelectedMeal(null);
+  };
 
   return (
     <View style={styles.container}>
@@ -107,7 +135,7 @@ export default function MealSchedule({
       <View style={styles.timeline}>
         {!hasMeals ? (
           <Text style={styles.emptyText}>
-            Chưa có bữa ăn trong ngày này. Chọn recipe và bấm Lên lịch.
+            Chưa có bữa ăn trong ngày này. Chọn công thức và bấm Lên lịch.
           </Text>
         ) : (
           plans.map((plan) =>
@@ -118,13 +146,108 @@ export default function MealSchedule({
                 title={`${mealTypeLabel[meal.mealType]} - ${meal.recipeName}`}
                 kcal={Math.round(meal.calories || 0)}
                 status={meal.status}
-                onPress={() => onCycleMealStatus(plan, index)}
+                statusText={getStatusText(meal.status)}
+                onPress={() => setSelectedMeal({ plan, meal, mealIndex: index })}
                 onRemove={() => onRemoveMeal(plan, index)}
               />
             ))
           )
         )}
       </View>
+
+      <Modal
+        visible={Boolean(selectedMeal)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedMeal(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          {selectedMeal && (
+            <View style={styles.modalSheet}>
+              <View style={styles.modalHeader}>
+                <View style={styles.modalTitleBlock}>
+                  <Text style={styles.modalEyebrow}>
+                    {mealTypeLabel[selectedMeal.meal.mealType]} - {getMealTime(selectedMeal.meal)}
+                  </Text>
+                  <Text style={styles.modalTitle}>{selectedMeal.meal.recipeName}</Text>
+                </View>
+                <TouchableOpacity
+                  activeOpacity={0.78}
+                  style={styles.closeButton}
+                  onPress={() => setSelectedMeal(null)}
+                >
+                  <Ionicons name="close" size={22} color={COLORS.onSurfaceVariant} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={styles.statusPill}>
+                  <Ionicons
+                    name={
+                      selectedMeal.meal.status === "COMPLETED"
+                        ? "checkmark-circle"
+                        : selectedMeal.meal.status === "PREPARING"
+                          ? "time-outline"
+                          : "ellipse-outline"
+                    }
+                    size={18}
+                    color={COLORS.primary}
+                  />
+                  <Text style={styles.statusPillText}>{getStatusText(selectedMeal.meal.status)}</Text>
+                </View>
+
+                <View style={styles.detailMetricGrid}>
+                  <ScheduleMetric label="Kcal" value={`${Math.round(selectedMeal.meal.calories || 0)}`} />
+                  <ScheduleMetric label="Carbs" value={`${Math.round(selectedMacro.carbs)}g`} />
+                  <ScheduleMetric label="Protein" value={`${Math.round(selectedMacro.protein)}g`} />
+                  <ScheduleMetric label="Fat" value={`${Math.round(selectedMacro.fat)}g`} />
+                </View>
+
+                <View style={styles.detailList}>
+                  <DetailRow label="Bữa ăn" value={mealTypeLabel[selectedMeal.meal.mealType]} />
+                  <DetailRow label="Thời gian" value={getMealTime(selectedMeal.meal)} />
+                  <DetailRow label="Trạng thái" value={getStatusText(selectedMeal.meal.status)} />
+                </View>
+
+                <View style={styles.actionGrid}>
+                  <TouchableOpacity
+                    activeOpacity={0.82}
+                    style={styles.primaryAction}
+                    onPress={() => updateSelectedMealStatus("COMPLETED")}
+                  >
+                    <Ionicons name="checkmark-circle-outline" size={18} color={COLORS.onPrimary} />
+                    <Text style={styles.primaryActionText}>Hoàn thành</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.82}
+                    style={styles.secondaryAction}
+                    onPress={() => updateSelectedMealStatus("PREPARING")}
+                  >
+                    <Ionicons name="time-outline" size={18} color={COLORS.primary} />
+                    <Text style={styles.secondaryActionText}>Đang chuẩn bị</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.82}
+                    style={styles.secondaryAction}
+                    onPress={() => updateSelectedMealStatus("PENDING")}
+                  >
+                    <Ionicons name="refresh-outline" size={18} color={COLORS.primary} />
+                    <Text style={styles.secondaryActionText}>Đặt lại</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.82}
+                    style={styles.dangerAction}
+                    onPress={removeSelectedMeal}
+                  >
+                    <Ionicons name="trash-outline" size={18} color={COLORS.error} />
+                    <Text style={styles.dangerActionText}>Hủy khỏi lịch</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -134,6 +257,15 @@ function ScheduleMetric({ label, value }: { label: string; value: string }) {
     <View style={styles.summaryMetric}>
       <Text style={styles.summaryValue}>{value}</Text>
       <Text style={styles.summaryLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value}</Text>
     </View>
   );
 }
@@ -226,5 +358,148 @@ const styles = StyleSheet.create({
     color: COLORS.onSurfaceVariant,
     fontSize: 14,
     lineHeight: 21,
+  },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(28, 27, 27, 0.42)",
+  },
+  modalSheet: {
+    maxHeight: "86%",
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    backgroundColor: COLORS.surface,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 16,
+  },
+  modalTitleBlock: {
+    flex: 1,
+  },
+  modalEyebrow: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: COLORS.primary,
+    marginBottom: 4,
+  },
+  modalTitle: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: "900",
+    color: COLORS.onSurface,
+  },
+  closeButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.surfaceContainer,
+  },
+  statusPill: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 999,
+    backgroundColor: COLORS.onPrimaryContainer,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 14,
+  },
+  statusPillText: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: COLORS.primary,
+  },
+  detailMetricGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 16,
+  },
+  detailList: {
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+    borderRadius: 8,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    marginBottom: 16,
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(28, 27, 27, 0.08)",
+  },
+  detailLabel: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: COLORS.onSurfaceVariant,
+  },
+  detailValue: {
+    flex: 1,
+    textAlign: "right",
+    fontSize: 14,
+    fontWeight: "900",
+    color: COLORS.onSurface,
+  },
+  actionGrid: {
+    gap: 10,
+    paddingBottom: 10,
+  },
+  primaryAction: {
+    minHeight: 48,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: COLORS.primary,
+  },
+  primaryActionText: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: COLORS.onPrimary,
+  },
+  secondaryAction: {
+    minHeight: 46,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: COLORS.surfaceContainerLowest,
+  },
+  secondaryActionText: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: COLORS.primary,
+  },
+  dangerAction: {
+    minHeight: 46,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.tertiaryFixed,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#fff8f7",
+  },
+  dangerActionText: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: COLORS.error,
   },
 });

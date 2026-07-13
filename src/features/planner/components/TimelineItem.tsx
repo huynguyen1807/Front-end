@@ -36,7 +36,11 @@ export default function TimelineItem({
     <View style={styles.container}>
       <Text style={styles.time}>{time}</Text>
 
-      <View style={[styles.card, { borderLeftColor: borderColor }]}>
+      <TouchableOpacity
+        activeOpacity={0.86}
+        style={[styles.card, { borderLeftColor: borderColor }]}
+        onPress={onPress}
+      >
         <View style={styles.content}>
           <Text style={styles.title} numberOfLines={2}>
             {title}
@@ -46,7 +50,7 @@ export default function TimelineItem({
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.iconButton} activeOpacity={0.75} onPress={onPress}>
+        <View style={styles.iconButton}>
           {isCompleted && (
             <Ionicons name="checkmark-circle-outline" size={26} color={COLORS.primary} />
           )}
@@ -58,11 +62,18 @@ export default function TimelineItem({
               <Ionicons name="add" size={20} color={COLORS.primary} />
             </View>
           )}
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.removeButton} activeOpacity={0.75} onPress={onRemove}>
+        </View>
+        <TouchableOpacity
+          style={styles.removeButton}
+          activeOpacity={0.75}
+          onPress={(event) => {
+            event.stopPropagation();
+            onRemove?.();
+          }}
+        >
           <Ionicons name="close" size={18} color={COLORS.onSurfaceVariant} />
         </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
     </View>
   );
 }

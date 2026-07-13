@@ -1,5 +1,6 @@
 import { apiClient } from "../../../services/apiClient";
 import {
+  BmiProfile,
   GeneratedMealPlanResult,
   InventoryFood,
   MealPlan,
@@ -39,6 +40,13 @@ export const generateDailyMealPlanApi = async (data: {
   calorieMax?: number;
   mealTypes?: string[];
   goal?: string;
+  bmiProfile?: BmiProfile;
+  avoidRecipes?: Array<{
+    recipeName?: string;
+    ingredients?: RecipeIngredient[];
+    cookingSteps?: string[];
+    tags?: string[];
+  }>;
 }) => {
   const res = await apiClient.post("/api/meal-plans/generate", data);
   return res.data.data as GeneratedMealPlanResult;
