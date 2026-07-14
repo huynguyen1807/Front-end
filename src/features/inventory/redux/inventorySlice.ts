@@ -88,6 +88,13 @@ const inventorySlice = createSlice({
       state.activeFilter = action.payload;
     },
     setInventoryContext: (state, action: PayloadAction<{ ownerType: 'USER' | 'HOUSEHOLD', householdId?: string }>) => {
+      if (
+        state.context.ownerType !== action.payload.ownerType ||
+        state.context.householdId !== action.payload.householdId
+      ) {
+        state.items = [];
+        state.summary = { total: 0, safe: 0, nearExpiry: 0, expired: 0, needCheck: 0 };
+      }
       state.context = action.payload;
     },
     addFoodItem: (state, action: PayloadAction<FoodItem>) => {

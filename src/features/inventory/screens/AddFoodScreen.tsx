@@ -81,6 +81,13 @@ export default function AddFoodScreen() {
     ])
       .then(([cats, locs, hhs]) => {
         setHouseholds(hhs);
+        
+        let newContext = selectedContext;
+        if (hhs.length === 0 && selectedContext.ownerType === 'HOUSEHOLD') {
+          newContext = { ownerType: 'USER' };
+          setSelectedContext(newContext);
+        }
+
         const catList = sortFoodCategories(cats);
         const prefillCategoryName = String(prefill?.categoryName || '').trim().toLowerCase();
         const matchedPrefillCategory = catList.find((cat) => cat._id === prefill?.categoryId)

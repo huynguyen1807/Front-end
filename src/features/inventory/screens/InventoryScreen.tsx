@@ -38,10 +38,6 @@ export default function InventoryDashboardScreen() {
   const [households, setHouseholds] = React.useState<MyHousehold[]>([]);
   const [activeLocationFilter, setActiveLocationFilter] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    getMyHouseholdsApi().then(setHouseholds).catch(console.error);
-  }, []);
-
   const load = useCallback(() => {
     const filter = activeFilter === 'all' ? undefined : activeFilter as any;
     dispatch(fetchFoods(filter));
@@ -68,8 +64,24 @@ export default function InventoryDashboardScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load])
+      let isMounted = true;
+      getMyHouseholdsApi().then(hhs => {
+        if (!isMounted) return;
+        setHouseholds(hhs);
+        
+        // Nếu bị xóa khỏi family mà đang ở tab HOUSEHOLD -> fallback về USER
+        if (hhs.length === 0 && context.ownerType === 'HOUSEHOLD') {
+          dispatch(setInventoryContext({ ownerType: 'USER' }));
+        } else {
+          load();
+        }
+      }).catch(err => {
+        console.error(err);
+        if (isMounted) load();
+      });
+
+      return () => { isMounted = false; };
+    }, [context.ownerType, dispatch, load])
   );
 
   const handleDelete = (item: FoodItem) => {
@@ -103,24 +115,23 @@ export default function InventoryDashboardScreen() {
             style={[styles.contextToggleBtn, context.ownerType === 'USER' && styles.contextToggleBtnActive]}
             onPress={() => dispatch(setInventoryContext({ ownerType: 'USER' }))}
             activeOpacity={0.8}
+            disabled={households.length === 0}
           >
             <Ionicons name="person" size={14} color={context.ownerType === 'USER' ? COLORS.primary : COLORS.onSurfaceVariant} />
             <Text style={[styles.contextToggleText, context.ownerType === 'USER' && styles.contextToggleTextActive]}>Cá nhân</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.contextToggleBtn, context.ownerType === 'HOUSEHOLD' && styles.contextToggleBtnActive]}
-            onPress={() => {
-              if (households.length === 0) {
-                Alert.alert('Chưa có gia đình', 'Bạn cần tạo hoặc tham gia một gia đình ở mục Family Cloud trước.');
-                return;
-              }
-              dispatch(setInventoryContext({ ownerType: 'HOUSEHOLD', householdId: households[0].household._id }));
-            }}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="home" size={14} color={context.ownerType === 'HOUSEHOLD' ? COLORS.primary : COLORS.onSurfaceVariant} />
-            <Text style={[styles.contextToggleText, context.ownerType === 'HOUSEHOLD' && styles.contextToggleTextActive]}>Gia đình</Text>
-          </TouchableOpacity>
+          {households.length > 0 && (
+            <TouchableOpacity 
+              style={[styles.contextToggleBtn, context.ownerType === 'HOUSEHOLD' && styles.contextToggleBtnActive]}
+              onPress={() => {
+                dispatch(setInventoryContext({ ownerType: 'HOUSEHOLD', householdId: households[0].household._id }));
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="home" size={14} color={context.ownerType === 'HOUSEHOLD' ? COLORS.primary : COLORS.onSurfaceVariant} />
+              <Text style={[styles.contextToggleText, context.ownerType === 'HOUSEHOLD' && styles.contextToggleTextActive]}>Gia đình</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
