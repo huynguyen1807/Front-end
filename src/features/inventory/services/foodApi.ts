@@ -1,14 +1,19 @@
 import { apiClient } from '../../../services/apiClient';
 
 // ─── Food Items ───────────────────────────────────────────────────────────────
-export const getFoodsApi = async (filter?: 'SAFE' | 'NEAR_EXPIRY' | 'EXPIRED' | 'NEED_CHECK') => {
-  const params = filter ? { filter } : {};
+export const getFoodsApi = async (filter?: 'SAFE' | 'NEAR_EXPIRY' | 'EXPIRED' | 'NEED_CHECK', ownerType?: string, householdId?: string) => {
+  const params: any = filter ? { filter } : {};
+  if (ownerType) params.ownerType = ownerType;
+  if (householdId) params.householdId = householdId;
   const res = await apiClient.get('/api/foods', { params });
   return res.data.data;
 };
 
-export const getFoodSummaryApi = async () => {
-  const res = await apiClient.get('/api/foods/summary');
+export const getFoodSummaryApi = async (ownerType?: string, householdId?: string) => {
+  const params: any = {};
+  if (ownerType) params.ownerType = ownerType;
+  if (householdId) params.householdId = householdId;
+  const res = await apiClient.get('/api/foods/summary', { params });
   return res.data.data;
 };
 
@@ -33,8 +38,11 @@ export const createFoodApi = async (data: {
   expiryDate: string;
   quantity: number;
   unit: string;
-}) => {
-  const res = await apiClient.post('/api/foods', data);
+}, ownerType?: string, householdId?: string) => {
+  const params: any = {};
+  if (ownerType) params.ownerType = ownerType;
+  if (householdId) params.householdId = householdId;
+  const res = await apiClient.post('/api/foods', data, { params });
   return res.data.data;
 };
 
@@ -49,24 +57,36 @@ export const updateFoodApi = async (id: string, data: Partial<{
   imageUrl: string;
   sourceType: 'SUPERMARKET' | 'MARKET';
   expiryType: 'MANUAL' | 'SCANNED' | 'AI_PREDICTED';
-}>) => {
-  const res = await apiClient.put(`/api/foods/${id}`, data);
+}>, ownerType?: string, householdId?: string) => {
+  const params: any = {};
+  if (ownerType) params.ownerType = ownerType;
+  if (householdId) params.householdId = householdId;
+  const res = await apiClient.put(`/api/foods/${id}`, data, { params });
   return res.data.data;
 };
 
-export const deleteFoodApi = async (id: string) => {
-  const res = await apiClient.delete(`/api/foods/${id}`);
+export const deleteFoodApi = async (id: string, ownerType?: string, householdId?: string) => {
+  const params: any = {};
+  if (ownerType) params.ownerType = ownerType;
+  if (householdId) params.householdId = householdId;
+  const res = await apiClient.delete(`/api/foods/${id}`, { params });
   return res.data;
 };
 
-export const consumeFoodApi = async (id: string) => {
-  const res = await apiClient.patch(`/api/foods/${id}/consume`);
+export const consumeFoodApi = async (id: string, ownerType?: string, householdId?: string) => {
+  const params: any = {};
+  if (ownerType) params.ownerType = ownerType;
+  if (householdId) params.householdId = householdId;
+  const res = await apiClient.patch(`/api/foods/${id}/consume`, {}, { params });
   return res.data;
 };
 
 // ─── Storage Locations ────────────────────────────────────────────────────────
-export const getStorageLocationsApi = async () => {
-  const res = await apiClient.get('/api/storage-locations');
+export const getStorageLocationsApi = async (ownerType?: string, householdId?: string) => {
+  const params: any = {};
+  if (ownerType) params.ownerType = ownerType;
+  if (householdId) params.householdId = householdId;
+  const res = await apiClient.get('/api/storage-locations', { params });
   return res.data.data;
 };
 
@@ -75,18 +95,27 @@ export const createStorageLocationApi = async (data: {
   storageType: string;
   description?: string;
   isDefault?: boolean;
-}) => {
-  const res = await apiClient.post('/api/storage-locations', data);
+}, ownerType?: string, householdId?: string) => {
+  const params: any = {};
+  if (ownerType) params.ownerType = ownerType;
+  if (householdId) params.householdId = householdId;
+  const res = await apiClient.post('/api/storage-locations', data, { params });
   return res.data.data;
 };
 
-export const deleteStorageLocationApi = async (id: string) => {
-  const res = await apiClient.delete(`/api/storage-locations/${id}`);
+export const deleteStorageLocationApi = async (id: string, ownerType?: string, householdId?: string) => {
+  const params: any = {};
+  if (ownerType) params.ownerType = ownerType;
+  if (householdId) params.householdId = householdId;
+  const res = await apiClient.delete(`/api/storage-locations/${id}`, { params });
   return res.data;
 };
 
 // ─── Storage Suggestion ───────────────────────────────────────────────────────
-export const getStorageSuggestionApi = async (categoryId: string) => {
-  const res = await apiClient.get('/api/storage/suggestion', { params: { categoryId } });
+export const getStorageSuggestionApi = async (categoryId: string, ownerType?: string, householdId?: string) => {
+  const params: any = { categoryId };
+  if (ownerType) params.ownerType = ownerType;
+  if (householdId) params.householdId = householdId;
+  const res = await apiClient.get('/api/storage/suggestion', { params });
   return res.data.data;
 };

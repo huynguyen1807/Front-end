@@ -12,11 +12,14 @@ import ScreenContainer from '../../../components/layout/ScreenContainer';
 import TopNavbar from '../../../components/layout/TopNavbar';
 import FilterChip from '../../../components/common/FilterChip';
 import { COLORS } from '../../../constants/colors';
+import { RADIUS } from '../../../constants/spacing';
 import { useAppDispatch, useAppSelector } from '../../../redux/hooks';
 import InventoryCard from '../components/InventoryCard';
 import SummaryCard from '../components/SummaryCard';
-import { fetchFoods, fetchSummary, setActiveFilter, deleteFood, consumeFood } from '../redux/inventorySlice';
+import { fetchFoods, fetchSummary, setActiveFilter, deleteFood, consumeFood, setInventoryContext } from '../redux/inventorySlice';
 import { InventoryFilter, FoodItem } from '../types/inventory';
+import { getMyHouseholdsApi } from '../../familyCloud/services/familyCloudApi';
+import { MyHousehold } from '../../familyCloud/types/familyCloud';
 
 const FILTERS: { key: InventoryFilter; label: string; danger?: boolean }[] = [
   { key: 'all', label: 'Tất cả' },
@@ -31,18 +34,54 @@ export default function InventoryDashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
 
-  const { items, summary, activeFilter, loading } = useAppSelector((s) => s.inventory);
+  const { items, summary, activeFilter, loading, context } = useAppSelector((s) => s.inventory);
+  const [households, setHouseholds] = React.useState<MyHousehold[]>([]);
+  const [activeLocationFilter, setActiveLocationFilter] = React.useState<string | null>(null);
 
   const load = useCallback(() => {
     const filter = activeFilter === 'all' ? undefined : activeFilter as any;
     dispatch(fetchFoods(filter));
     dispatch(fetchSummary());
-  }, [activeFilter, dispatch]);
+  }, [activeFilter, context, dispatch]);
+
+  const groupedItems = React.useMemo(() => {
+    const groups: Record<string, FoodItem[]> = {};
+    items.forEach(item => {
+      const locName = item.storageLocationId?.storageName || 'Chưa phân loại';
+      if (!groups[locName]) groups[locName] = [];
+      groups[locName].push(item);
+    });
+    // Sort groups alphabetically
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  }, [items]);
+
+  const uniqueLocations = React.useMemo(() => groupedItems.map(([locName]) => locName), [groupedItems]);
+
+  const visibleGroups = React.useMemo(() => {
+    if (!activeLocationFilter) return groupedItems;
+    return groupedItems.filter(([locName]) => locName === activeLocationFilter);
+  }, [groupedItems, activeLocationFilter]);
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load])
+      let isMounted = true;
+      getMyHouseholdsApi().then(hhs => {
+        if (!isMounted) return;
+        setHouseholds(hhs);
+        
+        // Nếu bị xóa khỏi family mà đang ở tab HOUSEHOLD -> fallback về USER
+        if (hhs.length === 0 && context.ownerType === 'HOUSEHOLD') {
+          dispatch(setInventoryContext({ ownerType: 'USER' }));
+        } else {
+          load();
+        }
+      }).catch(err => {
+        console.error(err);
+        if (isMounted) load();
+      });
+
+      return () => { isMounted = false; };
+    }, [context.ownerType, dispatch, load])
   );
 
   const handleDelete = (item: FoodItem) => {
@@ -68,6 +107,33 @@ export default function InventoryDashboardScreen() {
   return (
     <ScreenContainer>
       <TopNavbar />
+
+      {/* Context Toggle */}
+      <View style={styles.contextToggleRow}>
+        <View style={styles.contextToggleContainer}>
+          <TouchableOpacity 
+            style={[styles.contextToggleBtn, context.ownerType === 'USER' && styles.contextToggleBtnActive]}
+            onPress={() => dispatch(setInventoryContext({ ownerType: 'USER' }))}
+            activeOpacity={0.8}
+            disabled={households.length === 0}
+          >
+            <Ionicons name="person" size={14} color={context.ownerType === 'USER' ? COLORS.primary : COLORS.onSurfaceVariant} />
+            <Text style={[styles.contextToggleText, context.ownerType === 'USER' && styles.contextToggleTextActive]}>Cá nhân</Text>
+          </TouchableOpacity>
+          {households.length > 0 && (
+            <TouchableOpacity 
+              style={[styles.contextToggleBtn, context.ownerType === 'HOUSEHOLD' && styles.contextToggleBtnActive]}
+              onPress={() => {
+                dispatch(setInventoryContext({ ownerType: 'HOUSEHOLD', householdId: households[0].household._id }));
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="home" size={14} color={context.ownerType === 'HOUSEHOLD' ? COLORS.primary : COLORS.onSurfaceVariant} />
+              <Text style={[styles.contextToggleText, context.ownerType === 'HOUSEHOLD' && styles.contextToggleTextActive]}>Gia đình</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
 
       {/* Summary row */}
       <View style={styles.summaryRow}>
@@ -110,6 +176,8 @@ export default function InventoryDashboardScreen() {
             />
           ))}
         </ScrollView>
+        
+
 
         {/* Content */}
         {loading && items.length === 0 ? (
@@ -120,17 +188,37 @@ export default function InventoryDashboardScreen() {
             <Text style={styles.emptyText}>Chưa có thực phẩm nào</Text>
             <Text style={styles.emptySubText}>Nhấn + để thêm thực phẩm vào tủ</Text>
           </View>
+        ) : visibleGroups.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name="filter-outline" size={64} color={COLORS.onSurfaceVariant} />
+            <Text style={styles.emptyText}>Không có mục nào ở đây</Text>
+          </View>
         ) : (
           <View style={styles.cardList}>
-            {items.map((item) => (
-              <InventoryCard
-                key={item._id}
-                item={item}
-                onPress={() => navigation.navigate('FoodDetail', { item })}
-                onEdit={() => navigation.navigate('UpdateFood', { item })}
-                onDelete={() => handleDelete(item)}
-                onConsume={() => handleConsume(item)}
-              />
+            {visibleGroups.map(([locName, groupItems]) => (
+              <View key={locName} style={styles.sectionContainer}>
+                <TouchableOpacity 
+                  activeOpacity={0.7} 
+                  style={[styles.sectionHeader, activeLocationFilter === locName && styles.sectionHeaderActive]} 
+                  onPress={() => setActiveLocationFilter(activeLocationFilter === locName ? null : locName)}
+                >
+                  <Ionicons name="location" size={18} color={activeLocationFilter === locName ? COLORS.primary : COLORS.onSurfaceVariant} />
+                  <Text style={[styles.sectionTitle, activeLocationFilter === locName && { color: COLORS.primary }]}>{locName}</Text>
+                  <View style={[styles.sectionBadge, activeLocationFilter === locName && { backgroundColor: COLORS.primary }]}>
+                    <Text style={[styles.sectionBadgeText, activeLocationFilter === locName && { color: COLORS.onPrimary }]}>{groupItems.length}</Text>
+                  </View>
+                </TouchableOpacity>
+                {groupItems.map((item) => (
+                  <InventoryCard
+                    key={item._id}
+                    item={item}
+                    onPress={() => navigation.navigate('FoodDetail', { item })}
+                    onEdit={() => navigation.navigate('UpdateFood', { item })}
+                    onDelete={() => handleDelete(item)}
+                    onConsume={() => handleConsume(item)}
+                  />
+                ))}
+              </View>
             ))}
           </View>
         )}
@@ -151,6 +239,41 @@ export default function InventoryDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+  contextToggleRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  contextToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surfaceContainerHighest,
+    borderRadius: 20,
+    padding: 4,
+  },
+  contextToggleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  contextToggleBtnActive: {
+    backgroundColor: COLORS.surfaceContainerLowest,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  contextToggleText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.onSurfaceVariant,
+  },
+  contextToggleTextActive: {
+    color: COLORS.primary,
+  },
   summaryRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -174,6 +297,40 @@ const styles = StyleSheet.create({
   summaryLabel: { fontSize: 11, color: COLORS.onSurfaceVariant, marginTop: 2 },
   chipRow: { paddingHorizontal: 16, paddingBottom: 8, gap: 8 },
   cardList: { paddingHorizontal: 16, gap: 12, paddingTop: 4 },
+  sectionContainer: {
+    marginBottom: 8,
+    gap: 12,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    marginTop: 8,
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: RADIUS.md,
+  },
+  sectionHeaderActive: {
+    backgroundColor: COLORS.surfaceContainerHighest,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.onSurface,
+    flex: 1,
+  },
+  sectionBadge: {
+    backgroundColor: COLORS.surfaceContainerHighest,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  sectionBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.onSurfaceVariant,
+  },
   empty: { alignItems: 'center', marginTop: 80, paddingHorizontal: 32 },
   emptyText: { fontSize: 18, fontWeight: '700', color: COLORS.onSurface, marginTop: 16 },
   emptySubText: { fontSize: 14, color: COLORS.onSurfaceVariant, marginTop: 8, textAlign: 'center' },

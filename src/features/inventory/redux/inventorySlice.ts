@@ -10,28 +10,38 @@ import { FoodItem, FoodStatus, FoodSummary, InventoryFilter } from '../types/inv
 // ─── Async Thunks ─────────────────────────────────────────────────────────────
 export const fetchFoods = createAsyncThunk(
   'inventory/fetchFoods',
-  async (filter?: Exclude<InventoryFilter, 'all'>) => {
-    return getFoodsApi(filter);
+  async (filter: Exclude<InventoryFilter, 'all'> | undefined, { getState }) => {
+    const state = getState() as any;
+    const { ownerType, householdId } = state.inventory.context;
+    return getFoodsApi(filter, ownerType, householdId);
   }
 );
 
 export const fetchSummary = createAsyncThunk(
   'inventory/fetchSummary',
-  async () => getFoodSummaryApi()
+  async (_, { getState }) => {
+    const state = getState() as any;
+    const { ownerType, householdId } = state.inventory.context;
+    return getFoodSummaryApi(ownerType, householdId);
+  }
 );
 
 export const deleteFood = createAsyncThunk(
   'inventory/deleteFood',
-  async (id: string) => {
-    await deleteFoodApi(id);
+  async (id: string, { getState }) => {
+    const state = getState() as any;
+    const { ownerType, householdId } = state.inventory.context;
+    await deleteFoodApi(id, ownerType, householdId);
     return id;
   }
 );
 
 export const consumeFood = createAsyncThunk(
   'inventory/consumeFood',
-  async (id: string) => {
-    await consumeFoodApi(id);
+  async (id: string, { getState }) => {
+    const state = getState() as any;
+    const { ownerType, householdId } = state.inventory.context;
+    await consumeFoodApi(id, ownerType, householdId);
     return id;
   }
 );
@@ -41,6 +51,10 @@ type InventoryState = {
   items: FoodItem[];
   summary: FoodSummary;
   activeFilter: InventoryFilter;
+  context: {
+    ownerType: 'USER' | 'HOUSEHOLD';
+    householdId?: string;
+  };
   loading: boolean;
   error: string | null;
 };
@@ -49,6 +63,7 @@ const initialState: InventoryState = {
   items: [],
   summary: { total: 0, safe: 0, nearExpiry: 0, expired: 0, needCheck: 0 },
   activeFilter: 'all',
+  context: { ownerType: 'USER' },
   loading: false,
   error: null,
 };
@@ -71,6 +86,16 @@ const inventorySlice = createSlice({
   reducers: {
     setActiveFilter: (state, action: PayloadAction<InventoryFilter>) => {
       state.activeFilter = action.payload;
+    },
+    setInventoryContext: (state, action: PayloadAction<{ ownerType: 'USER' | 'HOUSEHOLD', householdId?: string }>) => {
+      if (
+        state.context.ownerType !== action.payload.ownerType ||
+        state.context.householdId !== action.payload.householdId
+      ) {
+        state.items = [];
+        state.summary = { total: 0, safe: 0, nearExpiry: 0, expired: 0, needCheck: 0 };
+      }
+      state.context = action.payload;
     },
     addFoodItem: (state, action: PayloadAction<FoodItem>) => {
       state.items.unshift(action.payload);
@@ -128,5 +153,5 @@ const inventorySlice = createSlice({
   },
 });
 
-export const { setActiveFilter, addFoodItem, updateFoodItem } = inventorySlice.actions;
+export const { setActiveFilter, setInventoryContext, addFoodItem, updateFoodItem } = inventorySlice.actions;
 export default inventorySlice.reducer;
