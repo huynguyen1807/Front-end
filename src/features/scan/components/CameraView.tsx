@@ -18,6 +18,7 @@ export default function CameraView({
 }: CameraViewProps) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [isCameraReady, setIsCameraReady] = useState(false);
+  const [isTakingPicture, setIsTakingPicture] = useState(false);
   const localCameraRef = useRef(null);
 
   useEffect(() => {
@@ -45,18 +46,16 @@ export default function CameraView({
     setIsCameraReady(true);
   };
 
-  const [isProcessing, setIsProcessing] = useState(false);
-
   const handleTakePicture = async () => {
-    if (!isCameraReady || isScanning || isProcessing) return;
+    if (!isCameraReady || isScanning || isTakingPicture) return;
 
     try {
-      setIsProcessing(true);
+      setIsTakingPicture(true);
       const camera = cameraRef?.current || localCameraRef.current;
       if (!camera) return;
 
       const photo = await camera.takePictureAsync({
-        quality: 0.8,
+        quality: 0.45,
         base64: false,
       });
 
@@ -64,7 +63,7 @@ export default function CameraView({
     } catch (error) {
       console.error('Error taking picture:', error);
     } finally {
-      setIsProcessing(false);
+      setIsTakingPicture(false);
     }
   };
 
@@ -81,6 +80,7 @@ export default function CameraView({
       {/* Overlay: Scan Frame */}
       <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]} pointerEvents="none">
         <Animated.View
+          pointerEvents="none"
           style={[
             styles.scanFrame,
             {
@@ -99,7 +99,7 @@ export default function CameraView({
               size={16}
               color={COLORS.onPrimary}
             />
-            <Text style={styles.detectionText}>AI ĐANG NHẬN DIỆN...</Text>
+            <Text style={styles.detectionText}>AI DANG NHAN DIEN...</Text>
           </View>
         </View>
       )}
@@ -110,10 +110,10 @@ export default function CameraView({
           <TouchableOpacity
             style={[
               styles.captureButton,
-              { opacity: isScanning || isProcessing ? 0.5 : 1 }
+              { opacity: isTakingPicture ? 0.5 : 1 }
             ]}
             onPress={handleTakePicture}
-            disabled={isScanning || isProcessing}
+            disabled={isTakingPicture}
           >
             <View style={styles.captureButtonInner}>
               <MaterialCommunityIcons
