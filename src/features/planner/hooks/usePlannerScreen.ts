@@ -370,7 +370,7 @@ export default function usePlannerScreen() {
   const [roleLoaded, setRoleLoaded] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [workspace, setWorkspace] = useState<Workspace>("meal");
-  const [detailTab, setDetailTab] = useState<PlannerDetailTab>("inventory");
+  const [detailTab, setDetailTab] = useState<PlannerDetailTab>("video");
   const [adminSection, setAdminSection] = useState<AdminSection>("category");
 
   const [activeDate, setActiveDate] = useState(toDateInput(new Date()));
