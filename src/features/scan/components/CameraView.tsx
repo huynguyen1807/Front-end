@@ -18,6 +18,7 @@ export default function CameraView({
 }: CameraViewProps) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [isCameraReady, setIsCameraReady] = useState(false);
+  const [isTakingPicture, setIsTakingPicture] = useState(false);
   const localCameraRef = useRef(null);
 
   useEffect(() => {
@@ -46,20 +47,23 @@ export default function CameraView({
   };
 
   const handleTakePicture = async () => {
-    if (!isCameraReady || isScanning) return;
+    if (!isCameraReady || isScanning || isTakingPicture) return;
 
     try {
+      setIsTakingPicture(true);
       const camera = cameraRef?.current || localCameraRef.current;
       if (!camera) return;
 
       const photo = await camera.takePictureAsync({
-        quality: 0.8,
+        quality: 0.45,
         base64: false,
       });
 
       onCapture?.(photo);
     } catch (error) {
       console.error('Error taking picture:', error);
+    } finally {
+      setIsTakingPicture(false);
     }
   };
 
@@ -71,9 +75,10 @@ export default function CameraView({
         ref={cameraRef || localCameraRef}
         style={styles.cameraPlaceholder}
         onCameraReady={handleCameraReady}
-      >
+      />
         {/* Overlay: Scan Frame */}
         <Animated.View
+          pointerEvents="none"
           style={[
             styles.scanFrame,
             {
@@ -84,13 +89,13 @@ export default function CameraView({
 
         {/* Overlay: Detection Label */}
         {isScanning && (
-          <View style={styles.detectionLabel}>
+          <View style={styles.detectionLabel} pointerEvents="none">
             <MaterialCommunityIcons
               name="motion-sensor"
               size={16}
               color={COLORS.onPrimary}
             />
-            <Text style={styles.detectionText}>AI ĐANG NHẬN DIỆN...</Text>
+            <Text style={styles.detectionText}>AI DANG NHAN DIEN...</Text>
           </View>
         )}
 
@@ -99,10 +104,10 @@ export default function CameraView({
           <TouchableOpacity
             style={[
               styles.captureButton,
-              { opacity: isScanning ? 0.5 : 1 }
+              { opacity: isTakingPicture ? 0.5 : 1 }
             ]}
             onPress={handleTakePicture}
-            disabled={isScanning}
+            disabled={isTakingPicture}
           >
             <View style={styles.captureButtonInner}>
               <MaterialCommunityIcons
@@ -113,7 +118,6 @@ export default function CameraView({
             </View>
           </TouchableOpacity>
         )}
-      </ExpoCamera>
     </View>
   );
 }
