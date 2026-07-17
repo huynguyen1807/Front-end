@@ -15,6 +15,8 @@ import { colors } from '../../../theme/colors';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 
+import { forgotPasswordApi } from '../services/authApi';
+
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,19 +25,23 @@ export default function ForgotPasswordScreen() {
   
   const navigation = useNavigation<any>();
 
-  const handleForgotPassword = () => {
+  const handleForgotPassword = async () => {
     if (!email) return;
     
-    setLoading(true);
-    // Simulate API Call
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      setLoading(true);
+      await forgotPasswordApi(email);
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
-        navigation.navigate('Login');
-      }, 3000);
-    }, 1500);
+        navigation.navigate('ResetPassword', { email });
+      }, 2000);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.response?.data?.message || err.message || 'Lỗi gửi yêu cầu');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
