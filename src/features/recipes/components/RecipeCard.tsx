@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import { COLORS } from "../../../constants/colors";
+import { formatFoodAmount } from "../../planner/utils/unitFormatters";
 import { Recipe } from "../types/recipe";
 
 type RecipeCardProps = {
@@ -176,11 +177,6 @@ export default function RecipeCard({
                   : "Đủ nguyên liệu"}
               </Text>
             </View>
-            {(recipe.tags || []).slice(0, 3).map((tag, index) => (
-              <View key={`${tag}-${index}`} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
-            ))}
             <View style={styles.tag}>
               <Text style={styles.tagText}>C {Math.round(macro.carbs)}g</Text>
             </View>
@@ -296,7 +292,7 @@ export default function RecipeCard({
                 {recipe.ingredients?.length ? (
                   recipe.ingredients.map((ingredient, index) => (
                     <Text key={`${ingredient.ingredientName}-${index}`} style={styles.detailListText}>
-                      {index + 1}. {ingredient.ingredientName} - {ingredient.quantity} {ingredient.unit}
+                      {index + 1}. {ingredient.ingredientName} - {formatFoodAmount(ingredient.quantity, ingredient.unit)}
                     </Text>
                   ))
                 ) : (
@@ -315,16 +311,6 @@ export default function RecipeCard({
                   <Text style={styles.detailListText}>Chưa có bước nấu.</Text>
                 )}
               </DetailSection>
-
-              {recipe.tags?.length ? (
-                <View style={styles.detailTagsRow}>
-                  {recipe.tags.map((tag, index) => (
-                    <View key={`${tag}-${index}`} style={styles.tag}>
-                      <Text style={styles.tagText}>{tag}</Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
 
               {disabledReason ? (
                 <Text style={styles.detailWarning}>{disabledReason}</Text>
@@ -745,12 +731,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: "700",
     marginBottom: 4,
-  },
-  detailTagsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 7,
-    marginBottom: 12,
   },
   detailWarning: {
     color: COLORS.onTertiaryFixed,

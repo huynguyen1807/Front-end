@@ -66,16 +66,20 @@ function matchesFoodName(ingredientName: string, foodName: string) {
 
 function normalizeUnit(value?: string) {
   const unit = normalizeName(value);
+  const normalizedText = unit
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "d");
   if (["kg", "kilogram", "kilograms"].includes(unit)) return "kg";
   if (["g", "gram", "grams"].includes(unit)) return "g";
   if (["l", "liter", "litre", "liters", "litres"].includes(unit)) return "l";
   if (["ml", "milliliter", "millilitre", "milliliters", "millilitres"].includes(unit)) {
     return "ml";
   }
-  if (["item", "piece", "pieces", "cai", "cái", "qua", "quả", "trai", "trái"].includes(unit)) {
+  if (["item", "piece", "pieces", "cai", "qua", "trai"].includes(normalizedText)) {
     return "item";
   }
-  if (["serving", "portion", "phan", "phần"].includes(unit)) return "serving";
+  if (["serving", "portion", "phan"].includes(normalizedText)) return "serving";
   return unit;
 }
 

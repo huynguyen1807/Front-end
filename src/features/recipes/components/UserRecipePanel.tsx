@@ -393,7 +393,7 @@ export default function UserRecipePanel({
                   style={styles.input}
                   value={ingredient.unit}
                   onChangeText={(value) => updateIngredient(ingredient.id, { unit: value })}
-                  placeholder="g, ml, item..."
+                  placeholder="g, kg, ml, l, quả, cái..."
                 />
               </AdminField>
             </View>

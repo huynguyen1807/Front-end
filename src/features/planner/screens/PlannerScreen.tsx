@@ -35,6 +35,7 @@ import Section from "../components/shared/Section";
 import { mealTypeOptions } from "../constants/plannerConstants";
 import usePlannerScreen from "../hooks/usePlannerScreen";
 import { plannerStyles as styles } from "../styles/PlannerScreen.styles";
+import { formatFoodAmount } from "../utils/unitFormatters";
 
 type RecommendedFilter = "all" | "enough" | "missing";
 
@@ -524,7 +525,7 @@ export default function PlannerScreen() {
                 >
                   <MaterialCommunityIcons name="plus-circle" size={16} color={COLORS.primary} />
                   <Text style={styles.noticeItemText}>
-                    {item.ingredientName} - {item.quantity} {item.unit}
+                    {item.ingredientName} - {formatFoodAmount(item.quantity, item.unit)}
                   </Text>
                 </View>
               ))}

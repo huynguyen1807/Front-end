@@ -202,7 +202,7 @@ const buildMissingShoppingItems = (
       ingredientName: ingredient.ingredientName,
       categoryId: typeof ingredient.categoryId === "string" ? ingredient.categoryId : undefined,
       quantity: Number(ingredient.quantity) || 1,
-      unit: ingredient.unit || "item",
+      unit: ingredient.unit || "g",
     }));
 };
 
@@ -1030,7 +1030,7 @@ export default function usePlannerScreen() {
             ingredientName: food.foodName,
             categoryId: typeof food.categoryId === "string" ? food.categoryId : undefined,
             quantity: 1,
-            unit: food.unit || "item",
+            unit: food.unit || "g",
           },
         ],
       });
