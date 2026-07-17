@@ -183,10 +183,24 @@ export interface VideoRecipeExtraction {
     status: "PROCESSING" | "SUCCESS" | "FAILED";
     extractedIngredients: RecipeIngredient[];
   };
+  recipe?: {
+    _id: string;
+    recipeName: string;
+  };
   extractedRecipe: {
+    recipeId?: string;
     recipeName: string;
     description?: string;
     ingredients: RecipeIngredient[];
+    cookingSteps: string[];
+    cookingTime?: number;
+    difficulty?: Difficulty;
+    calories?: number;
+    servings?: number;
+    cuisine?: string;
+    macroSummary?: MacroSummary;
+    tags?: string[];
+    notes?: string;
     sourceType: "VIDEO_EXTRACTED";
   };
 }
