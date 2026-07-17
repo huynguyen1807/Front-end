@@ -9,8 +9,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useCallback } from "react";
 
 import BottomNavbar from "../../../components/layout/BottomNavbar";
 import ScreenContainer from "../../../components/layout/ScreenContainer";
@@ -23,13 +24,13 @@ import SettingsToggle from "../components/SettingsToggle";
 import SectionHeader from "../components/SectionHeader";
 import { settingsScreenStyles as styles } from "../styles/SettingsScreen.styles";
 import { UserProfile } from "../types/settings";
+import { getMeApi, updatePreferencesApi } from "../services/userApi";
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
-  const [language, setLanguage] = useState<"vi" | "en">("vi");
 
   const [user, setUser] = useState<UserProfile>({
     name: "Đang tải...",
@@ -38,26 +39,69 @@ export default function SettingsScreen() {
       "https://lh3.googleusercontent.com/aida-public/AB6AXuAvxKarOtflssf0DRAIlS7rBsZ2CsimMFiMYmnTyqxz6vhQRYPiMwW1HB9sf50iMpv1NdhjSpUsPrZtEcFFuDwagAYqXHATw6AYTj6Qe8Jbvf3jEoMM3FBZf9to-OualWQgWjZ0Ga-j1RgW52VCm0EkeQGLFldPGpOpkICGcdcAbKf_fkjvUlHOYhC7mFfzjM4-TI2yrUKNYoF9VuVgvDhKsZ70BsrOCe45CaxVB9cqarYDYpxV9rZNM-6wv_kZxM8n90vlMGhZac0",
   });
 
-  useEffect(() => {
-    const loadUserInfo = async () => {
-      try {
-        const userInfoString = await AsyncStorage.getItem('userInfo');
-        if (userInfoString) {
-          const userInfo = JSON.parse(userInfoString);
-          setUser(prev => ({
-            ...prev,
-            name: userInfo.fullName || userInfo.name || "Người dùng",
-            email: userInfo.email || "",
-            avatar: userInfo.avatarUrl || prev.avatar
-          }));
-        }
-      } catch (error) {
-        console.error("Lỗi khi tải thông tin user:", error);
+  const loadUserInfo = async () => {
+    try {
+      const userInfoString = await AsyncStorage.getItem('userInfo');
+      if (userInfoString) {
+        const userInfo = JSON.parse(userInfoString);
+        setUser(prev => ({
+          ...prev,
+          name: userInfo.fullName || userInfo.name || "Người dùng",
+          email: userInfo.email || "",
+          avatar: userInfo.avatarUrl || prev.avatar
+        }));
       }
-    };
-    
-    loadUserInfo();
-  }, []);
+
+      // Fetch latest from API
+      const data = await getMeApi();
+      if (data && data.user) {
+        setUser(prev => ({
+          ...prev,
+          name: data.user.fullName || prev.name,
+          email: data.user.email || prev.email,
+          avatar: data.user.avatarUrl || prev.avatar
+        }));
+        // Update AsyncStorage
+        await AsyncStorage.setItem('userInfo', JSON.stringify({
+           ...JSON.parse(userInfoString || '{}'),
+           ...data.user
+        }));
+      }
+      if (data && data.preferences) {
+        setNotificationsEnabled(data.preferences.notificationsEnabled ?? true);
+        const isDbDarkMode = data.preferences.darkMode ?? false;
+        setDarkMode(isDbDarkMode);
+      }
+    } catch (error) {
+      console.error("Lỗi khi tải thông tin user:", error);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadUserInfo();
+    }, [])
+  );
+
+  const handleToggleNotification = async (value: boolean) => {
+    try {
+      setNotificationsEnabled(value); // Optimistic update
+      await updatePreferencesApi({ notificationsEnabled: value });
+    } catch (error) {
+      setNotificationsEnabled(!value); // Revert on failure
+      Alert.alert('Lỗi', 'Không thể lưu cài đặt thông báo');
+    }
+  };
+
+  const handleToggleDarkMode = async (value: boolean) => {
+    try {
+      setDarkMode(value); // Optimistic update
+      await updatePreferencesApi({ darkMode: value });
+    } catch (error) {
+      setDarkMode(!value); // Revert on failure
+      Alert.alert('Lỗi', 'Không thể lưu cài đặt giao diện');
+    }
+  };
 
   const bottomSpace = Platform.OS === "ios" ? 100 + insets.bottom : 100;
 
@@ -97,7 +141,7 @@ export default function SettingsScreen() {
         style={styles.container}
       >
         {/* Profile Section */}
-        <ProfileSection user={user} onEditPress={() => {}} />
+        <ProfileSection user={user} onEditPress={() => navigation.navigate("EditProfile")} />
 
         {/* App Settings Section */}
         <View style={styles.sectionContainer}>
@@ -112,7 +156,7 @@ export default function SettingsScreen() {
             >
               <SettingsToggle
                 value={notificationsEnabled}
-                onChange={setNotificationsEnabled}
+                onChange={handleToggleNotification}
               />
             </SettingsItem>
 
@@ -122,23 +166,10 @@ export default function SettingsScreen() {
               label="Chế độ tối"
               description="Tối ưu cho môi trường ánh sáng yếu"
               iconColor={COLORS.secondary}
-            >
-              <SettingsToggle value={darkMode} onChange={setDarkMode} />
-            </SettingsItem>
-
-            {/* Language */}
-            <SettingsItem
-              icon="language"
-              label="Ngôn ngữ"
-              description={`Hiện tại: ${language === "vi" ? "Tiếng Việt" : "English"}`}
-              iconColor={COLORS.tertiary}
-              onPress={() => {
-                // TODO: Implement language selection
-                console.log("Change language");
-              }}
-              showChevron
               isLast
-            />
+            >
+              <SettingsToggle value={darkMode} onChange={handleToggleDarkMode} />
+            </SettingsItem>
           </View>
         </View>
 
