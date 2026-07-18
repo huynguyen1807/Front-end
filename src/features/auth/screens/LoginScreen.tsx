@@ -56,7 +56,11 @@ export default function LoginScreen() {
       // Đăng ký push notification token sau khi đăng nhập (không chặn navigation)
       void registerForPushNotifications();
 
-      navigation.replace('Main');
+      if (response.user.role === 'ADMIN') {
+        navigation.replace('AdminDashboard');
+      } else {
+        navigation.replace('Main');
+      }
     } catch (err: any) {
       console.error("LOGIN ERROR:", err);
       setError(err.response?.data?.message || err.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
@@ -92,7 +96,11 @@ export default function LoginScreen() {
       // Đăng ký push notification token sau khi đăng nhập Google (không chặn navigation)
       void registerForPushNotifications();
 
-      navigation.replace('Main');
+      if (res.user.role === 'ADMIN') {
+        navigation.replace('AdminDashboard');
+      } else {
+        navigation.replace('Main');
+      }
     } catch (err: any) {
       console.error("GOOGLE LOGIN ERROR:", err);
       setError(err.response?.data?.message || err.message || 'Đăng nhập Google thất bại');
