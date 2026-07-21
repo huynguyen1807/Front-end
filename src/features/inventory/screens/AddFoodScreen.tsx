@@ -17,6 +17,7 @@ import {
   getStorageLocationsApi,
   getStorageSuggestionApi,
   createStorageLocationApi,
+  uploadImageApi,
 } from '../services/foodApi';
 import { getMyHouseholdsApi } from '../../familyCloud/services/familyCloudApi';
 import { MyHousehold } from '../../familyCloud/types/familyCloud';
@@ -193,6 +194,17 @@ export default function AddFoodScreen() {
     try {
       setLoading(true);
 
+      // ── Upload image to Cloudinary if local URI ──────────────────────────────
+      let imageUrl = form.imageUrl;
+      if (imageUrl && imageUrl.startsWith('file://')) {
+        try {
+          const uploadResult = await uploadImageApi(imageUrl);
+          imageUrl = uploadResult.url;
+        } catch (uploadErr) {
+          console.warn('[Upload image failed, using original URI]', uploadErr);
+        }
+      }
+
       // ── Nếu chưa có storage location → tự tạo ────────────────────────────
       let storageLocationId = form.storageLocationId;
       if (!storageLocationId) {
@@ -211,7 +223,7 @@ export default function AddFoodScreen() {
         foodName: foodName.trim(),
         categoryId,
         storageLocationId,
-        imageUrl: form.imageUrl || undefined,
+        imageUrl: imageUrl || undefined,
         sourceType: form.sourceType,
         expiryType: form.expiryType,
         purchaseDate: form.purchaseDate,

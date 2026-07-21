@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import { COLORS } from "../../../constants/colors";
+import { uploadImageApi } from "../../../services/uploadApi";
 import AdminActionButton from "../../adminData/components/shared/AdminActionButton";
 import AdminChipButton from "../../adminData/components/shared/AdminChipButton";
 import AdminField from "../../adminData/components/shared/AdminField";
@@ -183,7 +184,20 @@ export default function UserRecipePanel({
     });
 
     if (!result.canceled && result.assets[0]?.uri) {
-      setRecipeForm((form) => ({ ...form, imageUrl: result.assets[0].uri }));
+      const localUri = result.assets[0].uri;
+      
+      if (localUri.startsWith("file://") || localUri.startsWith("content://")) {
+        try {
+          setRecipeForm((form) => ({ ...form, imageUrl: "uploading" }));
+          const cloudinaryUrl = await uploadImageApi(localUri);
+          setRecipeForm((form) => ({ ...form, imageUrl: cloudinaryUrl }));
+        } catch (error: any) {
+          Alert.alert("Upload thất bại", "Không thể tải ảnh lên Cloudinary. Vui lòng thử lại.");
+          setRecipeForm((form) => ({ ...form, imageUrl: "" }));
+        }
+      } else {
+        setRecipeForm((form) => ({ ...form, imageUrl: localUri }));
+      }
     }
   };
 
@@ -315,9 +329,10 @@ export default function UserRecipePanel({
         <AdminField label="URL ảnh hoặc ảnh từ thư viện">
           <TextInput
             style={styles.input}
-            value={recipeForm.imageUrl}
+            value={recipeForm.imageUrl === "uploading" ? "Đang tải ảnh lên..." : recipeForm.imageUrl}
             onChangeText={(value) => setRecipeForm((form) => ({ ...form, imageUrl: value }))}
             placeholder="Có thể bỏ trống"
+            editable={recipeForm.imageUrl !== "uploading"}
           />
           <View style={styles.actionRow}>
             <AdminActionButton
@@ -325,8 +340,9 @@ export default function UserRecipePanel({
               icon="image-plus"
               secondary
               onPress={pickImage}
+              disabled={recipeForm.imageUrl === "uploading"}
             />
-            {recipeForm.imageUrl ? (
+            {recipeForm.imageUrl && recipeForm.imageUrl !== "uploading" ? (
               <AdminActionButton
                 label="Bỏ ảnh"
                 icon="image-off-outline"
@@ -335,7 +351,7 @@ export default function UserRecipePanel({
               />
             ) : null}
           </View>
-          {recipeForm.imageUrl ? (
+          {recipeForm.imageUrl && recipeForm.imageUrl !== "uploading" ? (
             <Image source={{ uri: recipeForm.imageUrl }} style={styles.previewImage} />
           ) : null}
         </AdminField>

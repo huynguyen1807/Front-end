@@ -24,6 +24,7 @@ import {
   getFoodCategoriesApi,
   getStorageLocationsApi,
   updateFoodApi,
+  uploadImageApi,
 } from "../services/foodApi";
 import { FoodCategory, FoodItem, StorageLocation } from "../types/inventory";
 import {
@@ -150,6 +151,18 @@ export default function UpdateFoodScreen() {
 
     try {
       setLoading(true);
+
+      // Upload image to Cloudinary if local URI
+      let imageUrl = form.imageUrl;
+      if (imageUrl && imageUrl.startsWith('file://')) {
+        try {
+          const uploadResult = await uploadImageApi(imageUrl);
+          imageUrl = uploadResult.url;
+        } catch (uploadErr) {
+          console.warn('[Upload image failed, using original URI]', uploadErr);
+        }
+      }
+
       const updated = await updateFoodApi(item._id, {
         foodName: form.foodName.trim(),
         categoryId: form.categoryId,
@@ -160,7 +173,7 @@ export default function UpdateFoodScreen() {
         expiryDate: form.expiryDate,
         quantity: Number(form.quantity),
         unit: form.unit.trim(),
-        imageUrl: form.imageUrl.trim(),
+        imageUrl: imageUrl,
       });
 
       dispatch(updateFoodItem(updated));
