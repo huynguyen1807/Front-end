@@ -20,6 +20,14 @@ import NotificationScreen from "./src/features/notifications/screens/Notificatio
 import { FamilyCloudScreen } from "./src/features/familyCloud";
 import { SubscriptionScreen } from "./src/features/subscription";
 import EditProfileScreen from "./src/features/settings/screens/EditProfileScreen";
+import AdminDashboardScreen from "./src/features/admin/screens/AdminDashboardScreen";
+import AdminUserListScreen from "./src/features/admin/screens/AdminUserListScreen";
+import AdminSupportListScreen from "./src/features/admin/screens/AdminSupportListScreen";
+import AdminSystemDataScreen from "./src/features/admin/screens/AdminSystemDataScreen";
+import AdminCategoryListScreen from "./src/features/admin/screens/AdminCategoryListScreen";
+import AdminStorageRulesScreen from "./src/features/admin/screens/AdminStorageRulesScreen";
+import AdminRecipesScreen from "./src/features/admin/screens/AdminRecipesScreen";
+import AdminNutritionScreen from "./src/features/admin/screens/AdminNutritionScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -61,6 +69,16 @@ export default function App() {
               
               {/* Settings screens */}
               <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+
+              {/* Admin screens */}
+              <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+              <Stack.Screen name="AdminUserList" component={AdminUserListScreen} />
+              <Stack.Screen name="AdminSupportList" component={AdminSupportListScreen} />
+              <Stack.Screen name="AdminSystemData" component={AdminSystemDataScreen} />
+              <Stack.Screen name="AdminCategoryList" component={AdminCategoryListScreen} />
+              <Stack.Screen name="AdminStorageRules" component={AdminStorageRulesScreen} />
+              <Stack.Screen name="AdminRecipes" component={AdminRecipesScreen} />
+              <Stack.Screen name="AdminNutrition" component={AdminNutritionScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </ReduxProvider>
