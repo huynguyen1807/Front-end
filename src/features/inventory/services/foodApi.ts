@@ -1,5 +1,28 @@
 import { apiClient } from '../../../services/apiClient';
 
+// ─── Image Upload ─────────────────────────────────────────────────────────────
+export const uploadImageApi = async (imageUri: string): Promise<{ url: string; publicId: string }> => {
+  const formData = new FormData();
+
+  // Get file name from URI
+  const fileName = imageUri.split('/').pop() || 'photo.jpg';
+  const match = /\.(\w+)$/.exec(fileName);
+  const fileType = match ? `image/${match[1]}` : 'image/jpeg';
+
+  formData.append('image', {
+    uri: imageUri,
+    name: fileName,
+    type: fileType,
+  } as any);
+
+  const res = await apiClient.post('/api/upload/image', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return res.data.data;
+};
+
 // ─── Food Items ───────────────────────────────────────────────────────────────
 export const getFoodsApi = async (filter?: 'SAFE' | 'NEAR_EXPIRY' | 'EXPIRED' | 'NEED_CHECK', ownerType?: string, householdId?: string) => {
   const params: any = filter ? { filter } : {};
