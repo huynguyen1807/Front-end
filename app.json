@@ -3,11 +3,6 @@
     "name": "SmartHouseholdFoodManagement",
     "slug": "smart-household-food-management",
     "scheme": "freshfriends",
-    "permissions": [
-      "camera",
-      "photos",
-      "location"
-    ],
     "plugins": [
       "expo-asset",
       "expo-font",

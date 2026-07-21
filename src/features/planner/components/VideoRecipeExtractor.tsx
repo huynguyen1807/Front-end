@@ -5,7 +5,7 @@ import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-nativ
 import { COLORS } from "../../../constants/colors";
 import { VideoRecipeExtraction } from "../types/planner";
 import { plannerStyles as styles } from "../styles/PlannerScreen.styles";
-import { formatFoodAmount } from "../utils/unitFormatters";
+import { formatFoodAmount } from "../../../utils/foodUnits";
 import Section from "./shared/Section";
 
 type VideoRecipeExtractorProps = {

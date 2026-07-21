@@ -6,6 +6,7 @@ import { COLORS } from "../../../constants/colors";
 import { InventoryFood, MacroSummary } from "../types/planner";
 import { getFoodScheduleRule } from "../utils/foodScheduleRules";
 import { getCategoryName, getDaysUntilExpiry } from "../utils/plannerUtils";
+import { formatFoodAmount } from "../../../utils/foodUnits";
 import { plannerStyles as styles } from "../styles/PlannerScreen.styles";
 
 type InventoryBucketProps = {
@@ -101,7 +102,7 @@ export default function InventoryBucket({
                       {food.foodName}
                     </Text>
                     <Text style={styles.foodMeta}>
-                      {food.quantity} {food.unit} • {expiryText(food.expiryDate)}
+                      {formatFoodAmount(food.quantity, food.unit)} • {expiryText(food.expiryDate)}
                     </Text>
                   </View>
                   <View style={styles.foodNutrientRow}>
@@ -173,7 +174,7 @@ export default function InventoryBucket({
                   <DetailMetric label="Fat" value={`${Math.round(getFoodMacro(selectedFood).fat)}g`} />
                 </View>
                 <View style={styles.detailInfoList}>
-                  <DetailInfo label="Số lượng" value={`${selectedFood.quantity} ${selectedFood.unit}`} />
+                  <DetailInfo label="Số lượng" value={formatFoodAmount(selectedFood.quantity, selectedFood.unit)} />
                   <DetailInfo label="Hạn dùng" value={expiryText(selectedFood.expiryDate)} />
                   <DetailInfo label="Trạng thái" value={selectedFood.status} />
                   <DetailInfo label="Danh mục" value={getCategoryName(selectedFood.categoryId) || "Chưa phân loại"} />

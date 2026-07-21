@@ -4,10 +4,12 @@ import { NutritionCalculation, NutritionFact, NutritionReport } from "../types/n
 
 export type NutritionFactPayload = {
   foodName: string;
+  aliases?: string[];
   categoryId?: string;
   categoryName?: string;
   caloriesPerUnit: number;
-  unit: "g" | "ml" | "item" | "serving";
+  baseQuantity?: number;
+  unit: "g" | "kg" | "ml" | "l" | "item" | "serving" | "quả" | "cái";
   protein?: number;
   carbs?: number;
   fat?: number;
@@ -24,6 +26,8 @@ export const getNutritionReportApi = async (params?: {
   periodType?: "WEEK" | "MONTH";
   startDate?: string;
   endDate?: string;
+  ownerType?: "USER" | "HOUSEHOLD";
+  householdId?: string;
 }) => {
   const res = await apiClient.get("/api/nutrition/report", { params });
   return res.data.data as NutritionReport;

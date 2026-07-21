@@ -55,9 +55,11 @@ export type BmiFormState = {
 export type NutritionFactFormState = {
   id?: string;
   foodName: string;
+  aliases: string;
   categoryName: string;
   caloriesPerUnit: string;
-  unit: "g" | "ml" | "item" | "serving";
+  baseQuantity: string;
+  unit: "g" | "kg" | "ml" | "l" | "item" | "serving" | "quả" | "cái";
   protein: string;
   carbs: string;
   fat: string;
@@ -110,8 +112,10 @@ export const emptyRecipeForm: RecipeFormState = createEmptyRecipeForm();
 
 export const emptyFactForm: NutritionFactFormState = {
   foodName: "",
+  aliases: "",
   categoryName: "",
   caloriesPerUnit: "",
+  baseQuantity: "100",
   unit: "g",
   protein: "",
   carbs: "",

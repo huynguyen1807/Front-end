@@ -35,7 +35,7 @@ import Section from "../components/shared/Section";
 import { mealTypeOptions } from "../constants/plannerConstants";
 import usePlannerScreen from "../hooks/usePlannerScreen";
 import { plannerStyles as styles } from "../styles/PlannerScreen.styles";
-import { formatFoodAmount } from "../utils/unitFormatters";
+import { formatFoodAmount, formatFoodUnit } from "../../../utils/foodUnits";
 
 type RecommendedFilter = "all" | "enough" | "missing";
 
@@ -84,6 +84,12 @@ export default function PlannerScreen() {
             foods={planner.inventoryBuckets.safe}
             onAddToPlan={planner.handleAddFoodToPlan}
           />
+          <InventoryBucket
+            title="Cần kiểm tra"
+            tone="warning"
+            foods={planner.inventoryBuckets.needsCheck}
+            onAddToPlan={planner.handleAddFoodToPlan}
+          />
         </Section>
       );
     }
@@ -93,8 +99,12 @@ export default function PlannerScreen() {
         <MealSchedule
           dates={planner.dates}
           activeDate={planner.activeDate}
+          weekStartDate={planner.weekRange.startDate}
+          weekEndDate={planner.weekRange.endDate}
           plans={planner.plans}
           onChangeDate={planner.setActiveDate}
+          onChangeWeek={planner.handleChangeWeek}
+          onGoToCurrentWeek={planner.handleGoToCurrentWeek}
           onUpdateMealStatus={planner.handleUpdateMealStatus}
           onRemoveMeal={planner.handleRemoveMeal}
           onDeletePlan={planner.handleDeletePlan}
@@ -184,6 +194,8 @@ export default function PlannerScreen() {
           onChangeWorkspace={planner.setWorkspace}
           foods={planner.foods}
           plans={planner.plans}
+          recipeCount={planner.recipes.length + planner.userRecipes.length}
+          nutrition={planner.dayTotals}
           aiReviewCount={planner.aiReviewItems.length}
         />
 
@@ -469,11 +481,11 @@ export default function PlannerScreen() {
                     placeholder="Nhập số lượng"
                   />
                   <Text style={styles.quantityUnit}>
-                    {planner.scheduleDraft.food.unit}
+                    {formatFoodUnit(planner.scheduleDraft.food.unit)}
                   </Text>
                 </View>
                 <Text style={styles.quantityHint}>
-                  Còn {planner.scheduleDraft.food.quantity} {planner.scheduleDraft.food.unit} trong kho.
+                  Còn {formatFoodAmount(planner.scheduleDraft.food.quantity, planner.scheduleDraft.food.unit)} trong kho.
                 </Text>
               </View>
             ) : null}

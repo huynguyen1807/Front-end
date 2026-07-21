@@ -5,6 +5,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { COLORS } from "../../../constants/colors";
 import { RADIUS, SPACING } from "../../../constants/spacing";
 import { FoodItem } from "../types/inventory";
+import { formatFoodAmount } from "../../../utils/foodUnits";
 import {
   FOOD_STATUS_CONFIG,
   getCategoryDisplayName,
@@ -86,7 +87,7 @@ export default function InventoryCard({ item, onEdit, onDelete, onConsume, onPre
 
         <View style={styles.midRow}>
           <Text style={styles.meta} numberOfLines={1}>
-            {item.quantity} {item.unit} • {getCategoryDisplayName(item.categoryId)}
+            {formatFoodAmount(item.quantity, item.unit)} • {getCategoryDisplayName(item.categoryId)}
           </Text>
         </View>
 

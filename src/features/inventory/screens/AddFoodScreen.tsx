@@ -230,6 +230,16 @@ export default function AddFoodScreen() {
         expiryDate,
         quantity: Number(quantity),
         unit,
+        nutritionSnapshot: prefill?.nutritionInfo ? {
+          calories: Number(prefill.nutritionInfo.calories) || 0,
+          protein: Number(prefill.nutritionInfo.protein) || 0,
+          carbs: Number(prefill.nutritionInfo.carbs) || 0,
+          fat: Number(prefill.nutritionInfo.fat) || 0,
+          baseQuantity: 100,
+          unit: 'g',
+          source: 'SCAN_AI',
+          confidence: Number(prefill.scanConfidence) || 0,
+        } : undefined,
       }, selectedContext.ownerType, selectedContext.householdId);
 
       dispatch(addFoodItem(newItem));
@@ -419,7 +429,7 @@ export default function AddFoodScreen() {
               <Text style={styles.label}>Đơn vị</Text>
               <TextInput
                 style={styles.input}
-                placeholder="kg, cái, túi..."
+                placeholder="kg, g, ml, l, quả, cái..."
                 value={form.unit}
                 onChangeText={(v) => setForm((f) => ({ ...f, unit: v }))}
               />

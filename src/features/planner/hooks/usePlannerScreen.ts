@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
+import { useAppSelector } from "../../../redux/hooks";
 
 import {
   AdminSection,
@@ -93,6 +94,7 @@ import {
   buildUsedFoodUsage,
   getDaysUntilExpiry,
   getErrorMessage,
+  getWeekDateRange,
   getRecipeAvailability,
   getRecipeUsedFoods,
   normalizeMealForApi,
@@ -367,6 +369,9 @@ const mergeRecommendations = (
 };
 
 export default function usePlannerScreen() {
+  const inventoryContext = useAppSelector((state) => state.inventory.context);
+  const inventoryOwnerType = inventoryContext.ownerType;
+  const inventoryHouseholdId = inventoryContext.householdId;
   const [roleLoaded, setRoleLoaded] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [workspace, setWorkspace] = useState<Workspace>("meal");
@@ -383,7 +388,7 @@ export default function usePlannerScreen() {
   );
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [userRecipes, setUserRecipes] = useState<Recipe[]>([]);
-  const [plans, setPlans] = useState<MealPlan[]>([]);
+  const [weekPlans, setWeekPlans] = useState<MealPlan[]>([]);
   const [foods, setFoods] = useState<InventoryFood[]>([]);
   const [report, setReport] = useState<NutritionReport | null>(null);
   const [generatedResult, setGeneratedResult] = useState<GeneratedMealPlanResult | null>(null);
@@ -432,15 +437,17 @@ export default function usePlannerScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const weekRange = useMemo(() => getWeekDateRange(activeDate), [activeDate]);
   const dates = useMemo<ScheduleDate[]>(() => {
-    const today = new Date();
-    return Array.from({ length: 5 }, (_, index) => {
-      const date = addDays(today, index);
+    const todayValue = toDateInput(new Date());
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = addDays(weekRange.start, index);
+      const value = toDateInput(date);
       return {
-        id: toDateInput(date),
-        value: toDateInput(date),
+        id: value,
+        value,
         label:
-          index === 0
+          value === todayValue
             ? "Hôm nay"
             : date.toLocaleDateString("vi-VN", {
                 weekday: "short",
@@ -448,7 +455,12 @@ export default function usePlannerScreen() {
               }),
       };
     });
-  }, []);
+  }, [weekRange.startDate]);
+
+  const plans = useMemo(
+    () => weekPlans.filter((plan) => String(plan.planDate).slice(0, 10) === activeDate),
+    [activeDate, weekPlans]
+  );
 
   const selectedCalorieGoalOption = useMemo(
     () =>
@@ -496,6 +508,11 @@ export default function usePlannerScreen() {
         ),
       safe: available
         .filter((food) => food.status === "SAFE" && getDaysUntilExpiry(food.expiryDate) > 3)
+        .sort(
+          (a, b) => getDaysUntilExpiry(a.expiryDate) - getDaysUntilExpiry(b.expiryDate)
+        ),
+      needsCheck: available
+        .filter((food) => food.status === "NEED_CHECK")
         .sort(
           (a, b) => getDaysUntilExpiry(a.expiryDate) - getDaysUntilExpiry(b.expiryDate)
         ),
@@ -561,6 +578,7 @@ export default function usePlannerScreen() {
     if (!roleLoaded) return;
 
     const planDate = options?.date || activeDateRef.current;
+    const requestedWeek = getWeekDateRange(planDate);
     const shouldShowLoading = options?.showLoading !== false;
 
     try {
@@ -570,9 +588,23 @@ export default function usePlannerScreen() {
       const [recipeList, userRecipeList, planList, macroReport, foodList] = await Promise.all([
         getRecipesApi(),
         getUserRecipesApi(),
-        getMealPlansApi({ date: planDate }),
-        getNutritionReportApi({ periodType: "WEEK", startDate: planDate }),
-        getAvailableFoodsApi(),
+        getMealPlansApi({
+          startDate: requestedWeek.startDate,
+          endDate: requestedWeek.endDate,
+          ownerType: inventoryOwnerType,
+          householdId: inventoryHouseholdId,
+        }),
+        getNutritionReportApi({
+          periodType: "WEEK",
+          startDate: requestedWeek.startDate,
+          endDate: requestedWeek.endDate,
+          ownerType: inventoryOwnerType,
+          householdId: inventoryHouseholdId,
+        }),
+        getAvailableFoodsApi({
+          ownerType: inventoryOwnerType,
+          householdId: inventoryHouseholdId,
+        }),
       ]);
 
       const activeRecipes = recipeList.filter(
@@ -583,7 +615,7 @@ export default function usePlannerScreen() {
       setUserRecipes(userRecipeList.filter(
         (recipe) => recipe.isActive !== false && recipe.sourceType === "USER_CREATED"
       ));
-      setPlans(planList);
+      setWeekPlans(planList);
       setReport(macroReport);
       setFoods(foodList);
       setRecommendedItems((current) => {
@@ -606,22 +638,44 @@ export default function usePlannerScreen() {
         setLoading(false);
       }
     }
-  }, [isAdmin, isRecommendationHidden, loadAdminData, roleLoaded]);
+  }, [
+    inventoryHouseholdId,
+    inventoryOwnerType,
+    isAdmin,
+    isRecommendationHidden,
+    loadAdminData,
+    roleLoaded,
+  ]);
 
   const loadScheduleForDate = useCallback(async (date: string) => {
     try {
+      const requestedWeek = getWeekDateRange(date);
       const [planList, macroReport, foodList] = await Promise.all([
-        getMealPlansApi({ date }),
-        getNutritionReportApi({ periodType: "WEEK", startDate: date }),
-        getAvailableFoodsApi(),
+        getMealPlansApi({
+          startDate: requestedWeek.startDate,
+          endDate: requestedWeek.endDate,
+          ownerType: inventoryOwnerType,
+          householdId: inventoryHouseholdId,
+        }),
+        getNutritionReportApi({
+          periodType: "WEEK",
+          startDate: requestedWeek.startDate,
+          endDate: requestedWeek.endDate,
+          ownerType: inventoryOwnerType,
+          householdId: inventoryHouseholdId,
+        }),
+        getAvailableFoodsApi({
+          ownerType: inventoryOwnerType,
+          householdId: inventoryHouseholdId,
+        }),
       ]);
-      setPlans(planList);
+      setWeekPlans(planList);
       setReport(macroReport);
       setFoods(foodList);
     } catch (error: any) {
       Alert.alert("Không tải được lịch bữa ăn", getErrorMessage(error));
     }
-  }, []);
+  }, [inventoryHouseholdId, inventoryOwnerType]);
 
   useEffect(() => {
     activeDateRef.current = activeDate;
@@ -686,12 +740,25 @@ export default function usePlannerScreen() {
 
   const handleChangeActiveDate = useCallback(
     (date: string) => {
+      const currentWeekStart = getWeekDateRange(activeDateRef.current).startDate;
+      const nextWeekStart = getWeekDateRange(date).startDate;
       activeDateRef.current = date;
       setActiveDate(date);
-      void loadScheduleForDate(date);
+      if (currentWeekStart !== nextWeekStart) {
+        void loadScheduleForDate(date);
+      }
     },
     [loadScheduleForDate]
   );
+
+  const handleChangeWeek = useCallback((offset: number) => {
+    const target = toDateInput(addDays(getWeekDateRange(activeDateRef.current).start, offset * 7));
+    handleChangeActiveDate(target);
+  }, [handleChangeActiveDate]);
+
+  const handleGoToCurrentWeek = useCallback(() => {
+    handleChangeActiveDate(toDateInput(new Date()));
+  }, [handleChangeActiveDate]);
 
   const handleSelectCalorieGoal = (goalKey: CalorieGoalKey) => {
     const option =
@@ -813,6 +880,8 @@ export default function usePlannerScreen() {
       });
       const result = await generateDailyMealPlanApi({
         planDate: activeDate,
+        ownerType: inventoryOwnerType,
+        householdId: inventoryHouseholdId,
         calorieTarget: dailyTargetCalories,
         calorieMin: selectedCalorieGoalOption.min,
         calorieMax: selectedCalorieGoalOption.max,
@@ -902,6 +971,8 @@ export default function usePlannerScreen() {
     } else {
       await createMealPlanApi({
         planDate: activeDate,
+        ownerType: inventoryOwnerType,
+        householdId: inventoryHouseholdId,
         goal: "Balanced daily meals",
         meals: [meal],
       });
@@ -1401,8 +1472,10 @@ export default function usePlannerScreen() {
       setSaving(true);
       const payload = {
         foodName: factForm.foodName.trim(),
+        aliases: factForm.aliases.split(",").map((item) => item.trim()).filter(Boolean),
         categoryName: factForm.categoryName.trim(),
         caloriesPerUnit: Number(factForm.caloriesPerUnit),
+        baseQuantity: Number(factForm.baseQuantity) || 100,
         unit: factForm.unit,
         protein: Number(factForm.protein) || 0,
         carbs: Number(factForm.carbs) || 0,
@@ -1468,6 +1541,9 @@ export default function usePlannerScreen() {
     setActiveDate: handleChangeActiveDate,
     handleChangeActiveDate,
     dates,
+    weekRange,
+    handleChangeWeek,
+    handleGoToCurrentWeek,
     recipes,
     userRecipes,
     recommendedItems,

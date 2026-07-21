@@ -8,13 +8,39 @@ import {
 } from "../types/planner";
 
 export function toDateInput(date: Date) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function addDays(date: Date, days: number) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
+}
+
+export function parseDateInput(value: string) {
+  return new Date(`${value}T00:00:00`);
+}
+
+export function startOfWeekMonday(value: string | Date) {
+  const date = typeof value === "string" ? parseDateInput(value) : new Date(value);
+  date.setHours(0, 0, 0, 0);
+  const daysFromMonday = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - daysFromMonday);
+  return date;
+}
+
+export function getWeekDateRange(value: string | Date) {
+  const start = startOfWeekMonday(value);
+  const end = addDays(start, 6);
+  return {
+    start,
+    end,
+    startDate: toDateInput(start),
+    endDate: toDateInput(end),
+  };
 }
 
 export function getErrorMessage(error: any) {

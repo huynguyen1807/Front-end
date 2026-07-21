@@ -23,6 +23,17 @@ export const uploadImageApi = async (imageUri: string): Promise<{ url: string; p
   return res.data.data;
 };
 
+export type NutritionSnapshotPayload = {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  baseQuantity: number;
+  unit: string;
+  source: 'SCAN_AI' | 'ADMIN' | 'CATEGORY_ESTIMATE';
+  confidence?: number;
+};
+
 // ─── Food Items ───────────────────────────────────────────────────────────────
 export const getFoodsApi = async (filter?: 'SAFE' | 'NEAR_EXPIRY' | 'EXPIRED' | 'NEED_CHECK', ownerType?: string, householdId?: string) => {
   const params: any = filter ? { filter } : {};
@@ -61,6 +72,7 @@ export const createFoodApi = async (data: {
   expiryDate: string;
   quantity: number;
   unit: string;
+  nutritionSnapshot?: NutritionSnapshotPayload;
 }, ownerType?: string, householdId?: string) => {
   const params: any = {};
   if (ownerType) params.ownerType = ownerType;
@@ -80,6 +92,7 @@ export const updateFoodApi = async (id: string, data: Partial<{
   imageUrl: string;
   sourceType: 'SUPERMARKET' | 'MARKET';
   expiryType: 'MANUAL' | 'SCANNED' | 'AI_PREDICTED';
+  nutritionSnapshot: NutritionSnapshotPayload;
 }>, ownerType?: string, householdId?: string) => {
   const params: any = {};
   if (ownerType) params.ownerType = ownerType;

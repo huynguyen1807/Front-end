@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../../constants/colors";
 import { RADIUS, SPACING } from "../../../constants/spacing";
 import { FoodItem } from "../types/inventory";
+import { formatFoodAmount } from "../../../utils/foodUnits";
 import {
   FOOD_STATUS_CONFIG,
   getCategoryDisplayName,
@@ -109,7 +110,7 @@ export default function FoodDetailScreen() {
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Thông tin chi tiết</Text>
-            <DetailRow icon="inventory" label="Số lượng:" value={`${item.quantity} ${item.unit}`} />
+            <DetailRow icon="inventory" label="Số lượng:" value={formatFoodAmount(item.quantity, item.unit)} />
             <DetailRow
               icon="place"
               label="Vị trí lưu trữ:"

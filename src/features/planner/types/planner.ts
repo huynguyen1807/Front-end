@@ -98,6 +98,8 @@ export interface MealPlanMeal {
 
 export interface MealPlan {
   _id: string;
+  inventoryOwnerType?: "USER" | "HOUSEHOLD";
+  householdId?: string;
   planDate: string;
   goal?: string;
   totalCalories?: number;
@@ -229,7 +231,9 @@ export interface NutritionFact {
   foodName: string;
   categoryId?: string | { _id: string; categoryName: string } | null;
   caloriesPerUnit: number;
-  unit: "g" | "ml" | "item" | "serving";
+  baseQuantity: number;
+  aliases?: string[];
+  unit: "g" | "kg" | "ml" | "l" | "item" | "serving" | "quả" | "cái";
   protein: number;
   carbs: number;
   fat: number;

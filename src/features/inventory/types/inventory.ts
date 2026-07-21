@@ -50,6 +50,19 @@ export type FoodItem = {
     matched: boolean;
     nutritionFactId?: string;
     unit?: string;
+    baseQuantity?: number;
+    source?: 'NUTRITION_FACT' | 'SCAN_AI' | 'ADMIN' | 'CATEGORY_ESTIMATE' | 'UNAVAILABLE';
+    estimated?: boolean;
+  };
+  nutritionSnapshot?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    baseQuantity: number;
+    unit: string;
+    source: 'SCAN_AI' | 'ADMIN' | 'CATEGORY_ESTIMATE';
+    confidence?: number;
   };
   expiryDate: string;
   purchaseDate: string;

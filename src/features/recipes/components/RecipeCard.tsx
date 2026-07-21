@@ -11,7 +11,7 @@ import {
 } from "react-native";
 
 import { COLORS } from "../../../constants/colors";
-import { formatFoodAmount } from "../../planner/utils/unitFormatters";
+import { formatFoodAmount } from "../../../utils/foodUnits";
 import { Recipe } from "../types/recipe";
 
 type RecipeCardProps = {

@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Text, View } from "react-native";
 
-import { InventoryFood, MealPlan } from "../types/planner";
+import { InventoryFood, MacroSummary, MealPlan } from "../types/planner";
 import { Workspace } from "../constants/plannerConstants";
 import { getDaysUntilExpiry } from "../utils/plannerUtils";
 import { plannerStyles as styles } from "../styles/PlannerScreen.styles";
@@ -14,6 +14,8 @@ type PlannerHeroProps = {
   onChangeWorkspace: (workspace: Workspace) => void;
   foods: InventoryFood[];
   plans: MealPlan[];
+  recipeCount: number;
+  nutrition: { calories: number; macroSummary: MacroSummary };
   aiReviewCount: number;
 };
 
@@ -23,6 +25,8 @@ export default function PlannerHero({
   onChangeWorkspace,
   foods,
   plans,
+  recipeCount,
+  nutrition,
   aiReviewCount,
 }: PlannerHeroProps) {
   const nearExpiryCount = foods.filter(
@@ -40,9 +44,14 @@ export default function PlannerHero({
         <MaterialCommunityIcons name="silverware-fork-knife" size={30} color={COLORS.primary} />
       </View>
       <View style={styles.heroStats}>
-        <MiniStat label="Inventory" value={String(foods.length)} />
-        <MiniStat label="Near expiry" value={String(nearExpiryCount)} />
-        <MiniStat label="Meals" value={String(mealCount)} />
+        <MiniStat label="Thực phẩm" value={String(foods.length)} />
+        <MiniStat label="Công thức" value={String(recipeCount)} />
+        <MiniStat label="Bữa ăn" value={String(mealCount)} />
+        <MiniStat label="Kcal hôm nay" value={String(Math.round(nutrition.calories))} />
+        <MiniStat label="Protein" value={`${Math.round(nutrition.macroSummary.protein)}g`} />
+        <MiniStat label="Carbs" value={`${Math.round(nutrition.macroSummary.carbs)}g`} />
+        <MiniStat label="Fat" value={`${Math.round(nutrition.macroSummary.fat)}g`} />
+        {nearExpiryCount > 0 && <MiniStat label="Sắp hết hạn" value={String(nearExpiryCount)} />}
         {isAdmin && <MiniStat label="AI cần duyệt" value={String(aiReviewCount)} />}
       </View>
       {isAdmin && (

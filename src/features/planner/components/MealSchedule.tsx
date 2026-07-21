@@ -9,8 +9,12 @@ import TimelineItem from "./TimelineItem";
 type MealScheduleProps = {
   dates: ScheduleDate[];
   activeDate: string;
+  weekStartDate: string;
+  weekEndDate: string;
   plans: MealPlan[];
   onChangeDate: (date: string) => void;
+  onChangeWeek: (offset: number) => void;
+  onGoToCurrentWeek: () => void;
   onUpdateMealStatus: (plan: MealPlan, mealIndex: number, status: MealStatus) => void;
   onRemoveMeal: (plan: MealPlan, mealIndex: number) => void;
   onDeletePlan: (plan: MealPlan) => void;
@@ -65,8 +69,12 @@ function getStatusText(status: MealStatus) {
 export default function MealSchedule({
   dates,
   activeDate,
+  weekStartDate,
+  weekEndDate,
   plans,
   onChangeDate,
+  onChangeWeek,
+  onGoToCurrentWeek,
   onUpdateMealStatus,
   onRemoveMeal,
   onDeletePlan,
@@ -97,6 +105,38 @@ export default function MealSchedule({
             <Text style={styles.clearText}>Xóa plan</Text>
           </TouchableOpacity>
         )}
+      </View>
+
+      <View style={styles.weekNavigation}>
+        <TouchableOpacity
+          activeOpacity={0.75}
+          accessibilityLabel="Tuần trước"
+          style={styles.weekIconButton}
+          onPress={() => onChangeWeek(-1)}
+        >
+          <Ionicons name="chevron-back" size={20} color={COLORS.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.75}
+          accessibilityLabel="Về tuần hiện tại"
+          style={styles.weekRangeButton}
+          onPress={onGoToCurrentWeek}
+        >
+          <Text style={styles.weekRangeLabel}>Tuần hiện tại</Text>
+          <Text style={styles.weekRangeValue}>
+            {new Date(`${weekStartDate}T00:00:00`).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
+            {" - "}
+            {new Date(`${weekEndDate}T00:00:00`).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.75}
+          accessibilityLabel="Tuần sau"
+          style={styles.weekIconButton}
+          onPress={() => onChangeWeek(1)}
+        >
+          <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -289,6 +329,44 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     color: COLORS.tertiary,
+  },
+  weekNavigation: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 8,
+    marginBottom: 12,
+  },
+  weekIconButton: {
+    width: 46,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.surfaceContainerLowest,
+  },
+  weekRangeButton: {
+    flex: 1,
+    minWidth: 0,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    backgroundColor: COLORS.surfaceContainer,
+  },
+  weekRangeLabel: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  weekRangeValue: {
+    marginTop: 2,
+    color: COLORS.onSurface,
+    fontSize: 13,
+    fontWeight: "800",
   },
   tabsScroll: {
     marginBottom: 16,
