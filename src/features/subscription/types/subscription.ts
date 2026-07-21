@@ -21,6 +21,7 @@ export interface SubscriptionPlan {
 }
 
 export interface CurrentSubscription {
+  appUserId: string;
   _id?: string;
   planId?: SubscriptionPlan | string;
   planCode: PlanCode;
@@ -37,16 +38,11 @@ export interface PaymentTransaction {
   amount: number;
   currency: "VND" | "USD";
   status: "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED" | "REFUNDED";
-  paymentGateway: "SANDBOX" | "MOMO" | "VNPAY" | "STRIPE";
-  paymentMethod: "SANDBOX" | "QR" | "BANK_CARD" | "E_WALLET";
+  paymentGateway: "REVENUECAT" | "SANDBOX" | "MOMO" | "VNPAY" | "STRIPE";
+  paymentMethod: "IN_APP_PURCHASE" | "SANDBOX" | "BANK_CARD" | "E_WALLET";
   paymentUrl?: string;
   paidAt?: string;
   createdAt: string;
   planId?: SubscriptionPlan | string;
 }
 
-export interface CreatePaymentResponse {
-  subscription: CurrentSubscription;
-  transaction: PaymentTransaction;
-  paymentUrl: string;
-}

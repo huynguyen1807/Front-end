@@ -37,6 +37,9 @@
     },
     "android": {
       "package": "com.thangtran.foodmanagement"
+    },
+    "ios": {
+      "bundleIdentifier": "com.thangtran.foodmanagement"
     }
   }
 }
