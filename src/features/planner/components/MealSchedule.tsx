@@ -4,6 +4,7 @@ import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "rea
 
 import { COLORS } from "../../../constants/colors";
 import { MealPlan, MealPlanMeal, MealStatus, ScheduleDate } from "../types/planner";
+import { getWeekDateRange, parseDateInput, toDateInput } from "../utils/plannerUtils";
 import TimelineItem from "./TimelineItem";
 
 type MealScheduleProps = {
@@ -43,6 +44,18 @@ function getMealTime(meal: MealPlanMeal) {
   if (meal.mealType === "DINNER") return "19:00";
   if (meal.mealType === "LATE_NIGHT") return "21:30";
   return "15:30";
+}
+
+function getWeekLabel(weekStartDate: string) {
+  const currentWeekStart = getWeekDateRange(toDateInput(new Date())).startDate;
+  const difference = Math.round(
+    (parseDateInput(weekStartDate).getTime() - parseDateInput(currentWeekStart).getTime())
+      / (7 * 24 * 60 * 60 * 1000)
+  );
+  if (difference === 0) return "Tuần hiện tại";
+  if (difference === -1) return "Tuần trước";
+  if (difference === 1) return "Tuần sau";
+  return "Tuần đã chọn";
 }
 
 function getScheduleTotals(plans: MealPlan[]) {
@@ -122,7 +135,7 @@ export default function MealSchedule({
           style={styles.weekRangeButton}
           onPress={onGoToCurrentWeek}
         >
-          <Text style={styles.weekRangeLabel}>Tuần hiện tại</Text>
+          <Text style={styles.weekRangeLabel}>{getWeekLabel(weekStartDate)}</Text>
           <Text style={styles.weekRangeValue}>
             {new Date(`${weekStartDate}T00:00:00`).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
             {" - "}

@@ -28,7 +28,8 @@
           "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to find nearby stores.",
           "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to find nearby stores."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {

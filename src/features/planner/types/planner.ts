@@ -9,6 +9,18 @@ export type MealType =
   | "SNACK";
 export type MealStatus = "COMPLETED" | "PREPARING" | "PENDING";
 
+export interface ScheduleNotice {
+  tone: "info" | "warning" | "error";
+  title: string;
+  message: string;
+}
+
+export interface ScheduleRolloverPrompt {
+  sourceDate: string;
+  targetDate: string;
+  time: string;
+}
+
 export interface MacroSummary {
   protein: number;
   carbs: number;
@@ -62,6 +74,26 @@ export interface InventoryFood {
   freshnessScore?: number;
   calories?: number;
   macroSummary?: MacroSummary;
+  totalNutrition?: {
+    calories: number;
+    macroSummary: MacroSummary;
+  };
+  nutritionReference?: {
+    calories: number;
+    macroSummary: MacroSummary;
+    basisQuantity: number;
+    basisUnit: string;
+  };
+  nutritionDisplay?: {
+    calories: number;
+    macroSummary: MacroSummary;
+    basisQuantity: number;
+    basisUnit: string;
+    isTotalInventory: boolean;
+    matched: boolean;
+    source?: string;
+    estimated?: boolean;
+  };
   nutrition?: {
     calories: number;
     macroSummary: MacroSummary;
@@ -101,6 +133,8 @@ export interface MealPlan {
   inventoryOwnerType?: "USER" | "HOUSEHOLD";
   householdId?: string;
   planDate: string;
+  planDateKey?: string;
+  inventoryContextKey?: string;
   goal?: string;
   totalCalories?: number;
   macroSummary?: MacroSummary;

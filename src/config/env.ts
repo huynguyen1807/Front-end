@@ -6,6 +6,14 @@ const getApiUrl = () => {
   const debuggerHost = Constants.expoConfig?.hostUri;
   const localhost = debuggerHost?.split(':')[0];
 
+  const configuredUrl = process.env.EXPO_PUBLIC_API_URL
+  ?.trim()
+  .replace(/\/+$/, '');
+
+if (configuredUrl) {
+  return configuredUrl;
+}
+
   if (localhost) {
     return `http://${localhost}:4000`; // Trỏ về backend đang chạy ở port 4000
   }

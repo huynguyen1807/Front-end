@@ -21,12 +21,13 @@ import {
 } from '../services/foodApi';
 import { getMyHouseholdsApi } from '../../familyCloud/services/familyCloudApi';
 import { MyHousehold } from '../../familyCloud/types/familyCloud';
-import { FoodCategory, StorageLocation } from '../types/inventory';
+import { FoodCategory, InventoryOwnerContext, StorageLocation } from '../types/inventory';
 import {
   getCategoryDisplayName,
   getFoodSaveAlert,
   sortFoodCategories,
 } from '../utils/inventoryDisplay';
+import { findStorageLocation, isSameInventoryContext } from '../utils/storageSelection';
 
 const SOURCE_TYPES = [
   { key: 'SUPERMARKET', label: 'Siêu thị' },
@@ -48,6 +49,11 @@ export default function AddFoodScreen() {
   const context = useAppSelector((state: any) => state.inventory.context);
 
   const prefill = route.params?.prefill;
+  const prefillContext: InventoryOwnerContext | undefined = prefill?.ownerType === 'HOUSEHOLD' && prefill?.householdId
+    ? { ownerType: 'HOUSEHOLD', householdId: prefill.householdId }
+    : prefill?.ownerType === 'USER'
+      ? { ownerType: 'USER' }
+      : undefined;
 
   const [categories, setCategories] = useState<FoodCategory[]>([]);
   const [locations, setLocations] = useState<StorageLocation[]>([]);
@@ -55,7 +61,7 @@ export default function AddFoodScreen() {
 
   // Selector state
   const [households, setHouseholds] = useState<MyHousehold[]>([]);
-  const [selectedContext, setSelectedContext] = useState<{ ownerType: 'USER' | 'HOUSEHOLD'; householdId?: string }>(context);
+  const [selectedContext, setSelectedContext] = useState<InventoryOwnerContext>(prefillContext ?? context);
 
   const [form, setForm] = useState({
     foodName: prefill?.foodName ?? '',
@@ -75,18 +81,24 @@ export default function AddFoodScreen() {
   const [fetchingData, setFetchingData] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+    setFetchingData(true);
+
     Promise.all([
       getFoodCategoriesApi().catch(err => []),
       getStorageLocationsApi(selectedContext.ownerType, selectedContext.householdId).catch(err => []),
       getMyHouseholdsApi().catch(err => [])
     ])
       .then(([cats, locs, hhs]) => {
+        if (cancelled) return;
         setHouseholds(hhs);
-        
-        let newContext = selectedContext;
-        if (hhs.length === 0 && selectedContext.ownerType === 'HOUSEHOLD') {
-          newContext = { ownerType: 'USER' };
-          setSelectedContext(newContext);
+
+        const selectedHouseholdAvailable = hhs.some(
+          (membership) => membership.household._id === selectedContext.householdId,
+        );
+        if (selectedContext.ownerType === 'HOUSEHOLD' && !selectedHouseholdAvailable) {
+          setSelectedContext({ ownerType: 'USER' });
+          return;
         }
 
         const catList = sortFoodCategories(cats);
@@ -97,20 +109,28 @@ export default function AddFoodScreen() {
               .filter(Boolean)
               .some((name) => String(name).trim().toLowerCase() === prefillCategoryName)
           );
-        const matchedPrefillLocation = locs.find((loc) => loc._id === prefill?.storageLocationId)
-          || locs.find((loc) => loc.storageType === prefill?.storageTypeKey);
+        const matchedLocation = findStorageLocation(locs, {
+          locationId: prefill?.storageLocationId,
+          storageType: prefill?.storageTypeKey,
+        });
 
         setCategories(catList);
         setLocations(locs);
         setForm((f) => ({
           ...f,
           categoryId: matchedPrefillCategory?._id || f.categoryId || catList[0]?._id || '',
-          storageLocationId: matchedPrefillLocation?._id || f.storageLocationId || locs[0]?._id || '',
-          storageTypeKey: prefill?.storageTypeKey || matchedPrefillLocation?.storageType || f.storageTypeKey,
+          storageLocationId: matchedLocation?._id || '',
+          storageTypeKey: prefill?.storageTypeKey || matchedLocation?.storageType || f.storageTypeKey,
         }));
       })
-      .finally(() => setFetchingData(false));
-  }, [selectedContext]);
+      .finally(() => {
+        if (!cancelled) setFetchingData(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedContext.ownerType, selectedContext.householdId]);
 
   // Gợi ý bảo quản khi đổi category (chỉ với real categoryId từ DB)
   useEffect(() => {
@@ -118,10 +138,14 @@ export default function AddFoodScreen() {
       setSuggestion(null);
       return;
     }
-    getStorageSuggestionApi(form.categoryId)
+    getStorageSuggestionApi(
+      form.categoryId,
+      selectedContext.ownerType,
+      selectedContext.householdId,
+    )
       .then((s) => setSuggestion(s?.instruction ?? null))
       .catch(() => setSuggestion(null));
-  }, [form.categoryId]);
+  }, [form.categoryId, selectedContext.ownerType, selectedContext.householdId]);
 
   // ─── Image Picker ────────────────────────────────────────────────────────────
   const pickImage = async () => {
@@ -205,8 +229,17 @@ export default function AddFoodScreen() {
         }
       }
 
-      // ── Nếu chưa có storage location → tự tạo ────────────────────────────
-      let storageLocationId = form.storageLocationId;
+      // Revalidate against the active inventory because scan suggestions can come
+      // from a different USER/HOUSEHOLD context or become stale before submit.
+      const latestLocations = await getStorageLocationsApi(
+        selectedContext.ownerType,
+        selectedContext.householdId,
+      );
+      const matchedLocation = findStorageLocation(latestLocations, {
+        locationId: form.storageLocationId,
+        storageType: storageTypeKey,
+      });
+      let storageLocationId = matchedLocation?._id || '';
       if (!storageLocationId) {
         const label = DEFAULT_STORAGES.find((s) => s.key === storageTypeKey)?.label ?? storageTypeKey;
         const created = await createStorageLocationApi({
@@ -215,8 +248,11 @@ export default function AddFoodScreen() {
           isDefault: true,
         }, selectedContext.ownerType, selectedContext.householdId);
         storageLocationId = created._id;
-        setLocations((prev) => [...prev, created]);
+        setLocations([...latestLocations, created]);
         setForm((f) => ({ ...f, storageLocationId: created._id }));
+      } else {
+        setLocations(latestLocations);
+        setForm((f) => ({ ...f, storageLocationId }));
       }
 
       const newItem = await createFoodApi({
@@ -230,19 +266,23 @@ export default function AddFoodScreen() {
         expiryDate,
         quantity: Number(quantity),
         unit,
-        nutritionSnapshot: prefill?.nutritionInfo ? {
+        nutritionSnapshot: prefill?.nutritionInfo && !['NUTRITION_FACT', 'DATABASE'].includes(prefill.nutritionInfo.source) ? {
           calories: Number(prefill.nutritionInfo.calories) || 0,
           protein: Number(prefill.nutritionInfo.protein) || 0,
           carbs: Number(prefill.nutritionInfo.carbs) || 0,
           fat: Number(prefill.nutritionInfo.fat) || 0,
           baseQuantity: 100,
           unit: 'g',
-          source: 'SCAN_AI',
+          source: prefill.nutritionInfo.source === 'CATEGORY_ESTIMATE'
+            ? 'CATEGORY_ESTIMATE'
+            : 'SCAN_AI',
           confidence: Number(prefill.scanConfidence) || 0,
         } : undefined,
       }, selectedContext.ownerType, selectedContext.householdId);
 
-      dispatch(addFoodItem(newItem));
+      if (isSameInventoryContext(selectedContext, context)) {
+        dispatch(addFoodItem(newItem));
+      }
       const saveAlert = getFoodSaveAlert(newItem);
       if (saveAlert) {
         Alert.alert(saveAlert.title, saveAlert.message, [

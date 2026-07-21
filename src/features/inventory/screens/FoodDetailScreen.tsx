@@ -7,6 +7,7 @@ import { COLORS } from "../../../constants/colors";
 import { RADIUS, SPACING } from "../../../constants/spacing";
 import { FoodItem } from "../types/inventory";
 import { formatFoodAmount } from "../../../utils/foodUnits";
+import { formatNutritionBasis, getFoodDisplayNutrition } from "../../../utils/nutritionDisplay";
 import {
   FOOD_STATUS_CONFIG,
   getCategoryDisplayName,
@@ -31,9 +32,9 @@ export default function FoodDetailScreen() {
   const daysLeft = getDaysLeft(item.expiryDate);
   const freshnessScore = item.freshnessScore ?? 0;
   const urgentLabel = getInventoryUrgencyLabel(item);
-  const nutrition = item.nutrition;
-  const calories = nutrition?.calories ?? item.calories ?? 0;
-  const macroSummary = nutrition?.macroSummary ?? item.macroSummary ?? { protein: 0, carbs: 0, fat: 0 };
+  const nutrition = getFoodDisplayNutrition(item);
+  const calories = nutrition.calories;
+  const macroSummary = nutrition.macroSummary;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -102,10 +103,15 @@ export default function FoodDetailScreen() {
               <NutritionMetric label="Fat" value={`${Math.round(macroSummary.fat)}g`} />
             </View>
             <Text style={styles.nutritionHint}>
-              {nutrition?.matched === false
+              {nutrition.matched === false
                 ? "Chưa tìm thấy nutrition fact khớp với thực phẩm này."
-                : "Dữ liệu được tính từ nutrition fact theo số lượng trong inventory."}
+                : `Dữ liệu ${formatNutritionBasis(nutrition)}${nutrition.estimated ? " (ước tính)" : ""}.`}
             </Text>
+            {!nutrition.isTotalInventory && item.totalNutrition ? (
+              <Text style={styles.nutritionHint}>
+                Toàn bộ {formatFoodAmount(item.quantity, item.unit)}: {Math.round(item.totalNutrition.calories)} kcal.
+              </Text>
+            ) : null}
           </View>
 
           <View style={styles.card}>

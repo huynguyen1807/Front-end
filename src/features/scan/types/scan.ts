@@ -26,6 +26,10 @@ export type FoodRecognition = {
   modelAttempts?: string[];
   aiProvider?: string;
   modelUsed?: string;
+  inventoryContext?: {
+    ownerType: 'USER' | 'HOUSEHOLD';
+    householdId?: string;
+  };
 };
 
 export type FoodRecognitionCandidate = {

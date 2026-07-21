@@ -1,0 +1,191 @@
+import { StyleSheet } from "react-native";
+
+import { COLORS } from "../../../constants/colors";
+
+export const mealSchedulePickerStyles = StyleSheet.create({
+  container: {
+    marginTop: 14,
+    marginBottom: 14,
+  },
+  fieldLabel: {
+    color: COLORS.onSurface,
+    fontSize: 13,
+    fontWeight: "900",
+    marginBottom: 8,
+  },
+  selectedDateSummary: {
+    minHeight: 58,
+    borderWidth: 1.5,
+    borderColor: "#84bda1",
+    borderRadius: 8,
+    backgroundColor: "#e7f5ee",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 13,
+    marginBottom: 12,
+  },
+  selectedDateCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  selectedDateCaption: {
+    color: COLORS.onSurfaceVariant,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  selectedDateText: {
+    color: COLORS.onSurface,
+    fontSize: 15,
+    fontWeight: "900",
+    marginTop: 1,
+    textTransform: "capitalize",
+  },
+  dateGroups: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  dateGroup: {
+    gap: 6,
+  },
+  weekLabel: {
+    color: COLORS.onSurfaceVariant,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  dateRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingRight: 4,
+  },
+  dateButton: {
+    width: 66,
+    minHeight: 56,
+    borderWidth: 1.5,
+    borderColor: "#7f9487",
+    borderRadius: 8,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 5,
+  },
+  dateButtonActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary,
+  },
+  dateButtonDisabled: {
+    borderColor: COLORS.outlineVariant,
+    backgroundColor: COLORS.surfaceContainer,
+    opacity: 0.52,
+  },
+  dateWeekday: {
+    color: COLORS.onSurfaceVariant,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "capitalize",
+  },
+  dateValue: {
+    color: COLORS.onSurface,
+    fontSize: 13,
+    fontWeight: "900",
+    marginTop: 3,
+  },
+  dateTextActive: {
+    color: COLORS.onPrimary,
+  },
+  timeButton: {
+    minHeight: 52,
+    borderWidth: 1.5,
+    borderColor: "#7f9487",
+    borderRadius: 8,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 13,
+  },
+  timeText: {
+    flex: 1,
+    color: COLORS.onSurface,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  timeAction: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  slotScroll: {
+    marginTop: 10,
+    marginBottom: 2,
+  },
+  slotContent: {
+    flexDirection: "row",
+    gap: 8,
+    paddingRight: 4,
+  },
+  slotButton: {
+    minWidth: 96,
+    minHeight: 48,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: "#7f9487",
+    backgroundColor: COLORS.surfaceContainerLowest,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  slotButtonActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary,
+  },
+  slotText: {
+    color: COLORS.onSurface,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  slotTextActive: {
+    color: COLORS.onPrimary,
+  },
+  slotRangeText: {
+    color: COLORS.onSurfaceVariant,
+    fontSize: 10,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  iosPickerPanel: {
+    borderWidth: 1.5,
+    borderColor: "#7f9487",
+    borderRadius: 8,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    overflow: "hidden",
+    marginTop: 10,
+  },
+  nativeTimePicker: {
+    width: "100%",
+  },
+  iosPickerDone: {
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderTopWidth: 1,
+    borderTopColor: COLORS.outlineVariant,
+    backgroundColor: "#e7f5ee",
+  },
+  iosPickerDoneText: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  webTimeInput: {
+    minHeight: 52,
+    borderWidth: 1.5,
+    borderColor: "#7f9487",
+    borderRadius: 8,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    color: COLORS.onSurface,
+    fontSize: 18,
+    fontWeight: "900",
+    paddingHorizontal: 13,
+  },
+});

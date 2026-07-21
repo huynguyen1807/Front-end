@@ -12,8 +12,7 @@ import ScanResultCard from "../components/ScanResultCard";
 import { scannerScreenStyles as styles } from "../styles/ScannerScreen.styles";
 import { FoodRecognition, ScanResult, StorageLocation } from "../types/scan";
 import { COLORS } from "../../../constants/colors";
-import { useAppDispatch } from "../../../redux/hooks";
-// addFoodItem từ inventorySlice chỉ nhận FoodItem từ API - scan feature cần integrate riêng
+import { useAppSelector } from "../../../redux/hooks";
 import { useCameraPermissions } from "../../../hooks/useCameraPermissions";
 import { scanProductFromImage, validateImage } from "../utils/scanUtils";
 
@@ -21,6 +20,7 @@ export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const cameraRef = useRef(null);
+  const inventoryContext = useAppSelector((state: any) => state.inventory.context);
   
   const { permission, isLoading: permissionsLoading } = useCameraPermissions();
 
@@ -47,7 +47,7 @@ export default function ScannerScreen() {
       }
 
       // Scan product from image
-      const result = await scanProductFromImage(photo.uri);
+      const result = await scanProductFromImage(photo.uri, inventoryContext);
       setCurrentResult(result);
     } catch (error) {
       const errorMessage =
@@ -96,6 +96,8 @@ export default function ScannerScreen() {
         scanConfidence: recognition.confidence,
         sourceType: 'SUPERMARKET',
         expiryType: 'SCANNED',
+        ownerType: inventoryContext.ownerType,
+        householdId: inventoryContext.householdId,
       }
     });
 

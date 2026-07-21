@@ -1,5 +1,6 @@
 import { ScanResult } from '../types/scan';
 import { scanProductComplete } from '../../../services/aiService';
+import { InventoryOwnerContext } from '../../inventory/types/inventory';
 
 /**
  * Scan product using AI service
@@ -12,7 +13,8 @@ const USE_MOCK_DATA = false; // Set to false when backend API is ready
 let lastMockIndex = -1; // Track last index to avoid repeats
 
 export const scanProductFromImage = async (
-  imageUri: string
+  imageUri: string,
+  inventoryContext?: InventoryOwnerContext,
 ): Promise<ScanResult> => {
   try {
     // Use mock data in development mode
@@ -23,7 +25,7 @@ export const scanProductFromImage = async (
     }
 
     // Call real AI service when backend is ready
-    return await scanProductComplete(imageUri);
+    return await scanProductComplete(imageUri, undefined, inventoryContext);
   } catch (error) {
     console.warn('[Scan] AI scan failed', error);
     throw error instanceof Error

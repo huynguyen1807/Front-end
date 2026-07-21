@@ -25,14 +25,14 @@ import BodyMassIndexPanel from "../components/BodyMassIndexPanel";
 import DailyGoalCard from "../components/DailyGoalCard";
 import DailyPlanGenerator from "../components/DailyPlanGenerator";
 import InventoryBucket from "../components/InventoryBucket";
+import MealSchedulePicker from "../components/MealSchedulePicker";
 import MealSchedule from "../components/MealSchedule";
 import PlannerDetailTabs from "../components/PlannerDetailTabs";
 import PlannerHero from "../components/PlannerHero";
+import ScheduleDayRolloverModal from "../components/ScheduleDayRolloverModal";
 import VideoRecipeExtractor from "../components/VideoRecipeExtractor";
-import ChipButton from "../components/shared/ChipButton";
 import MetricGrid from "../components/shared/MetricGrid";
 import Section from "../components/shared/Section";
-import { mealTypeOptions } from "../constants/plannerConstants";
 import usePlannerScreen from "../hooks/usePlannerScreen";
 import { plannerStyles as styles } from "../styles/PlannerScreen.styles";
 import { formatFoodAmount, formatFoodUnit } from "../../../utils/foodUnits";
@@ -195,7 +195,6 @@ export default function PlannerScreen() {
           foods={planner.foods}
           plans={planner.plans}
           recipeCount={planner.recipes.length + planner.userRecipes.length}
-          nutrition={planner.dayTotals}
           aiReviewCount={planner.aiReviewItems.length}
         />
 
@@ -453,21 +452,16 @@ export default function PlannerScreen() {
             <Text style={styles.sectionSubtitle}>
               Chọn khung giờ bữa ăn và có thể chỉnh giờ theo nhu cầu.
             </Text>
-            <View style={styles.segmentRow}>
-              {mealTypeOptions.map((option) => (
-                <ChipButton
-                  key={option.key}
-                  label={`${option.label} ${option.time}`}
-                  active={planner.scheduleMealType === option.key}
-                  onPress={() => planner.handleSelectScheduleMealType(option.key)}
-                />
-              ))}
-            </View>
-            <TextInput
-              style={styles.input}
-              value={planner.scheduleTime}
-              onChangeText={planner.setScheduleTime}
-              placeholder="HH:mm"
+            <MealSchedulePicker
+              date={planner.scheduleDate}
+              time={planner.scheduleTime}
+              mealType={planner.scheduleMealType}
+              notice={planner.scheduleNotice}
+              rolloverPromptVisible={Boolean(planner.scheduleRolloverPrompt)}
+              onChangeDate={planner.handleChangeScheduleDate}
+              onChangeTime={planner.handleChangeScheduleTime}
+              onSelectMealType={planner.handleSelectScheduleMealType}
+              onDismissNotice={planner.clearScheduleNotice}
             />
             {planner.scheduleDraft?.type === "food" ? (
               <View style={styles.quantityPanel}>
@@ -511,6 +505,12 @@ export default function PlannerScreen() {
         </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <ScheduleDayRolloverModal
+        prompt={planner.scheduleRolloverPrompt}
+        onAccept={planner.handleAcceptScheduleRollover}
+        onCancel={planner.handleCancelScheduleRollover}
+      />
 
       <Modal
         visible={Boolean(planner.missingIngredientPrompt)}

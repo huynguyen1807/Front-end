@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient';
 import { ScanResult, FoodRecognition, StorageSuggestion, MealSuggestion, NutritionInfo } from '../features/scan/types/scan';
+import { InventoryOwnerContext } from '../features/inventory/types/inventory';
 
 /**
  * AI Service - Handles all AI-related API calls using apiClient (Axios with Auth headers)
@@ -19,7 +20,10 @@ const getApiErrorMessage = (error: any, fallback: string) => {
 /**
  * Recognize food from image
  */
-export const recognizeFood = async (imageUri: string): Promise<FoodRecognition> => {
+export const recognizeFood = async (
+  imageUri: string,
+  inventoryContext?: InventoryOwnerContext,
+): Promise<FoodRecognition> => {
   const formData = new FormData();
   formData.append('image', {
     uri: imageUri,
@@ -32,6 +36,7 @@ export const recognizeFood = async (imageUri: string): Promise<FoodRecognition> 
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      params: inventoryContext,
     });
 
     return response.data;
@@ -166,9 +171,10 @@ export const getPersonalizedMenu = async (
  */
 export const scanProductComplete = async (
   imageUri: string,
-  storageLocation?: string
+  storageLocation?: string,
+  inventoryContext?: InventoryOwnerContext,
 ): Promise<ScanResult> => {
-  const foodRecognition = await recognizeFood(imageUri);
+  const foodRecognition = await recognizeFood(imageUri, inventoryContext);
   if (foodRecognition.errorCode) {
     throw new Error(
       foodRecognition.warnings?.[0] ||

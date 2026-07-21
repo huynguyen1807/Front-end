@@ -1,0 +1,100 @@
+import { StyleSheet } from "react-native";
+
+import { COLORS } from "../../../constants/colors";
+
+export const scheduleDayRolloverModalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(28, 27, 27, 0.58)",
+    paddingHorizontal: 20,
+  },
+  panel: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 8,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    padding: 20,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff3d2",
+    borderWidth: 1,
+    borderColor: "#d8a52f",
+    marginBottom: 14,
+  },
+  title: {
+    color: COLORS.onSurface,
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  message: {
+    color: COLORS.onSurfaceVariant,
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 21,
+    marginTop: 8,
+  },
+  dateTransition: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "#84bda1",
+    borderRadius: 8,
+    backgroundColor: "#e7f5ee",
+    padding: 12,
+    marginTop: 16,
+    marginBottom: 18,
+  },
+  dateBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  dateCaption: {
+    color: COLORS.onSurfaceVariant,
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  dateText: {
+    color: COLORS.onSurface,
+    fontSize: 12,
+    fontWeight: "900",
+    lineHeight: 17,
+    marginTop: 2,
+    textTransform: "capitalize",
+  },
+  acceptButton: {
+    minHeight: 48,
+    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  acceptButtonText: {
+    color: COLORS.onPrimary,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  cancelButton: {
+    minHeight: 44,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+    paddingHorizontal: 16,
+  },
+  cancelButtonText: {
+    color: COLORS.onSurfaceVariant,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+});
