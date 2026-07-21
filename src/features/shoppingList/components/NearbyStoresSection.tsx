@@ -14,8 +14,7 @@ import {
 import { COLORS } from "../../../constants/colors";
 import { RADIUS, SPACING } from "../../../constants/spacing";
 import {
-  buildCoordinateMapsUrl,
-  buildGoogleMapsUrl,
+  buildOpenRouteServiceUrl,
   getNearbyPlacesApi,
 } from "../services/nearbyPlacesApi";
 import { NearbyPlace, NearbyPlaceLocation } from "../types/nearbyPlace";
@@ -32,6 +31,7 @@ export default function NearbyStoresSection() {
   const [places, setPlaces] = useState<NearbyPlace[]>([]);
   const [loading, setLoading] = useState(true);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [userLocation, setUserLocation] = useState<NearbyPlaceLocation | null>(null);
 
   const loadNearbyStores = async () => {
     setLoading(true);
@@ -51,6 +51,7 @@ export default function NearbyStoresSection() {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       };
+      setUserLocation(userLocation);
 
       const nearbyPlaces = await getNearbyPlacesApi(userLocation);
       setPlaces(nearbyPlaces);
@@ -66,9 +67,8 @@ export default function NearbyStoresSection() {
   }, []);
 
   const openMaps = (place: NearbyPlace) => {
-    const url =
-      place.source === "GOOGLE" ? buildGoogleMapsUrl(place) : buildCoordinateMapsUrl(place.location);
-    Linking.openURL(url);
+    if (!userLocation) return;
+    Linking.openURL(buildOpenRouteServiceUrl(userLocation, place.location));
   };
 
   return (
@@ -128,7 +128,6 @@ export default function NearbyStoresSection() {
                     </Text>
                   )}
                 </View>
-                {place.source === "DEMO" && <Text style={styles.demoText}>Demo data</Text>}
               </TouchableOpacity>
             ))}
           </View>

@@ -11,5 +11,5 @@ export interface NearbyPlace {
   rating?: number;
   isOpen?: boolean;
   location: NearbyPlaceLocation;
-  source: "GOOGLE" | "DEMO";
+  source: "OPENROUTESERVICE";
 }
