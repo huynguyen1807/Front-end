@@ -18,6 +18,5 @@ const getApiUrl = () => {
 };
 
 export const appConfig = {
-  apiUrl: getApiUrl(),
-  googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY
+  apiUrl: getApiUrl()
 };
