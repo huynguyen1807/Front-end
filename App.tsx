@@ -9,6 +9,7 @@ import LoginScreen from "./src/features/auth/screens/LoginScreen";
 import RegisterScreen from "./src/features/auth/screens/RegisterScreen";
 import OTPVerificationScreen from "./src/features/auth/screens/OTPVerificationScreen";
 import ForgotPasswordScreen from "./src/features/auth/screens/ForgotPasswordScreen";
+import ResetPasswordScreen from "./src/features/auth/screens/ResetPasswordScreen";
 import { NavigationProvider } from "./src/app/providers/NavigationProvider";
 import AppNavigator from "./src/app/AppNavigator";
 import AddFoodScreen from "./src/features/inventory/screens/AddFoodScreen";
@@ -18,6 +19,15 @@ import FoodDetailScreen from "./src/features/inventory/screens/FoodDetailScreen"
 import NotificationScreen from "./src/features/notifications/screens/NotificationScreen";
 import { FamilyCloudScreen } from "./src/features/familyCloud";
 import { SubscriptionScreen } from "./src/features/subscription";
+import EditProfileScreen from "./src/features/settings/screens/EditProfileScreen";
+import AdminDashboardScreen from "./src/features/admin/screens/AdminDashboardScreen";
+import AdminUserListScreen from "./src/features/admin/screens/AdminUserListScreen";
+import AdminSupportListScreen from "./src/features/admin/screens/AdminSupportListScreen";
+import AdminSystemDataScreen from "./src/features/admin/screens/AdminSystemDataScreen";
+import AdminCategoryListScreen from "./src/features/admin/screens/AdminCategoryListScreen";
+import AdminStorageRulesScreen from "./src/features/admin/screens/AdminStorageRulesScreen";
+import AdminRecipesScreen from "./src/features/admin/screens/AdminRecipesScreen";
+import AdminNutritionScreen from "./src/features/admin/screens/AdminNutritionScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -44,6 +54,7 @@ export default function App() {
               <Stack.Screen name="Register" component={RegisterScreen} />
               <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
               <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+              <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
               <Stack.Screen name="Main" component={MainApp} />
               {/* Food Inventory screens */}
               <Stack.Screen name="AddFood" component={AddFoodScreen} />
@@ -55,6 +66,19 @@ export default function App() {
               {/* Family Cloud screen */}
               <Stack.Screen name="FamilyCloud" component={FamilyCloudScreen} />
               <Stack.Screen name="Subscription" component={SubscriptionScreen} />
+              
+              {/* Settings screens */}
+              <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+
+              {/* Admin screens */}
+              <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+              <Stack.Screen name="AdminUserList" component={AdminUserListScreen} />
+              <Stack.Screen name="AdminSupportList" component={AdminSupportListScreen} />
+              <Stack.Screen name="AdminSystemData" component={AdminSystemDataScreen} />
+              <Stack.Screen name="AdminCategoryList" component={AdminCategoryListScreen} />
+              <Stack.Screen name="AdminStorageRules" component={AdminStorageRulesScreen} />
+              <Stack.Screen name="AdminRecipes" component={AdminRecipesScreen} />
+              <Stack.Screen name="AdminNutrition" component={AdminNutritionScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </ReduxProvider>

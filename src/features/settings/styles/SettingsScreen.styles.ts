@@ -195,4 +195,115 @@ export const settingsScreenStyles = StyleSheet.create({
     color: COLORS.onSurface,
     letterSpacing: 0.5,
   },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  modalContent: {
+    width: "100%",
+    backgroundColor: COLORS.surface,
+    borderRadius: 24,
+    padding: 24,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalHeader: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  modalIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: COLORS.onSurface,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: COLORS.onSurfaceVariant,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalCancelButton: {
+    backgroundColor: COLORS.surfaceContainerHighest,
+  },
+  modalConfirmButton: {
+    backgroundColor: COLORS.primary,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  supportInput: {
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+    borderRadius: 8,
+    padding: 12,
+    height: 120,
+    fontSize: 14,
+    color: COLORS.onSurface,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    marginBottom: 24,
+  },
+  sectionTitleModal: {
+    alignSelf: 'flex-start',
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.onSurface,
+    marginBottom: 8,
+  },
+  categoryContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+    width: '100%',
+  },
+  categoryBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+    backgroundColor: COLORS.surfaceContainerLowest,
+  },
+  categoryBtnActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  categoryBtnText: {
+    fontSize: 13,
+    color: COLORS.onSurfaceVariant,
+  },
+  categoryBtnTextActive: {
+    color: COLORS.onPrimary,
+    fontWeight: '600',
+  }
 });
