@@ -21,6 +21,7 @@ import BottomNavbar from "../../../components/layout/BottomNavbar";
 import ScreenContainer from "../../../components/layout/ScreenContainer";
 import TopNavbar from "../../../components/layout/TopNavbar";
 import { COLORS } from "../../../constants/colors";
+import { logOutRevenueCat } from "../../subscription/services/revenueCatService";
 
 import ProfileSection from "../components/ProfileSection";
 import SettingsItem from "../components/SettingsItem";
@@ -115,6 +116,7 @@ export default function SettingsScreen() {
           text: "Đăng xuất",
           onPress: async () => {
             try {
+              await logOutRevenueCat().catch(() => undefined);
               await AsyncStorage.removeItem('userToken');
               await AsyncStorage.removeItem('userInfo');
               navigation.replace('Login');
@@ -196,7 +198,7 @@ export default function SettingsScreen() {
 
             <SettingsItem
               icon="card-outline"
-              label="Premium & thanh toán"
+              label="Premium & Thanh toán"
               description="Mở khóa Family Cloud và giới hạn thành viên"
               iconColor={COLORS.secondary}
               onPress={() => navigation.navigate("Subscription")}

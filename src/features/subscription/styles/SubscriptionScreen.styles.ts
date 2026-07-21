@@ -30,6 +30,16 @@ export const subscriptionStyles = StyleSheet.create({
   currentLabel: { color: COLORS.onPrimaryContainer, fontSize: 13, fontWeight: "700" },
   currentPlan: { color: COLORS.onPrimary, fontSize: 24, fontWeight: "900", marginTop: SPACING.xs },
   currentText: { color: COLORS.onPrimaryContainer, fontSize: 14, marginTop: SPACING.sm },
+  expirationRow: {
+    alignItems: "center",
+    borderTopColor: COLORS.onPrimaryContainer + "45",
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+    paddingTop: SPACING.md,
+  },
+  expirationText: { color: COLORS.onPrimaryContainer, fontSize: 14, fontWeight: "800" },
   sectionTitle: {
     color: COLORS.onSurfaceVariant,
     fontSize: 12,
@@ -48,6 +58,7 @@ export const subscriptionStyles = StyleSheet.create({
   planHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   planName: { color: COLORS.onSurface, fontSize: 17, fontWeight: "800" },
   planPrice: { color: COLORS.primary, fontSize: 16, fontWeight: "900" },
+  discountText: { color: COLORS.secondary, fontSize: 12, fontWeight: "800", marginTop: SPACING.xs },
   featureText: { color: COLORS.onSurfaceVariant, fontSize: 13, marginTop: SPACING.sm },
   payButton: {
     alignItems: "center",
@@ -58,6 +69,8 @@ export const subscriptionStyles = StyleSheet.create({
   },
   payButtonDisabled: { opacity: 0.65 },
   payButtonText: { color: COLORS.onPrimary, fontSize: 15, fontWeight: "800" },
+  restoreButton: { alignItems: "center", paddingVertical: SPACING.sm },
+  restoreButtonText: { color: COLORS.primary, fontSize: 14, fontWeight: "800" },
   historyItem: {
     backgroundColor: COLORS.surfaceContainerLowest,
     borderColor: COLORS.outlineVariant + "45",

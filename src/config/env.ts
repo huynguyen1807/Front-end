@@ -18,5 +18,9 @@ const getApiUrl = () => {
 };
 
 export const appConfig = {
-  apiUrl: getApiUrl()
+  apiUrl: getApiUrl(),
+  revenueCatAndroidKey: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
+  revenueCatIosKey: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,
+  revenueCatTestKey: process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY,
+  revenueCatEntitlementId: process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID ?? 'premium'
 };
