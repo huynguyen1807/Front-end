@@ -97,8 +97,8 @@ export default function AddFoodScreen() {
               .filter(Boolean)
               .some((name) => String(name).trim().toLowerCase() === prefillCategoryName)
           );
-        const matchedPrefillLocation = locs.find((loc) => loc._id === prefill?.storageLocationId)
-          || locs.find((loc) => loc.storageType === prefill?.storageTypeKey);
+        const matchedPrefillLocation = locs.find((loc: StorageLocation) => loc._id === prefill?.storageLocationId)
+          || locs.find((loc: StorageLocation) => loc.storageType === prefill?.storageTypeKey);
 
         setCategories(catList);
         setLocations(locs);

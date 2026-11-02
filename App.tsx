@@ -3,8 +3,10 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { Platform } from "react-native";
 
 import ReduxProvider from "./src/app/providers/ReduxProvider";
+import LandingScreen from "./src/features/landing/screens/LandingScreen";
 import LoginScreen from "./src/features/auth/screens/LoginScreen";
 import RegisterScreen from "./src/features/auth/screens/RegisterScreen";
 import OTPVerificationScreen from "./src/features/auth/screens/OTPVerificationScreen";
@@ -44,13 +46,20 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ReduxProvider>
-          <StatusBar style="dark" translucent={false} />
+          <StatusBar style="dark" />
           <NavigationContainer>
             <Stack.Navigator
-              initialRouteName="Login"
+              initialRouteName={Platform.OS === "web" ? "Landing" : "Login"}
               screenOptions={{ headerShown: false }}
             >
-              <Stack.Screen name="Login" component={LoginScreen} />
+              {Platform.OS === "web" && (
+                <Stack.Screen name="Landing" component={LandingScreen} />
+              )}
+              <Stack.Screen
+                name="Login"
+                component={LoginScreen}
+                options={Platform.OS === "web" ? { animation: "fade_from_bottom" } : undefined}
+              />
               <Stack.Screen name="Register" component={RegisterScreen} />
               <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
               <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />

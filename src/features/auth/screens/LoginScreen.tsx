@@ -117,12 +117,25 @@ export default function LoginScreen() {
         enabled={Platform.OS === 'ios'}
       >
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            Platform.OS === 'web' && styles.webContent,
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           {/* Branding Header */}
-          <View style={styles.header}>
+          <View style={[styles.header, Platform.OS === 'web' && styles.webHeader]}>
+            {Platform.OS === 'web' && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => navigation.navigate('Landing')}
+                style={styles.webBackButton}
+              >
+                <MaterialIcons name="arrow-back" size={18} color={colors.primary} />
+                <Text style={styles.webBackButtonText}>Quay lại trang chủ</Text>
+              </TouchableOpacity>
+            )}
             <View style={styles.brandRow}>
               <MaterialIcons name="eco" size={36} color={colors.primary} />
               <Text style={styles.brandText}>FreshFriends</Text>
@@ -131,10 +144,14 @@ export default function LoginScreen() {
             <Text style={styles.subtitle}>Đăng nhập để quản lý tủ lạnh của bạn ngay hôm nay.</Text>
           </View>
 
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {error ? (
+            <Text style={[styles.errorText, Platform.OS === 'web' && styles.webFormWidth]}>
+              {error}
+            </Text>
+          ) : null}
 
           {/* Login Form */}
-          <View style={styles.form}>
+          <View style={[styles.form, Platform.OS === 'web' && styles.webFormWidth]}>
             {/* Email Field */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
@@ -255,9 +272,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 80,
   },
+  webContent: {
+    alignItems: 'center',
+    paddingTop: 36,
+    paddingBottom: 48,
+  },
+  webFormWidth: {
+    width: '100%',
+    maxWidth: 430,
+  },
   header: {
     marginBottom: 32,
     alignItems: 'flex-start',
+  },
+  webHeader: {
+    width: '100%',
+    maxWidth: 430,
+    alignSelf: 'center',
+  },
+  webBackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 7,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    marginBottom: 27,
+    borderRadius: 999,
+    backgroundColor: '#f0f5ef',
+  },
+  webBackButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
   },
   brandRow: {
     flexDirection: 'row',
