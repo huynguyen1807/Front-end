@@ -88,7 +88,7 @@ export default function RegisterScreen() {
           <TextInput
             style={styles.input}
             placeholder={placeholder}
-            placeholderTextColor={colors.onSurfaceVariant + '80'}
+            placeholderTextColor={colors.alpha(colors.onSurfaceVariant, '80')}
             value={value}
             onChangeText={onChangeText}
             secureTextEntry={secureTextEntry}
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 480,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: Platform.OS === 'web' ? colors.surface : 'rgba(255, 255, 255, 0.95)',
     borderRadius: 16,
     padding: 24,
     borderWidth: 1,

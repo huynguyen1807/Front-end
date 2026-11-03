@@ -414,8 +414,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   unreadCard: {
-    borderColor: COLORS.primary + "30",
-    backgroundColor: COLORS.primary + "04",
+    borderColor: COLORS.alpha(COLORS.primary, "30"),
+    backgroundColor: COLORS.alpha(COLORS.primary, "04"),
   },
   iconWrapper: {
     width: 48,

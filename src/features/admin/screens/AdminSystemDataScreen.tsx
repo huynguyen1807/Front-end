@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.outlineVariant + '50',
+    borderBottomColor: COLORS.alpha(COLORS.outlineVariant, '50'),
   },
   backButton: {
     padding: 8,
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   introCard: {
-    backgroundColor: COLORS.primaryContainer + '40',
+    backgroundColor: COLORS.alpha(COLORS.primaryContainer, '40'),
     borderRadius: 16,
     padding: 20,
     marginBottom: 24,
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
     borderWidth: 1,
-    borderColor: COLORS.outlineVariant + '30',
+    borderColor: COLORS.alpha(COLORS.outlineVariant, '30'),
   },
   iconBox: {
     width: 50,

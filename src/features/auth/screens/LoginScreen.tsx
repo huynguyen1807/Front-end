@@ -163,7 +163,7 @@ export default function LoginScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="email@example.com"
-                  placeholderTextColor={colors.onSurfaceVariant + '80'}
+                  placeholderTextColor={colors.alpha(colors.onSurfaceVariant, '80')}
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
@@ -190,7 +190,7 @@ export default function LoginScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="••••••••"
-                  placeholderTextColor={colors.onSurfaceVariant + '80'}
+                  placeholderTextColor={colors.alpha(colors.onSurfaceVariant, '80')}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginBottom: 27,
     borderRadius: 999,
-    backgroundColor: '#f0f5ef',
+    backgroundColor: colors.surfaceContainerLow,
   },
   webBackButtonText: {
     fontSize: 13,

@@ -12,45 +12,46 @@ import {
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import WebThemeToggle from "../../../components/layout/WebThemeToggle";
 
 const colors = {
-  background: "#f7f6f0",
-  surface: "#ffffff",
-  ink: "#112b24",
-  muted: "#66766e",
-  green: "#235c43",
-  greenDark: "#102e25",
-  paleGreen: "#e9f2df",
-  yellow: "#d9f36a",
-  line: "#e6e9df",
+  background: "var(--ff-landing-background)",
+  surface: "var(--ff-landing-surface)",
+  ink: "var(--ff-landing-ink)",
+  muted: "var(--ff-landing-muted)",
+  green: "var(--ff-landing-green)",
+  greenDark: "var(--ff-landing-green-dark)",
+  paleGreen: "var(--ff-landing-pale-green)",
+  yellow: "var(--ff-landing-yellow)",
+  line: "var(--ff-landing-line)",
 };
 
 const features = [
   {
     icon: "kitchen",
-    color: "#235c43",
-    background: "#e9f2df",
+    color: "var(--ff-primary)",
+    background: "var(--ff-feature-one)",
     title: "Nhìn rõ căn bếp",
     description: "Lưu món đang có, số lượng và vị trí để khỏi mua trùng hay quên mất.",
   },
   {
     icon: "notifications-active",
-    color: "#bd5d37",
-    background: "#fff0df",
+    color: "var(--ff-tertiary)",
+    background: "var(--ff-feature-two)",
     title: "Dùng đúng lúc",
     description: "Theo dõi hạn sử dụng và để ý những món nên được dùng trước.",
   },
   {
     icon: "restaurant-menu",
-    color: "#9b5635",
-    background: "#faeae0",
+    color: "var(--ff-secondary)",
+    background: "var(--ff-feature-three)",
     title: "Bớt đau đầu nghĩ món",
     description: "Tham khảo gợi ý bữa ăn dựa trên thực phẩm bạn đang có.",
   },
   {
     icon: "people",
-    color: "#53649a",
-    background: "#e9edfa",
+    color: "var(--ff-primary)",
+    background: "var(--ff-feature-four)",
     title: "Cả nhà cùng phối hợp",
     description: "Chia sẻ việc theo dõi thực phẩm và danh sách mua sắm.",
   },
@@ -160,7 +161,7 @@ function PantryPreview() {
 
         <Text style={styles.previewSectionTitle}>Nên dùng sớm</Text>
         <View style={styles.foodRow}>
-          <View style={[styles.foodEmoji, { backgroundColor: "#fff0da" }]}>
+          <View style={[styles.foodEmoji, { backgroundColor: "var(--ff-produce-warm)" }]}>
             <Text style={styles.emojiText}>🥑</Text>
           </View>
           <View style={styles.foodInfo}>
@@ -172,7 +173,7 @@ function PantryPreview() {
           </View>
         </View>
         <View style={styles.foodRow}>
-          <View style={[styles.foodEmoji, { backgroundColor: "#fce9e4" }]}>
+          <View style={[styles.foodEmoji, { backgroundColor: "var(--ff-produce-red)" }]}>
             <Text style={styles.emojiText}>🍅</Text>
           </View>
           <View style={styles.foodInfo}>
@@ -185,7 +186,7 @@ function PantryPreview() {
         </View>
 
         <View style={styles.previewTip}>
-          <MaterialIcons name="lightbulb-outline" size={18} color="#95660b" />
+          <MaterialIcons name="lightbulb-outline" size={18} color="var(--ff-secondary)" />
           <Text style={styles.previewTipText}>
             Có thể dùng bơ cho món salad tối nay
           </Text>
@@ -263,15 +264,21 @@ export default function LandingScreen() {
               <Pressable onPress={() => goTo(howItWorksY)} style={styles.navLink}>
                 <Text style={styles.navLinkText}>Cách bắt đầu</Text>
               </Pressable>
-              <LandingButton onPress={openLogin} compact>
-                <Text style={styles.buttonText}>Đăng nhập</Text>
-                <MaterialIcons name="arrow-forward" size={17} color={colors.greenDark} />
-              </LandingButton>
+              <View style={styles.headerActions}>
+                <LandingButton onPress={openLogin} compact>
+                  <Text style={styles.buttonText}>Đăng nhập</Text>
+                  <MaterialIcons name="arrow-forward" size={17} color={colors.greenDark} />
+                </LandingButton>
+                <WebThemeToggle />
+              </View>
             </View>
           ) : (
-            <LandingButton onPress={openLogin} compact>
-              <Text style={styles.buttonText}>Đăng nhập</Text>
-            </LandingButton>
+            <View style={styles.headerActionsNarrow}>
+              <LandingButton onPress={openLogin} compact>
+                <Text style={styles.buttonText}>Đăng nhập</Text>
+              </LandingButton>
+              <WebThemeToggle />
+            </View>
           )}
         </View>
       </View>
@@ -526,14 +533,16 @@ const styles = StyleSheet.create({
     maxWidth: 1200,
     minHeight: 82,
     alignSelf: "center",
-    paddingHorizontal: 36,
+    paddingLeft: 36,
+    paddingRight: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   headerInnerNarrow: {
     minHeight: 70,
-    paddingHorizontal: 22,
+    paddingLeft: 22,
+    paddingRight: 12,
   },
   brand: {
     flexDirection: "row",
@@ -558,6 +567,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 34,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  headerActionsNarrow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
   },
   navLink: {
     paddingVertical: 10,
@@ -803,7 +822,7 @@ const styles = StyleSheet.create({
   previewSummary: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f5f8f2",
+    backgroundColor: colors.background,
     borderRadius: 17,
     padding: 13,
     marginBottom: 23,
@@ -812,7 +831,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 13,
-    backgroundColor: "#e3efe2",
+    backgroundColor: colors.paleGreen,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -831,7 +850,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   summaryStatus: {
-    backgroundColor: "#e1f1df",
+    backgroundColor: "var(--ff-status-good)",
     borderRadius: 99,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -852,7 +871,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f1ed",
+    borderBottomColor: colors.line,
   },
   foodEmoji: {
     width: 42,
@@ -874,23 +893,23 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   foodMeta: {
-    color: "#859087",
+    color: colors.muted,
     fontSize: 10,
     marginTop: 4,
   },
   expiryBadge: {
-    backgroundColor: "#fff0da",
+    backgroundColor: "var(--ff-produce-warm)",
     borderRadius: 99,
     paddingHorizontal: 8,
     paddingVertical: 6,
   },
   expiryText: {
-    color: "#a45b16",
+    color: "var(--ff-secondary)",
     fontSize: 9,
     fontWeight: "700",
   },
   freshBadge: {
-    backgroundColor: "#eaf3e7",
+    backgroundColor: "var(--ff-status-good)",
     borderRadius: 99,
     paddingHorizontal: 8,
     paddingVertical: 6,
@@ -905,14 +924,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     borderRadius: 13,
-    backgroundColor: "#fff7e2",
+    backgroundColor: "var(--ff-tip-background)",
     paddingHorizontal: 11,
     paddingVertical: 10,
     marginTop: 17,
   },
   previewTipText: {
     flex: 1,
-    color: "#78590e",
+    color: "var(--ff-tip-text)",
     fontSize: 10,
     fontWeight: "600",
   },
@@ -924,7 +943,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     borderRadius: 99,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     paddingHorizontal: 13,
     paddingVertical: 10,
     shadowColor: "#18352b",
@@ -987,7 +1006,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   promiseText: {
-    color: "#4b5c51",
+    color: colors.muted,
     fontSize: 12,
     fontWeight: "600",
   },
@@ -1050,7 +1069,7 @@ const styles = StyleSheet.create({
     minHeight: 215,
     padding: 22,
     borderRadius: 20,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
   },
@@ -1125,7 +1144,7 @@ const styles = StyleSheet.create({
     minHeight: 190,
     padding: 22,
     borderRadius: 22,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
   },
@@ -1161,7 +1180,7 @@ const styles = StyleSheet.create({
   },
   howSection: {
     width: "100%",
-    backgroundColor: "#edf0e6",
+    backgroundColor: "var(--ff-how-background)",
   },
   howSectionNarrow: {
     paddingHorizontal: 22,
@@ -1225,9 +1244,9 @@ const styles = StyleSheet.create({
     width: 43,
     height: 43,
     borderRadius: 15,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#dde7d8",
+    borderColor: colors.line,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,
@@ -1256,7 +1275,7 @@ const styles = StyleSheet.create({
     top: 61,
     height: 25,
     width: 1,
-    backgroundColor: "#cbd8c6",
+    backgroundColor: "var(--ff-step-connector)",
   },
   finalCta: {
     backgroundColor: colors.greenDark,

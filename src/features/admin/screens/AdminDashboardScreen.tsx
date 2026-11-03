@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -7,11 +7,13 @@ import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../../../constants/colors';
 
 import { apiClient } from '../../../services/apiClient';
+import LogoutConfirmationModal from '../../../components/layout/LogoutConfirmationModal';
 
 export default function AdminDashboardScreen() {
   const navigation = useNavigation<any>();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
 
   useEffect(() => {
     loadStats();
@@ -46,7 +48,19 @@ export default function AdminDashboardScreen() {
     </View>
   );
 
+  const performLogout = async () => {
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    await AsyncStorage.removeItem('userToken');
+    await AsyncStorage.removeItem('userInfo');
+    navigation.replace('Login');
+  };
+
   const handleLogout = () => {
+    if (Platform.OS === 'web') {
+      setLogoutModalVisible(true);
+      return;
+    }
+
     Alert.alert(
       "Đăng xuất",
       "Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?",
@@ -55,13 +69,7 @@ export default function AdminDashboardScreen() {
         {
           text: "Đăng xuất",
           style: "destructive",
-          onPress: async () => {
-            // Cannot import AsyncStorage without adding it back, so we will use require
-            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-            await AsyncStorage.removeItem('userToken');
-            await AsyncStorage.removeItem('userInfo');
-            navigation.replace('Login');
-          }
+          onPress: performLogout
         }
       ]
     );
@@ -97,7 +105,7 @@ export default function AdminDashboardScreen() {
           style={styles.menuItem} 
           onPress={() => navigation.navigate("AdminUserList")}
         >
-          <View style={[styles.menuIcon, { backgroundColor: COLORS.primary + '20' }]}>
+          <View style={[styles.menuIcon, { backgroundColor: COLORS.alpha(COLORS.primary, '20') }]}>
             <Ionicons name="people" size={24} color={COLORS.primary} />
           </View>
           <View style={styles.menuTextContainer}>
@@ -111,7 +119,7 @@ export default function AdminDashboardScreen() {
           style={styles.menuItem} 
           onPress={() => navigation.navigate("AdminSupportList")}
         >
-          <View style={[styles.menuIcon, { backgroundColor: COLORS.error + '20' }]}>
+          <View style={[styles.menuIcon, { backgroundColor: COLORS.alpha(COLORS.error, '20') }]}>
             <Ionicons name="mail-unread" size={24} color={COLORS.error} />
           </View>
           <View style={styles.menuTextContainer}>
@@ -121,7 +129,7 @@ export default function AdminDashboardScreen() {
           <Ionicons name="chevron-forward" size={20} color={COLORS.onSurfaceVariant} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("AdminSystemData")}>
-          <View style={[styles.menuIcon, { backgroundColor: COLORS.secondary + '20' }]}>
+          <View style={[styles.menuIcon, { backgroundColor: COLORS.alpha(COLORS.secondary, '20') }]}>
             <Ionicons name="restaurant" size={24} color={COLORS.secondary} />
           </View>
           <View style={styles.menuTextContainer}>
@@ -132,6 +140,17 @@ export default function AdminDashboardScreen() {
         </TouchableOpacity>
 
       </ScrollView>
+
+      {Platform.OS === 'web' && (
+        <LogoutConfirmationModal
+          visible={logoutModalVisible}
+          onCancel={() => setLogoutModalVisible(false)}
+          onConfirm={async () => {
+            setLogoutModalVisible(false);
+            await performLogout();
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }

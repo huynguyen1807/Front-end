@@ -76,7 +76,7 @@ export default function InventoryCard({ item, onEdit, onDelete, onConsume, onPre
           <Image source={{ uri: item.imageUrl }} style={styles.thumbnail} />
         ) : (
           <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
-            <MaterialIcons name="fastfood" size={24} color={COLORS.primary + "80"} />
+            <MaterialIcons name="fastfood" size={24} color={COLORS.alpha(COLORS.primary, "80")} />
           </View>
         )}
         {urgentLabel && (

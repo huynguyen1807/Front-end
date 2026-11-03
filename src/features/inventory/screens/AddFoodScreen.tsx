@@ -329,7 +329,7 @@ export default function AddFoodScreen() {
           <TextInput
             style={styles.input}
             placeholder="VD: Thịt bò, Rau cải..."
-            placeholderTextColor={COLORS.onSurfaceVariant + '80'}
+            placeholderTextColor={COLORS.alpha(COLORS.onSurfaceVariant, '80')}
             value={form.foodName}
             onChangeText={(v) => setForm((f) => ({ ...f, foodName: v }))}
           />

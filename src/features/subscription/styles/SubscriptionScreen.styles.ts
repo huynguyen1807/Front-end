@@ -7,7 +7,7 @@ export const subscriptionStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   header: {
     alignItems: "center",
-    borderBottomColor: COLORS.outlineVariant + "70",
+    borderBottomColor: COLORS.alpha(COLORS.outlineVariant, "70"),
     borderBottomWidth: 1,
     flexDirection: "row",
     justifyContent: "space-between",
@@ -32,7 +32,7 @@ export const subscriptionStyles = StyleSheet.create({
   currentText: { color: COLORS.onPrimaryContainer, fontSize: 14, marginTop: SPACING.sm },
   expirationRow: {
     alignItems: "center",
-    borderTopColor: COLORS.onPrimaryContainer + "45",
+    borderTopColor: COLORS.alpha(COLORS.onPrimaryContainer, "45"),
     borderTopWidth: 1,
     flexDirection: "row",
     gap: SPACING.sm,
@@ -49,7 +49,7 @@ export const subscriptionStyles = StyleSheet.create({
   },
   planCard: {
     backgroundColor: COLORS.surfaceContainerLowest,
-    borderColor: COLORS.outlineVariant + "55",
+    borderColor: COLORS.alpha(COLORS.outlineVariant, "55"),
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     padding: SPACING.lg,
@@ -73,7 +73,7 @@ export const subscriptionStyles = StyleSheet.create({
   restoreButtonText: { color: COLORS.primary, fontSize: 14, fontWeight: "800" },
   historyItem: {
     backgroundColor: COLORS.surfaceContainerLowest,
-    borderColor: COLORS.outlineVariant + "45",
+    borderColor: COLORS.alpha(COLORS.outlineVariant, "45"),
     borderRadius: RADIUS.md,
     borderWidth: 1,
     padding: SPACING.md,
