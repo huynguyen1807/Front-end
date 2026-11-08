@@ -41,6 +41,15 @@ export function createReview(batch: ScanBatch): ScanReviewSession {
   const purchaseDate = localDate();
   return { root: batch, sources: { [batch.scanResultId]: batch }, items: draftsFromBatch(batch, purchaseDate), purchaseDate, sourceType: 'SUPERMARKET' };
 }
+export function createReceiptReview(batch: ScanBatch, purchaseDate?: string): ScanReviewSession {
+  const review = createReview(batch);
+  return {
+    ...review,
+    purchaseDate: purchaseDate && isCalendarDate(purchaseDate) ? purchaseDate : review.purchaseDate,
+    items: draftsFromBatch(batch, purchaseDate && isCalendarDate(purchaseDate) ? purchaseDate : review.purchaseDate),
+    sourceKind: 'RECEIPT',
+  };
+}
 export function appendScan(review: ScanReviewSession, batch: ScanBatch, replaceId?: string): ScanReviewSession {
   const remaining = batch.results.length && replaceId ? review.items.filter((item) => item.clientItemId !== replaceId || item.saved || item.saveUncertain) : review.items;
   const keys = new Set(remaining.map((item) => matchFoodKey(item.foodName, item.categoryId)));

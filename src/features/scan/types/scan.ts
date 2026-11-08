@@ -136,4 +136,5 @@ export type ScanDraftItem = {
 export type ScanReviewSession = {
   root: ScanBatch; sources: Record<string, ScanBatch>; items: ScanDraftItem[];
   purchaseDate: string; sourceType: 'SUPERMARKET' | 'MARKET';
+  sourceKind?: 'RECEIPT';
 };
