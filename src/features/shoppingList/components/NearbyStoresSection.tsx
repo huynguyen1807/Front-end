@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   },
   placeIcon: {
     alignItems: "center",
-    backgroundColor: COLORS.primary + "18",
+    backgroundColor: COLORS.alpha(COLORS.primary, "18"),
     borderRadius: RADIUS.full,
     height: 36,
     justifyContent: "center",

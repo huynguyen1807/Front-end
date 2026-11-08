@@ -52,7 +52,7 @@ export default function FoodDetailScreen() {
             <Image source={{ uri: item.imageUrl }} style={styles.image} />
           ) : (
             <View style={[styles.image, styles.imagePlaceholder]}>
-              <MaterialIcons name="fastfood" size={80} color={COLORS.primary + "60"} />
+              <MaterialIcons name="fastfood" size={80} color={COLORS.alpha(COLORS.primary, "60")} />
             </View>
           )}
           {urgentLabel && (

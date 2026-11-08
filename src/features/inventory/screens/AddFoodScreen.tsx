@@ -97,8 +97,8 @@ export default function AddFoodScreen() {
               .filter(Boolean)
               .some((name) => String(name).trim().toLowerCase() === prefillCategoryName)
           );
-        const matchedPrefillLocation = locs.find((loc) => loc._id === prefill?.storageLocationId)
-          || locs.find((loc) => loc.storageType === prefill?.storageTypeKey);
+        const matchedPrefillLocation = locs.find((loc: StorageLocation) => loc._id === prefill?.storageLocationId)
+          || locs.find((loc: StorageLocation) => loc.storageType === prefill?.storageTypeKey);
 
         setCategories(catList);
         setLocations(locs);
@@ -329,7 +329,7 @@ export default function AddFoodScreen() {
           <TextInput
             style={styles.input}
             placeholder="VD: Thịt bò, Rau cải..."
-            placeholderTextColor={COLORS.onSurfaceVariant + '80'}
+            placeholderTextColor={COLORS.alpha(COLORS.onSurfaceVariant, '80')}
             value={form.foodName}
             onChangeText={(v) => setForm((f) => ({ ...f, foodName: v }))}
           />

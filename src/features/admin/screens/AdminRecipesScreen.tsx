@@ -204,14 +204,14 @@ export default function AdminRecipesScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: COLORS.surface, borderBottomWidth: 1, borderColor: COLORS.outlineVariant + '50' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: COLORS.surface, borderBottomWidth: 1, borderColor: COLORS.alpha(COLORS.outlineVariant, '50') },
   backButton: { padding: 8, marginLeft: -8 },
   addButton: { padding: 8, marginRight: -8 },
   headerTitle: { fontSize: 18, fontWeight: '600', color: COLORS.onSurface },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty: { textAlign: 'center', marginTop: 20, color: COLORS.onSurfaceVariant },
   list: { padding: 16, gap: 16 },
-  card: { backgroundColor: COLORS.surface, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: COLORS.outlineVariant + '50', elevation: 1 },
+  card: { backgroundColor: COLORS.surface, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: COLORS.alpha(COLORS.outlineVariant, '50'), elevation: 1 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   title: { fontSize: 16, fontWeight: 'bold', color: COLORS.onSurface, flex: 1 },
   actions: { flexDirection: 'row' },

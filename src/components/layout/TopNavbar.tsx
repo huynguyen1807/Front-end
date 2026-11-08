@@ -5,6 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 
 import { COLORS } from "../../constants/colors";
 import { topNavbarStyles as styles } from "./navbar.styles";
+import WebThemeToggle from "./WebThemeToggle";
 
 export default function TopNavbar() {
   const insets = useSafeAreaInsets();
@@ -24,7 +25,8 @@ export default function TopNavbar() {
         <Text style={styles.brand}>FreshFriends</Text>
       </View>
 
-      <View style={styles.rightGroup}>
+      <View style={[styles.rightGroup, Platform.OS === "web" && styles.webRightGroup]}>
+        {Platform.OS === "web" && <WebThemeToggle compact />}
         <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
           <Ionicons name="search-outline" size={24} color={COLORS.onSurface} />
         </TouchableOpacity>

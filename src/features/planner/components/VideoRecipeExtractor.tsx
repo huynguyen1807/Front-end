@@ -56,7 +56,7 @@ export default function VideoRecipeExtractor({
           value={videoUrl}
           onChangeText={onChangeVideoUrl}
           placeholder="https://www.youtube.com/watch?v=..."
-          placeholderTextColor={COLORS.onSurfaceVariant + "80"}
+          placeholderTextColor={COLORS.alpha(COLORS.onSurfaceVariant, "80")}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"

@@ -87,7 +87,7 @@ export default function ForgotPasswordScreen() {
                     <TextInput
                       style={styles.input}
                       placeholder="example@fresh.com"
-                      placeholderTextColor={colors.onSurfaceVariant + '80'}
+                      placeholderTextColor={colors.alpha(colors.onSurfaceVariant, '80')}
                       value={email}
                       onChangeText={setEmail}
                       keyboardType="email-address"
@@ -166,12 +166,12 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 440,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: Platform.OS === 'web' ? colors.surface : 'rgba(255, 255, 255, 0.9)',
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: Platform.OS === 'web' ? colors.outlineVariant : 'rgba(255, 255, 255, 0.3)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,

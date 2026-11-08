@@ -22,7 +22,7 @@ export default function SettingsToggle({
         styles.toggleSwitch,
         {
           backgroundColor: value ? COLORS.primaryContainer : COLORS.surfaceContainer,
-          borderColor: value ? COLORS.primaryContainer : COLORS.outlineVariant + "50",
+          borderColor: value ? COLORS.primaryContainer : COLORS.alpha(COLORS.outlineVariant, "50"),
         },
       ]}
     >

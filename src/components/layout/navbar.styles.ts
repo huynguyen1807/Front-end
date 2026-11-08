@@ -29,6 +29,10 @@ export const topNavbarStyles = StyleSheet.create({
     gap: SPACING.sm,
   },
 
+  webRightGroup: {
+    paddingRight: 0,
+  },
+
   brand: {
     fontSize: 26,
     fontWeight: "800",
@@ -103,7 +107,44 @@ export const bottomNavbarStyles = StyleSheet.create({
     paddingVertical: 8,
   },
 
+  webContainer: {
+    width: "100%",
+    maxWidth: 720,
+    alignSelf: "center",
+    marginBottom: 16,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderRadius: 22,
+    borderColor: "var(--ff-outline-variant)",
+    boxShadow: "0 8px 26px rgba(16, 46, 37, 0.1)",
+  },
 
+  webItem: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 58,
+    borderRadius: 15,
+    paddingVertical: 6,
+  },
+
+  webActiveItem: {
+    backgroundColor: "var(--ff-primary-container)",
+  },
+
+  webIcon: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  webLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "var(--ff-on-surface-variant)",
+  },
+
+  webActiveLabel: {
+    color: "var(--ff-on-primary-container)",
+  },
 
   label: {
     fontSize: 13,
