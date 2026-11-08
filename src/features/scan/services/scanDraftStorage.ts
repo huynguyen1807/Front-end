@@ -17,7 +17,7 @@ export function encodeScanDraft(review: ScanReviewSession) {
   // repeating the same full photo in every recognized food result.
   return JSON.stringify({ version: 1, rootId: review.root.scanResultId,
     sources: Object.fromEntries(Object.entries(review.sources).map(([id, source]) => [id, { ...source, results: [] }])),
-    items: review.items, purchaseDate: review.purchaseDate, sourceType: review.sourceType,
+    items: review.items, purchaseDate: review.purchaseDate, sourceType: review.sourceType, sourceKind: review.sourceKind,
   });
 }
 export function decodeScanDraft(text: string): ScanReviewSession | null {
@@ -27,7 +27,7 @@ export function decodeScanDraft(text: string): ScanReviewSession | null {
     const root = data.sources[data.rootId] as ScanBatch | undefined;
     if (!root?.imageUrl || !root.scanResultId || !root.inventoryContext || data.items.some((item: any) => !item?.clientItemId || !data.sources[item.sourceScanId]?.imageUrl || ['foodName', 'categoryId', 'quantity', 'unit', 'storageType', 'storageStartedAt', 'expiryDate'].some((key) => typeof item[key] !== 'string'))) return null;
     if (Object.values(data.sources).some((source: any) => !source || typeof source.imageUrl !== 'string' || !Number.isFinite(source.width) || source.width <= 0 || !Number.isFinite(source.height) || source.height <= 0)) return null;
-    return { root, sources: data.sources, items: data.items, purchaseDate: data.purchaseDate, sourceType: data.sourceType === 'MARKET' ? 'MARKET' : 'SUPERMARKET' };
+    return { root, sources: data.sources, items: data.items, purchaseDate: data.purchaseDate, sourceType: data.sourceType === 'MARKET' ? 'MARKET' : 'SUPERMARKET', sourceKind: data.sourceKind === 'RECEIPT' ? 'RECEIPT' : undefined };
   } catch { return null; }
 }
 export async function scanDraftKey() {

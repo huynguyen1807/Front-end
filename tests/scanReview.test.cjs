@@ -22,6 +22,20 @@ test('new drafts do not copy guessed AI expiry when no reliable guide is availab
   assert.equal(review.items[0].expiryBasis, 'USER');
 });
 
+test('receipt results become one review row per purchased item and remain unselected for verification', () => {
+  const receiptBatch = batch('receipt-root', [
+    { foodRecognition: { productName: 'Sữa tươi', confidence: 0.93, visibility: 'CLEAR', categoryId: 'dairy', estimatedQuantity: { quantity: 2, unit: 'cái' } }, storageSuggestion: { storageType: 'REFRIGERATOR' } },
+    { foodRecognition: { productName: 'Trứng gà', confidence: 0.55, visibility: 'CLEAR', categoryId: 'eggs', estimatedQuantity: { quantity: 10, unit: 'quả' } }, storageSuggestion: { storageType: 'REFRIGERATOR' } },
+  ]);
+  const review = utils.createReceiptReview(receiptBatch, '2026-11-08');
+  assert.equal(review.sourceKind, 'RECEIPT');
+  assert.equal(review.purchaseDate, '2026-11-08');
+  assert.deepEqual(review.items.map(({ foodName, quantity, unit, selected, identityConfirmed }) => ({ foodName, quantity, unit, selected, identityConfirmed })), [
+    { foodName: 'Sữa tươi', quantity: '2', unit: 'cái', selected: false, identityConfirmed: true },
+    { foodName: 'Trứng gà', quantity: '10', unit: 'quả', selected: false, identityConfirmed: false },
+  ]);
+});
+
 test('review status explains the missing field instead of mixing edit actions with readiness', () => {
   const review = utils.createReview(batch('root', [food('Táo')])), item = review.items[0];
   assert.equal(utils.draftReadiness(item, review.purchaseDate).label, 'Chọn ngày nhắc');

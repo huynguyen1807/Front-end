@@ -11,12 +11,13 @@ import CameraView from '../components/CameraView';
 import ScanProgressView from '../components/ScanProgressView';
 import ScanResultCard, { ScanReviewHandle } from '../components/ScanResultCard';
 import { ScanPhoto, ScanProgress, ScanReviewSession } from '../types/scan';
+import { scanReceiptImage } from '../services/receiptScanApi';
 import { COLORS } from '../../../constants/colors';
 import { useAppDispatch, useAppSelector } from '../../../redux/hooks';
 import { InventoryOwnerContext } from '../../inventory/types/inventory';
 import { validateImage } from '../utils/scanUtils';
 import { scanPhoto } from '../services/scanApi';
-import { appendScan, createReview, manualDraft } from '../utils/scanReview';
+import { appendScan, createReceiptReview, createReview, manualDraft } from '../utils/scanReview';
 import { fetchFoods, fetchSummary } from '../../inventory/redux/inventorySlice';
 import { useScanDraft } from '../hooks/useScanDraft';
 
@@ -36,12 +37,14 @@ export default function ScannerScreen() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<ScanProgress>({ stage: 'preparing', percent: 2 });
   const [picking, setPicking] = useState(false);
+  const [receiptScanning, setReceiptScanning] = useState(false);
   const [saveState, setSaveState] = useState({ saving: false, stage: '' });
   const reviewHandle = useRef<ScanReviewHandle>(null);
   const controller = useRef<AbortController | null>(null);
   const runId = useRef(0);
   const mounted = useRef(true);
   const pickerLock = useRef(false);
+  const receiptLock = useRef(false);
   const photoContext = useRef<InventoryOwnerContext>({ ...inventoryContext });
   const pendingRescan = useRef<string | null>(null);
   const persistedSources = useRef(new Set<string>());
@@ -127,6 +130,43 @@ export default function ScannerScreen() {
     }
   };
 
+  const scanReceipt = async (useCamera: boolean) => {
+    if (receiptLock.current) return;
+    receiptLock.current = true;
+    setReceiptScanning(true);
+    setError(null);
+    try {
+      const result = useCamera
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: false, quality: 0.8, exif: false })
+        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: false, allowsMultipleSelection: false, quality: 0.8, exif: false });
+      if (!mounted.current || result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+      setPhoto({ uri: asset.uri, width: asset.width, height: asset.height, source: useCamera ? 'camera' : 'library' });
+      const batch = await scanReceiptImage(asset, inventoryContext);
+      if (!mounted.current) return;
+      setReview(createReceiptReview(batch, batch.purchaseDate));
+      setMode('results');
+    } catch (failure) {
+      if (mounted.current) setError(failure instanceof Error ? failure.message : 'Chưa đọc được hóa đơn. Vui lòng thử lại với ảnh rõ hơn.');
+    } finally {
+      receiptLock.current = false;
+      if (mounted.current) setReceiptScanning(false);
+    }
+  };
+
+  const chooseReceiptSource = () => {
+    if (receiptScanning) return;
+    if (Platform.OS === 'web') {
+      void scanReceipt(false);
+      return;
+    }
+    Alert.alert('Quét hóa đơn', 'Chụp hóa đơn hoặc chọn ảnh có sẵn.', [
+      { text: 'Chụp hóa đơn', onPress: () => void scanReceipt(true) },
+      { text: 'Chọn ảnh', onPress: () => void scanReceipt(false) },
+      { text: 'Huỷ', style: 'cancel' },
+    ]);
+  };
+
   const galleryButton = (
     <TouchableOpacity accessibilityRole="button" disabled={picking} onPress={pickImage} style={[styles.gallery, picking && { opacity: 0.5 }]}>
       <View style={styles.galleryIcon}>{picking ? <ActivityIndicator color={COLORS.primary} /> : <Ionicons name="images-outline" size={23} color={COLORS.primary} />}</View>
@@ -145,11 +185,33 @@ export default function ScannerScreen() {
             <View style={styles.headingIcon}><Ionicons name="scan-outline" size={26} color={COLORS.primary} /></View>
           </View>
 
+          {mode === 'camera' && !photo && (
+            <TouchableOpacity
+              accessibilityRole="button"
+              disabled={receiptScanning}
+              onPress={chooseReceiptSource}
+              style={[styles.receiptButton, receiptScanning && { opacity: 0.6 }]}
+            >
+              <View style={styles.receiptIcon}>{receiptScanning ? <ActivityIndicator color={COLORS.primary} /> : <Ionicons name="receipt-outline" size={25} color={COLORS.primary} />}</View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.receiptTitle}>{receiptScanning ? 'Đang đọc hóa đơn…' : 'Quét hóa đơn'}</Text>
+                <Text style={styles.receiptSubtitle}>Chụp toàn bộ hóa đơn · tự lấy danh sách món đã mua</Text>
+              </View>
+              {!receiptScanning && <Ionicons name="chevron-forward" size={18} color={COLORS.primary} />}
+            </TouchableOpacity>
+          )}
+
           {draftState.warning && <View style={styles.error}><Text style={styles.errorText}>{draftState.warning}</Text></View>}
 
           {review && mode !== 'results' && <TouchableOpacity accessibilityRole="button" onPress={returnToReview} style={styles.secondary}><Ionicons name="arrow-back" size={18} color={COLORS.primary} /><Text style={styles.secondaryText}>Quay lại danh sách {review.items.length} món · Không mất món đã chọn</Text></TouchableOpacity>}
 
-          {!draftState.ready ? <View style={styles.secondary}><ActivityIndicator color={COLORS.primary} /><Text style={styles.secondaryText}>Đang khôi phục lô mua nháp…</Text></View> : mode === 'processing' && photo ? (
+          {!draftState.ready ? <View style={styles.secondary}><ActivityIndicator color={COLORS.primary} /><Text style={styles.secondaryText}>Đang khôi phục lô mua nháp…</Text></View> : receiptScanning ? (
+            <View style={styles.receiptLoading}>
+              {photo && <Image source={{ uri: photo.uri }} style={styles.previewImage} resizeMode="contain" />}
+              <ActivityIndicator size="large" color={COLORS.primary} />
+              <Text style={styles.receiptLoadingText}>Đang đọc tên món và số lượng trên hóa đơn…</Text>
+            </View>
+          ) : mode === 'processing' && photo ? (
             <ScanProgressView key={runId.current} photoUri={photo.uri} progress={progress} onCancel={cancelScan} />
           ) : mode === 'results' && review ? (
             <ScanResultCard ref={reviewHandle} key={review.root.scanResultId} review={review} onChange={setReview} onRescan={rescanItem} onNewBatch={newBatch} onSaved={inventorySaved} persistedSources={persistedSources.current} onSaveState={setSaveState} />
@@ -204,6 +266,8 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, paddingBottom: 28 }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 22 },
   heading: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 22 }, eyebrow: { fontSize: 9, fontWeight: '700', color: COLORS.primary, letterSpacing: 1.25, marginBottom: 7 }, title: { fontSize: 28, fontWeight: '800', lineHeight: 35, letterSpacing: -0.7, color: COLORS.onSurface }, subtitle: { fontSize: 12, lineHeight: 19, color: COLORS.onSurfaceVariant, marginTop: 6 }, headingIcon: { width: 50, height: 50, borderRadius: 17, backgroundColor: COLORS.alpha(COLORS.primary, '04'), alignItems: 'center', justifyContent: 'center' },
   gallery: { minHeight: 80, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 20, borderWidth: 1, borderColor: COLORS.alpha(COLORS.outlineVariant, '40'), backgroundColor: COLORS.surfaceContainerLowest }, galleryIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.alpha(COLORS.primary, '04') }, galleryTitle: { fontSize: 14, fontWeight: '700', color: COLORS.onSurface }, gallerySubtitle: { fontSize: 11, lineHeight: 17, color: COLORS.onSurfaceVariant, marginTop: 4 },
+  receiptButton: { minHeight: 78, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, marginBottom: 16, borderRadius: 20, borderWidth: 1, borderColor: COLORS.alpha(COLORS.primary, '50'), backgroundColor: COLORS.alpha(COLORS.primary, '06') }, receiptIcon: { width: 46, height: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surfaceContainerLowest }, receiptTitle: { color: COLORS.primary, fontSize: 14, fontWeight: '800' }, receiptSubtitle: { color: COLORS.onSurfaceVariant, fontSize: 10, lineHeight: 15, marginTop: 3 },
+  receiptLoading: { alignItems: 'center', gap: 14, paddingBottom: 24 }, receiptLoadingText: { color: COLORS.onSurfaceVariant, fontSize: 13, textAlign: 'center' },
   permission: { flex: 1, padding: 24, borderRadius: 26, backgroundColor: COLORS.surfaceContainerLowest, borderWidth: 1, borderColor: COLORS.alpha(COLORS.outlineVariant, '40'), alignItems: 'center', justifyContent: 'center' }, permissionIcon: { width: 80, height: 80, borderRadius: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.alpha(COLORS.primary, '04'), marginBottom: 20 }, permissionTitle: { fontSize: 19, lineHeight: 27, textAlign: 'center', fontWeight: '700', color: COLORS.onSurface }, permissionText: { fontSize: 12, lineHeight: 20, color: COLORS.onSurfaceVariant, textAlign: 'center', marginTop: 9, marginBottom: 20 },
   primary: { minHeight: 50, borderRadius: 15, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: COLORS.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, primaryText: { fontSize: 13, fontWeight: '700', color: COLORS.onPrimary },
   tip: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, padding: 14, borderRadius: 16, backgroundColor: COLORS.alpha(COLORS.primary, '04') }, tipText: { flex: 1, fontSize: 11, lineHeight: 18, color: COLORS.onSurfaceVariant },
