@@ -25,16 +25,17 @@ import BodyMassIndexPanel from "../components/BodyMassIndexPanel";
 import DailyGoalCard from "../components/DailyGoalCard";
 import DailyPlanGenerator from "../components/DailyPlanGenerator";
 import InventoryBucket from "../components/InventoryBucket";
+import MealSchedulePicker from "../components/MealSchedulePicker";
 import MealSchedule from "../components/MealSchedule";
 import PlannerDetailTabs from "../components/PlannerDetailTabs";
 import PlannerHero from "../components/PlannerHero";
+import ScheduleDayRolloverModal from "../components/ScheduleDayRolloverModal";
 import VideoRecipeExtractor from "../components/VideoRecipeExtractor";
-import ChipButton from "../components/shared/ChipButton";
 import MetricGrid from "../components/shared/MetricGrid";
 import Section from "../components/shared/Section";
-import { mealTypeOptions } from "../constants/plannerConstants";
 import usePlannerScreen from "../hooks/usePlannerScreen";
 import { plannerStyles as styles } from "../styles/PlannerScreen.styles";
+import { formatFoodAmount, formatFoodUnit } from "../../../utils/foodUnits";
 
 type RecommendedFilter = "all" | "enough" | "missing";
 
@@ -83,6 +84,12 @@ export default function PlannerScreen() {
             foods={planner.inventoryBuckets.safe}
             onAddToPlan={planner.handleAddFoodToPlan}
           />
+          <InventoryBucket
+            title="Cần kiểm tra"
+            tone="warning"
+            foods={planner.inventoryBuckets.needsCheck}
+            onAddToPlan={planner.handleAddFoodToPlan}
+          />
         </Section>
       );
     }
@@ -92,8 +99,12 @@ export default function PlannerScreen() {
         <MealSchedule
           dates={planner.dates}
           activeDate={planner.activeDate}
+          weekStartDate={planner.weekRange.startDate}
+          weekEndDate={planner.weekRange.endDate}
           plans={planner.plans}
           onChangeDate={planner.setActiveDate}
+          onChangeWeek={planner.handleChangeWeek}
+          onGoToCurrentWeek={planner.handleGoToCurrentWeek}
           onUpdateMealStatus={planner.handleUpdateMealStatus}
           onRemoveMeal={planner.handleRemoveMeal}
           onDeletePlan={planner.handleDeletePlan}
@@ -183,6 +194,7 @@ export default function PlannerScreen() {
           onChangeWorkspace={planner.setWorkspace}
           foods={planner.foods}
           plans={planner.plans}
+          recipeCount={planner.recipes.length + planner.userRecipes.length}
           aiReviewCount={planner.aiReviewItems.length}
         />
 
@@ -440,21 +452,16 @@ export default function PlannerScreen() {
             <Text style={styles.sectionSubtitle}>
               Chọn khung giờ bữa ăn và có thể chỉnh giờ theo nhu cầu.
             </Text>
-            <View style={styles.segmentRow}>
-              {mealTypeOptions.map((option) => (
-                <ChipButton
-                  key={option.key}
-                  label={`${option.label} ${option.time}`}
-                  active={planner.scheduleMealType === option.key}
-                  onPress={() => planner.handleSelectScheduleMealType(option.key)}
-                />
-              ))}
-            </View>
-            <TextInput
-              style={styles.input}
-              value={planner.scheduleTime}
-              onChangeText={planner.setScheduleTime}
-              placeholder="HH:mm"
+            <MealSchedulePicker
+              date={planner.scheduleDate}
+              time={planner.scheduleTime}
+              mealType={planner.scheduleMealType}
+              notice={planner.scheduleNotice}
+              rolloverPromptVisible={Boolean(planner.scheduleRolloverPrompt)}
+              onChangeDate={planner.handleChangeScheduleDate}
+              onChangeTime={planner.handleChangeScheduleTime}
+              onSelectMealType={planner.handleSelectScheduleMealType}
+              onDismissNotice={planner.clearScheduleNotice}
             />
             {planner.scheduleDraft?.type === "food" ? (
               <View style={styles.quantityPanel}>
@@ -468,11 +475,11 @@ export default function PlannerScreen() {
                     placeholder="Nhập số lượng"
                   />
                   <Text style={styles.quantityUnit}>
-                    {planner.scheduleDraft.food.unit}
+                    {formatFoodUnit(planner.scheduleDraft.food.unit)}
                   </Text>
                 </View>
                 <Text style={styles.quantityHint}>
-                  Còn {planner.scheduleDraft.food.quantity} {planner.scheduleDraft.food.unit} trong kho.
+                  Còn {formatFoodAmount(planner.scheduleDraft.food.quantity, planner.scheduleDraft.food.unit)} trong kho.
                 </Text>
               </View>
             ) : null}
@@ -499,6 +506,12 @@ export default function PlannerScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      <ScheduleDayRolloverModal
+        prompt={planner.scheduleRolloverPrompt}
+        onAccept={planner.handleAcceptScheduleRollover}
+        onCancel={planner.handleCancelScheduleRollover}
+      />
+
       <Modal
         visible={Boolean(planner.missingIngredientPrompt)}
         transparent
@@ -524,7 +537,7 @@ export default function PlannerScreen() {
                 >
                   <MaterialCommunityIcons name="plus-circle" size={16} color={COLORS.primary} />
                   <Text style={styles.noticeItemText}>
-                    {item.ingredientName} - {item.quantity} {item.unit}
+                    {item.ingredientName} - {formatFoodAmount(item.quantity, item.unit)}
                   </Text>
                 </View>
               ))}

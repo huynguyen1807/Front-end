@@ -12,6 +12,8 @@ import {
 
 export type MealPlanPayload = {
   planDate: string;
+  ownerType?: "USER" | "HOUSEHOLD";
+  householdId?: string;
   goal?: string;
   note?: string;
   meals: MealPlanMeal[];
@@ -24,10 +26,17 @@ export const getRecipesApi = async (params?: { q?: string; mine?: boolean }) => 
   return res.data.data as Recipe[];
 };
 
+export const dismissRecipeRecommendationApi = async (recipeId: string) => {
+  const res = await apiClient.patch(`/api/recipes/${recipeId}/recommendation/dismiss`);
+  return res.data;
+};
+
 export const getMealPlansApi = async (params?: {
   date?: string;
   startDate?: string;
   endDate?: string;
+  ownerType?: "USER" | "HOUSEHOLD";
+  householdId?: string;
 }) => {
   const res = await apiClient.get("/api/meal-plans", { params });
   return res.data.data as MealPlan[];
@@ -47,6 +56,8 @@ export const generateDailyMealPlanApi = async (data: {
     cookingSteps?: string[];
     tags?: string[];
   }>;
+  ownerType?: "USER" | "HOUSEHOLD";
+  householdId?: string;
 }) => {
   const res = await apiClient.post("/api/meal-plans/generate", data);
   return res.data.data as GeneratedMealPlanResult;
@@ -79,6 +90,13 @@ export const createMealPlanApi = async (data: MealPlanPayload) => {
   return res.data.data as MealPlan;
 };
 
+export const addMealToPlanApi = async (data: Omit<MealPlanPayload, "meals"> & {
+  meal: MealPlanMeal;
+}) => {
+  const res = await apiClient.post("/api/meal-plans/meals", data);
+  return res.data.data as MealPlan;
+};
+
 export const updateMealPlanApi = async (id: string, data: Partial<MealPlanPayload>) => {
   const res = await apiClient.put(`/api/meal-plans/${id}`, data);
   return res.data.data as MealPlan;
@@ -89,8 +107,11 @@ export const deleteMealPlanApi = async (id: string) => {
   return res.data;
 };
 
-export const getAvailableFoodsApi = async () => {
-  const res = await apiClient.get("/api/foods");
+export const getAvailableFoodsApi = async (context?: {
+  ownerType: "USER" | "HOUSEHOLD";
+  householdId?: string;
+}) => {
+  const res = await apiClient.get("/api/foods", { params: context });
   return res.data.data as InventoryFood[];
 };
 

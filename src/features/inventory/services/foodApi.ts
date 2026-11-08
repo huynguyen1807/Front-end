@@ -1,4 +1,5 @@
 import { apiClient } from '../../../services/apiClient';
+import { Platform } from 'react-native';
 
 // ─── Image Upload ─────────────────────────────────────────────────────────────
 export const uploadImageApi = async (imageUri: string): Promise<{ url: string; publicId: string }> => {
@@ -9,18 +10,33 @@ export const uploadImageApi = async (imageUri: string): Promise<{ url: string; p
   const match = /\.(\w+)$/.exec(fileName);
   const fileType = match ? `image/${match[1]}` : 'image/jpeg';
 
-  formData.append('image', {
+  if (Platform.OS === 'web') {
+    const blob = await (await fetch(imageUri)).blob();
+    formData.append('image', blob, 'food-image.jpg');
+  } else formData.append('image', {
     uri: imageUri,
     name: fileName,
     type: fileType,
   } as any);
 
   const res = await apiClient.post('/api/upload/image', formData, {
+    timeout: 30_000,
     headers: {
       'Content-Type': 'multipart/form-data',
     },
   });
   return res.data.data;
+};
+
+export type NutritionSnapshotPayload = {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  baseQuantity: number;
+  unit: string;
+  source: 'SCAN_AI' | 'ADMIN' | 'CATEGORY_ESTIMATE';
+  confidence?: number;
 };
 
 // ─── Food Items ───────────────────────────────────────────────────────────────
@@ -61,6 +77,7 @@ export const createFoodApi = async (data: {
   expiryDate: string;
   quantity: number;
   unit: string;
+  nutritionSnapshot?: NutritionSnapshotPayload;
 }, ownerType?: string, householdId?: string) => {
   const params: any = {};
   if (ownerType) params.ownerType = ownerType;
@@ -80,6 +97,7 @@ export const updateFoodApi = async (id: string, data: Partial<{
   imageUrl: string;
   sourceType: 'SUPERMARKET' | 'MARKET';
   expiryType: 'MANUAL' | 'SCANNED' | 'AI_PREDICTED';
+  nutritionSnapshot: NutritionSnapshotPayload;
 }>, ownerType?: string, householdId?: string) => {
   const params: any = {};
   if (ownerType) params.ownerType = ownerType;

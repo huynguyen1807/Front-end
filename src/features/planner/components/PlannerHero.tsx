@@ -3,7 +3,6 @@ import { Text, View } from "react-native";
 
 import { InventoryFood, MealPlan } from "../types/planner";
 import { Workspace } from "../constants/plannerConstants";
-import { getDaysUntilExpiry } from "../utils/plannerUtils";
 import { plannerStyles as styles } from "../styles/PlannerScreen.styles";
 import { COLORS } from "../../../constants/colors";
 import ChipButton from "./shared/ChipButton";
@@ -14,6 +13,7 @@ type PlannerHeroProps = {
   onChangeWorkspace: (workspace: Workspace) => void;
   foods: InventoryFood[];
   plans: MealPlan[];
+  recipeCount: number;
   aiReviewCount: number;
 };
 
@@ -23,11 +23,9 @@ export default function PlannerHero({
   onChangeWorkspace,
   foods,
   plans,
+  recipeCount,
   aiReviewCount,
 }: PlannerHeroProps) {
-  const nearExpiryCount = foods.filter(
-    (food) => food.status === "NEAR_EXPIRY" || getDaysUntilExpiry(food.expiryDate) <= 3
-  ).length;
   const mealCount = plans.reduce((sum, plan) => sum + plan.meals.length, 0);
 
   return (
@@ -40,9 +38,9 @@ export default function PlannerHero({
         <MaterialCommunityIcons name="silverware-fork-knife" size={30} color={COLORS.primary} />
       </View>
       <View style={styles.heroStats}>
-        <MiniStat label="Inventory" value={String(foods.length)} />
-        <MiniStat label="Near expiry" value={String(nearExpiryCount)} />
-        <MiniStat label="Meals" value={String(mealCount)} />
+        <MiniStat label="Thực phẩm" value={String(foods.length)} />
+        <MiniStat label="Công thức" value={String(recipeCount)} />
+        <MiniStat label="Bữa ăn" value={String(mealCount)} />
         {isAdmin && <MiniStat label="AI cần duyệt" value={String(aiReviewCount)} />}
       </View>
       {isAdmin && (

@@ -1,352 +1,335 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
-  RefreshControl, Platform, Alert, StyleSheet,
+  RefreshControl, Platform, Alert, StyleSheet, useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 import BottomNavbar from '../../../components/layout/BottomNavbar';
 import ScreenContainer from '../../../components/layout/ScreenContainer';
 import TopNavbar from '../../../components/layout/TopNavbar';
-import FilterChip from '../../../components/common/FilterChip';
 import { COLORS } from '../../../constants/colors';
-import { RADIUS } from '../../../constants/spacing';
 import { useAppDispatch, useAppSelector } from '../../../redux/hooks';
-import InventoryCard from '../components/InventoryCard';
-import SummaryCard from '../components/SummaryCard';
+import InventoryGridCard from '../components/InventoryGridCard';
 import { fetchFoods, fetchSummary, setActiveFilter, deleteFood, consumeFood, setInventoryContext } from '../redux/inventorySlice';
-import { InventoryFilter, FoodItem } from '../types/inventory';
+import { InventoryFilter, FoodItem, StorageTypeBackend } from '../types/inventory';
 import { getMyHouseholdsApi } from '../../familyCloud/services/familyCloudApi';
 import { MyHousehold } from '../../familyCloud/types/familyCloud';
 
-const FILTERS: { key: InventoryFilter; label: string; danger?: boolean }[] = [
-  { key: 'all', label: 'Tất cả' },
-  { key: 'SAFE', label: 'Còn tốt' },
-  { key: 'NEAR_EXPIRY', label: 'Sắp hết hạn', danger: true },
-  { key: 'EXPIRED', label: 'Hết hạn', danger: true },
-  { key: 'NEED_CHECK', label: 'Cần kiểm tra', danger: true },
+const FILTERS: { key: Exclude<InventoryFilter, 'all'>; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
+  { key: 'SAFE', label: 'Còn tốt', icon: 'leaf-outline', color: COLORS.primary },
+  { key: 'NEAR_EXPIRY', label: 'Sắp hết hạn', icon: 'time-outline', color: COLORS.secondary },
+  { key: 'EXPIRED', label: 'Đã hết hạn', icon: 'alert-circle-outline', color: COLORS.error },
+  { key: 'NEED_CHECK', label: 'Cần kiểm tra', icon: 'scan-outline', color: COLORS.onSurfaceVariant },
 ];
+
+const STORAGE_ICONS: Record<StorageTypeBackend, keyof typeof Ionicons.glyphMap> = {
+  REFRIGERATOR: 'file-tray-stacked-outline', FREEZER: 'snow-outline', OUTSIDE: 'sunny-outline',
+  PANTRY: 'basket-outline', KITCHEN_CABINET: 'albums-outline', CUSTOM: 'cube-outline',
+};
+
+// Keep each storage frame small. Rebalance the final frame so five items
+// become 3 + 2 rather than leaving one isolated item after a full frame.
+function splitFrames(items: FoodItem[]): FoodItem[][] {
+  const frames: FoodItem[][] = [];
+  for (let start = 0; start < items.length;) {
+    const size = items.length - start === 5 ? 3 : 4;
+    frames.push(items.slice(start, start + size));
+    start += size;
+  }
+  return frames;
+}
 
 export default function InventoryDashboardScreen() {
   const dispatch = useAppDispatch();
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-
-  const { items, summary, activeFilter, loading, context } = useAppSelector((s) => s.inventory);
-  const [households, setHouseholds] = React.useState<MyHousehold[]>([]);
-  const [activeLocationFilter, setActiveLocationFilter] = React.useState<string | null>(null);
+  const { width, fontScale } = useWindowDimensions();
+  const { items, summary, activeFilter, loading, error, context } = useAppSelector((s) => s.inventory);
+  const [households, setHouseholds] = useState<MyHousehold[]>([]);
+  const [activeLocationFilter, setActiveLocationFilter] = useState<string | null>(null);
+  const contentWidth = Math.min(width, 1120);
+  const columns = width < 340 || fontScale > 1.35 ? 1 : contentWidth >= 900 ? 4 : 2;
+  const pagePadding = width < 380 ? 16 : 20;
+  const gridWidth = contentWidth - pagePadding * 2 - 28 - 2;
 
   const load = useCallback(() => {
-    const filter = activeFilter === 'all' ? undefined : activeFilter as any;
-    dispatch(fetchFoods(filter));
+    dispatch(fetchFoods(activeFilter === 'all' ? undefined : activeFilter));
     dispatch(fetchSummary());
   }, [activeFilter, context, dispatch]);
 
-  const groupedItems = React.useMemo(() => {
-    const groups: Record<string, FoodItem[]> = {};
-    items.forEach(item => {
-      const locName = item.storageLocationId?.storageName || 'Chưa phân loại';
-      if (!groups[locName]) groups[locName] = [];
-      groups[locName].push(item);
+  const groupedItems = useMemo(() => {
+    const groups = new Map<string, { name: string; type?: StorageTypeBackend; items: FoodItem[] }>();
+    items.forEach((item) => {
+      const location = item.storageLocationId;
+      const key = location?._id || location?.storageName || 'unassigned';
+      if (!groups.has(key)) groups.set(key, { name: location?.storageName || 'Chưa phân loại', type: location?.storageType, items: [] });
+      groups.get(key)!.items.push(item);
     });
-    // Sort groups alphabetically
-    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+    return [...groups.entries()].sort(([, a], [, b]) => a.name.localeCompare(b.name, 'vi'));
   }, [items]);
 
-  const uniqueLocations = React.useMemo(() => groupedItems.map(([locName]) => locName), [groupedItems]);
+  // A previous location may no longer exist after changing owner/filter/deleting.
+  const selectedLocation = groupedItems.some(([key]) => key === activeLocationFilter) ? activeLocationFilter : null;
+  const visibleGroups = selectedLocation ? groupedItems.filter(([key]) => key === selectedLocation) : groupedItems;
+  const visibleCount = visibleGroups.reduce((count, [, group]) => count + group.items.length, 0);
+  const counts = { SAFE: summary.safe, NEAR_EXPIRY: summary.nearExpiry, EXPIRED: summary.expired, NEED_CHECK: summary.needCheck ?? 0 };
 
-  const visibleGroups = React.useMemo(() => {
-    if (!activeLocationFilter) return groupedItems;
-    return groupedItems.filter(([locName]) => locName === activeLocationFilter);
-  }, [groupedItems, activeLocationFilter]);
+  useFocusEffect(useCallback(() => {
+    let mounted = true;
+    getMyHouseholdsApi().then((memberships) => {
+      if (!mounted) return;
+      setHouseholds(memberships);
+      if (context.ownerType === 'HOUSEHOLD' && !memberships.some((m) => m.household._id === context.householdId)) {
+        dispatch(setInventoryContext({ ownerType: 'USER' }));
+      } else load();
+    }).catch(() => { if (mounted) load(); });
+    return () => { mounted = false; };
+  }, [context.ownerType, context.householdId, dispatch, load]));
 
-  useFocusEffect(
-    useCallback(() => {
-      let isMounted = true;
-      getMyHouseholdsApi().then(hhs => {
-        if (!isMounted) return;
-        setHouseholds(hhs);
-        
-        // Nếu bị xóa khỏi family mà đang ở tab HOUSEHOLD -> fallback về USER
-        if (hhs.length === 0 && context.ownerType === 'HOUSEHOLD') {
-          dispatch(setInventoryContext({ ownerType: 'USER' }));
-        } else {
-          load();
-        }
-      }).catch(err => {
-        console.error(err);
-        if (isMounted) load();
-      });
-
-      return () => { isMounted = false; };
-    }, [context.ownerType, dispatch, load])
-  );
-
-  const handleDelete = (item: FoodItem) => {
-    Alert.alert('Xoá thực phẩm', `Xoá "${item.foodName}"?`, [
+  const confirmAction = (item: FoodItem, kind: 'delete' | 'consume') => {
+    const title = kind === 'delete' ? 'Xoá thực phẩm' : 'Đánh dấu đã dùng';
+    const message = kind === 'delete' ? `Xoá "${item.foodName}"?` : `Đã dùng hết "${item.foodName}"?`;
+    const perform = async () => {
+      try {
+        if (kind === 'delete') await dispatch(deleteFood(item._id)).unwrap();
+        else await dispatch(consumeFood(item._id)).unwrap();
+      } catch {
+        Alert.alert('Chưa cập nhật được', 'Vui lòng kiểm tra kết nối và thử lại.');
+      }
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm(message)) void perform();
+      return;
+    }
+    Alert.alert(title, message, [
       { text: 'Huỷ', style: 'cancel' },
-      {
-        text: 'Xoá', style: 'destructive',
-        onPress: () => dispatch(deleteFood(item._id)),
-      },
+      { text: kind === 'delete' ? 'Xoá' : 'Xác nhận', style: kind === 'delete' ? 'destructive' : 'default', onPress: () => { void perform(); } },
     ]);
   };
-
-  const handleConsume = (item: FoodItem) => {
-    Alert.alert('Đánh dấu đã dùng', `Đã dùng hết "${item.foodName}"?`, [
-      { text: 'Huỷ', style: 'cancel' },
-      { text: 'Xác nhận', onPress: () => dispatch(consumeFood(item._id)) },
-    ]);
-  };
-
-  const bottomSpace = Platform.OS === 'ios' ? 120 + insets.bottom : 120;
-  const fabBottom = Platform.OS === 'ios' ? 92 + insets.bottom : 92;
 
   return (
     <ScreenContainer>
       <TopNavbar />
-
-      {/* Context Toggle */}
-      <View style={styles.contextToggleRow}>
-        <View style={styles.contextToggleContainer}>
-          <TouchableOpacity 
-            style={[styles.contextToggleBtn, context.ownerType === 'USER' && styles.contextToggleBtnActive]}
-            onPress={() => dispatch(setInventoryContext({ ownerType: 'USER' }))}
-            activeOpacity={0.8}
-            disabled={households.length === 0}
-          >
-            <Ionicons name="person" size={14} color={context.ownerType === 'USER' ? COLORS.primary : COLORS.onSurfaceVariant} />
-            <Text style={[styles.contextToggleText, context.ownerType === 'USER' && styles.contextToggleTextActive]}>Cá nhân</Text>
-          </TouchableOpacity>
-          {households.length > 0 && (
-            <TouchableOpacity 
-              style={[styles.contextToggleBtn, context.ownerType === 'HOUSEHOLD' && styles.contextToggleBtnActive]}
-              onPress={() => {
-                dispatch(setInventoryContext({ ownerType: 'HOUSEHOLD', householdId: households[0].household._id }));
-              }}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="home" size={14} color={context.ownerType === 'HOUSEHOLD' ? COLORS.primary : COLORS.onSurfaceVariant} />
-              <Text style={[styles.contextToggleText, context.ownerType === 'HOUSEHOLD' && styles.contextToggleTextActive]}>Gia đình</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* Summary row */}
-      <View style={styles.summaryRow}>
-        <View style={styles.summaryBox}>
-          <Text style={styles.summaryNum}>{summary.total}</Text>
-          <Text style={styles.summaryLabel}>Tổng</Text>
-        </View>
-        <View style={[styles.summaryBox, styles.safeBox]}>
-          <Text style={[styles.summaryNum, { color: COLORS.primary }]}>{summary.safe}</Text>
-          <Text style={styles.summaryLabel}>Còn tốt</Text>
-        </View>
-        <View style={[styles.summaryBox, styles.warnBox]}>
-          <Text style={[styles.summaryNum, { color: '#F59E0B' }]}>{summary.nearExpiry}</Text>
-          <Text style={styles.summaryLabel}>Sắp hết</Text>
-        </View>
-        <View style={[styles.summaryBox, styles.dangerBox]}>
-          <Text style={[styles.summaryNum, { color: COLORS.tertiary }]}>{summary.expired}</Text>
-          <Text style={styles.summaryLabel}>Hết hạn</Text>
-        </View>
-        <View style={[styles.summaryBox, styles.checkBox]}>
-          <Text style={[styles.summaryNum, { color: COLORS.onSurfaceVariant }]}>{summary.needCheck ?? 0}</Text>
-          <Text style={styles.summaryLabel}>Cần kiểm tra</Text>
-        </View>
-      </View>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: bottomSpace }}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={COLORS.primary} />}
       >
-        {/* Filter chips */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-          {FILTERS.map((f) => (
-            <FilterChip
-              key={f.key}
-              label={f.label}
-              danger={f.danger}
-              active={activeFilter === f.key}
-              onPress={() => dispatch(setActiveFilter(f.key))}
-            />
-          ))}
-        </ScrollView>
-        
-
-
-        {/* Content */}
-        {loading && items.length === 0 ? (
-          <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 40 }} />
-        ) : items.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="basket-outline" size={64} color={COLORS.primary} />
-            <Text style={styles.emptyText}>Chưa có thực phẩm nào</Text>
-            <Text style={styles.emptySubText}>Nhấn + để thêm thực phẩm vào tủ</Text>
+        <View style={[styles.content, { paddingHorizontal: pagePadding }]}>
+          <View style={styles.heading}>
+            <View style={styles.headingText}>
+              <Text style={styles.eyebrow}>GÓC BẾP CỦA BẠN</Text>
+              <Text style={styles.title}>Tủ thực phẩm</Text>
+              <Text style={styles.subtitle}>Gọn gàng hơn, tươi ngon lâu hơn.</Text>
+            </View>
+            <View style={styles.headingIcon}><Ionicons name="leaf-outline" size={28} color={COLORS.primary} /></View>
           </View>
-        ) : visibleGroups.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="filter-outline" size={64} color={COLORS.onSurfaceVariant} />
-            <Text style={styles.emptyText}>Không có mục nào ở đây</Text>
-          </View>
-        ) : (
-          <View style={styles.cardList}>
-            {visibleGroups.map(([locName, groupItems]) => (
-              <View key={locName} style={styles.sectionContainer}>
-                <TouchableOpacity 
-                  activeOpacity={0.7} 
-                  style={[styles.sectionHeader, activeLocationFilter === locName && styles.sectionHeaderActive]} 
-                  onPress={() => setActiveLocationFilter(activeLocationFilter === locName ? null : locName)}
+
+          {households.length > 0 && (
+            <View style={styles.contextToggle}>
+              {(['USER', 'HOUSEHOLD'] as const).map((owner) => (
+                <TouchableOpacity
+                  key={owner}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: context.ownerType === owner }}
+                  style={[styles.contextButton, context.ownerType === owner && styles.contextActive]}
+                  onPress={() => { setActiveLocationFilter(null); dispatch(setInventoryContext(owner === 'USER' ? { ownerType: owner } : { ownerType: owner, householdId: households[0].household._id })); }}
                 >
-                  <Ionicons name="location" size={18} color={activeLocationFilter === locName ? COLORS.primary : COLORS.onSurfaceVariant} />
-                  <Text style={[styles.sectionTitle, activeLocationFilter === locName && { color: COLORS.primary }]}>{locName}</Text>
-                  <View style={[styles.sectionBadge, activeLocationFilter === locName && { backgroundColor: COLORS.primary }]}>
-                    <Text style={[styles.sectionBadgeText, activeLocationFilter === locName && { color: COLORS.onPrimary }]}>{groupItems.length}</Text>
-                  </View>
+                  <Ionicons name={owner === 'USER' ? 'person-outline' : 'people-outline'} size={17} color={context.ownerType === owner ? COLORS.primary : COLORS.onSurfaceVariant} />
+                  <Text style={[styles.contextText, context.ownerType === owner && { color: COLORS.primary }]}>{owner === 'USER' ? 'Cá nhân' : 'Gia đình'}</Text>
                 </TouchableOpacity>
-                {groupItems.map((item) => (
-                  <InventoryCard
-                    key={item._id}
-                    item={item}
-                    onPress={() => navigation.navigate('FoodDetail', { item })}
-                    onEdit={() => navigation.navigate('UpdateFood', { item })}
-                    onDelete={() => handleDelete(item)}
-                    onConsume={() => handleConsume(item)}
-                  />
-                ))}
+              ))}
+            </View>
+          )}
+
+          <View style={styles.overview}>
+            <View style={styles.overviewTop}>
+              <View style={styles.totalRow}>
+                <Text style={styles.total}>{summary.total}</Text>
+                <View><Text style={styles.totalLabel}>thực phẩm đang có</Text><Text style={styles.totalHint}>{context.ownerType === 'HOUSEHOLD' ? 'Trong tủ gia đình' : 'Trong tủ của bạn'}</Text></View>
               </View>
-            ))}
+              <TouchableOpacity accessibilityRole="button" accessibilityState={{ selected: activeFilter === 'all' }} onPress={() => dispatch(setActiveFilter('all'))} style={styles.allButton}>
+                <Text style={styles.allText}>Tất cả</Text><Ionicons name="arrow-forward" size={15} color={COLORS.primary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.statsGrid}>
+              {FILTERS.map((filter) => (
+                <TouchableOpacity
+                  key={filter.key}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${counts[filter.key]} thực phẩm ${filter.label.toLowerCase()}`}
+                  accessibilityState={{ selected: activeFilter === filter.key }}
+                  activeOpacity={0.75}
+                  onPress={() => dispatch(setActiveFilter(activeFilter === filter.key ? 'all' : filter.key))}
+                  style={[styles.stat, { width: contentWidth >= 700 ? '23.8%' : '48%' }, activeFilter === filter.key && styles.statActive]}
+                >
+                  <View style={[styles.statIcon, { backgroundColor: COLORS.alpha(filter.color, '18') }]}><Ionicons name={filter.icon} size={19} color={filter.color} /></View>
+                  <View style={styles.statContent}><Text style={styles.statNumber}>{counts[filter.key]}</Text><Text style={styles.statLabel}>{filter.label}</Text></View>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        )}
+
+          <View style={styles.listHeading}>
+            <View style={styles.headingText}>
+              <Text style={styles.listTitle}>{activeFilter === 'all' ? 'Thực phẩm của bạn' : FILTERS.find((f) => f.key === activeFilter)?.label}</Text>
+              <Text style={styles.listSubtitle}>{visibleCount} thực phẩm · Sắp xếp theo nơi bảo quản</Text>
+            </View>
+            <TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('AddFood')} style={styles.addButton}>
+              <Ionicons name="add" size={20} color={COLORS.onPrimary} /><Text style={styles.addText}>Thêm</Text>
+            </TouchableOpacity>
+          </View>
+
+          {groupedItems.length > 1 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.locations}>
+              {[{ key: null, name: 'Mọi vị trí' }, ...groupedItems.map(([key, group]) => ({ key, name: group.name }))].map((location) => (
+                <TouchableOpacity key={location.key ?? 'all'} accessibilityRole="button" accessibilityState={{ selected: selectedLocation === location.key }} onPress={() => setActiveLocationFilter(location.key)} style={[styles.locationChip, selectedLocation === location.key && styles.locationActive]}>
+                  <Text style={[styles.locationText, selectedLocation === location.key && { color: COLORS.primary }]}>{location.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
+          {error && (
+            <View style={styles.errorBanner}>
+              <Ionicons name="cloud-offline-outline" size={22} color={COLORS.tertiary} />
+              <Text style={styles.errorText}>Chưa tải được thực phẩm. Kiểm tra kết nối rồi thử lại.</Text>
+              <TouchableOpacity accessibilityRole="button" onPress={load} style={styles.retry}><Text style={styles.retryText}>Thử lại</Text></TouchableOpacity>
+            </View>
+          )}
+
+          {loading && items.length === 0 ? (
+            <ActivityIndicator size="large" color={COLORS.primary} style={styles.loader} />
+          ) : items.length === 0 && !error ? (
+            <View style={styles.empty}>
+              <View style={styles.emptyIcon}><Ionicons name={activeFilter === 'all' ? 'basket-outline' : 'checkmark-circle-outline'} size={36} color={COLORS.primary} /></View>
+              <Text style={styles.emptyTitle}>{activeFilter === 'all' ? 'Tủ của bạn đang trống' : 'Không có thực phẩm ở trạng thái này'}</Text>
+              <Text style={styles.emptySubtitle}>{activeFilter === 'all' ? 'Thêm những món đầu tiên để theo dõi độ tươi và hạn sử dụng.' : 'Chọn Tất cả để xem những món khác trong tủ.'}</Text>
+              <TouchableOpacity accessibilityRole="button" style={styles.emptyButton} onPress={() => activeFilter === 'all' ? navigation.navigate('AddFood') : dispatch(setActiveFilter('all'))}>
+                <Text style={styles.allText}>{activeFilter === 'all' ? 'Thêm thực phẩm' : 'Xem tất cả'}</Text><Ionicons name="arrow-forward" size={16} color={COLORS.primary} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.frames}>
+              {visibleGroups.flatMap(([key, group]) => {
+                const frames = splitFrames(group.items);
+                return frames.map((frame, index) => {
+                  const frameColumns = Math.min(columns, Math.max(2, frame.length));
+                  const tileWidth = Math.floor((gridWidth - 12 * (frameColumns - 1)) / frameColumns);
+                  const showAddTile = frameColumns === 2 && frame.length % 2 === 1;
+                  return (
+                  <View key={`${key}-${index}`} style={styles.frame}>
+                    <View style={styles.frameHeader}>
+                      <View style={styles.storageIcon}><Ionicons name={group.type ? STORAGE_ICONS[group.type] ?? 'cube-outline' : 'cube-outline'} size={20} color={COLORS.primary} /></View>
+                      <View style={styles.headingText}>
+                        <Text style={styles.storageName}>{group.name}</Text>
+                        <Text style={styles.storageSubtitle}>{frames.length > 1 ? `Nhóm ${index + 1}/${frames.length} · ` : ''}{frame.length} thực phẩm</Text>
+                      </View>
+                      <View style={styles.frameCount}><Text style={styles.frameCountText}>{String(frame.length).padStart(2, '0')}</Text></View>
+                    </View>
+                    <View style={styles.foodGrid}>
+                      {frame.map((item) => (
+                        <View key={item._id} style={{ width: tileWidth }}>
+                          <InventoryGridCard
+                            item={item}
+                            onPress={() => navigation.navigate('FoodDetail', { item })}
+                            onEdit={() => navigation.navigate('UpdateFood', { item })}
+                            onDelete={() => confirmAction(item, 'delete')}
+                            onConsume={() => confirmAction(item, 'consume')}
+                          />
+                        </View>
+                      ))}
+                      {showAddTile && (
+                        <TouchableOpacity
+                          accessibilityRole="button"
+                          accessibilityLabel={`Thêm thực phẩm vào ${group.name}`}
+                          activeOpacity={0.7}
+                          style={[styles.addTile, { width: tileWidth }]}
+                          onPress={() => navigation.navigate('AddFood', { prefill: {
+                            storageLocationId: group.items[0].storageLocationId?._id,
+                            storageTypeKey: group.type,
+                            ownerType: context.ownerType,
+                            householdId: context.householdId,
+                          } })}
+                        >
+                          <View style={styles.addTileIcon}><Ionicons name="add" size={24} color={COLORS.primary} /></View>
+                          <Text style={styles.addTileTitle}>Thêm thực phẩm</Text>
+                          <Text style={styles.addTileHint}>{group.name}</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                  );
+                });
+              })}
+            </View>
+          )}
+        </View>
       </ScrollView>
-
-      {/* FAB - Add food */}
-      <TouchableOpacity
-        activeOpacity={0.85}
-        style={[styles.fab, { bottom: fabBottom }]}
-        onPress={() => navigation.navigate('AddFood')}
-      >
-        <Ionicons name="add" size={34} color={COLORS.onPrimary} />
-      </TouchableOpacity>
-
       <BottomNavbar />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  contextToggleRow: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  contextToggleContainer: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surfaceContainerHighest,
-    borderRadius: 20,
-    padding: 4,
-  },
-  contextToggleBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 6,
-  },
-  contextToggleBtnActive: {
-    backgroundColor: COLORS.surfaceContainerLowest,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  contextToggleText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.onSurfaceVariant,
-  },
-  contextToggleTextActive: {
-    color: COLORS.primary,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  summaryBox: {
-    flex: 1,
-    backgroundColor: COLORS.surfaceContainerLowest,
-    borderRadius: 12,
-    padding: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(189,202,191,0.35)',
-  },
-  safeBox: { borderColor: 'rgba(34,197,94,0.3)' },
-  warnBox: { borderColor: 'rgba(245,158,11,0.3)' },
-  dangerBox: { borderColor: 'rgba(239,68,68,0.3)' },
-  checkBox: { borderColor: 'rgba(100,116,139,0.35)' },
-  summaryNum: { fontSize: 20, fontWeight: '800', color: COLORS.onSurface },
-  summaryLabel: { fontSize: 11, color: COLORS.onSurfaceVariant, marginTop: 2 },
-  chipRow: { paddingHorizontal: 16, paddingBottom: 8, gap: 8 },
-  cardList: { paddingHorizontal: 16, gap: 12, paddingTop: 4 },
-  sectionContainer: {
-    marginBottom: 8,
-    gap: 12,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-    marginTop: 8,
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: RADIUS.md,
-  },
-  sectionHeaderActive: {
-    backgroundColor: COLORS.surfaceContainerHighest,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.onSurface,
-    flex: 1,
-  },
-  sectionBadge: {
-    backgroundColor: COLORS.surfaceContainerHighest,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  sectionBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.onSurfaceVariant,
-  },
-  empty: { alignItems: 'center', marginTop: 80, paddingHorizontal: 32 },
-  emptyText: { fontSize: 18, fontWeight: '700', color: COLORS.onSurface, marginTop: 16 },
-  emptySubText: { fontSize: 14, color: COLORS.onSurfaceVariant, marginTop: 8, textAlign: 'center' },
-  fab: {
-    position: 'absolute',
-    right: 24,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-  },
+  scrollContent: { flexGrow: 1, paddingBottom: 28 },
+  content: { width: '100%', maxWidth: 1120, alignSelf: 'center', paddingTop: 24 },
+  heading: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 22 },
+  headingText: { flex: 1, minWidth: 0 },
+  eyebrow: { fontSize: 10, fontWeight: '700', letterSpacing: 1.8, color: COLORS.primary, marginBottom: 7 },
+  title: { fontSize: 29, lineHeight: 36, fontWeight: '800', letterSpacing: -0.8, color: COLORS.onSurface },
+  subtitle: { fontSize: 13, lineHeight: 20, color: COLORS.onSurfaceVariant, marginTop: 4 },
+  headingIcon: { width: 56, height: 56, borderRadius: 20, backgroundColor: COLORS.alpha(COLORS.primary, '04'), justifyContent: 'center', alignItems: 'center' },
+  contextToggle: { flexDirection: 'row', backgroundColor: COLORS.surfaceContainer, padding: 4, borderRadius: 15, marginBottom: 16 },
+  contextButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 44, borderRadius: 12 },
+  contextActive: { backgroundColor: COLORS.surfaceContainerLowest },
+  contextText: { fontSize: 13, fontWeight: '600', color: COLORS.onSurfaceVariant },
+  overview: { padding: 16, borderRadius: 24, backgroundColor: COLORS.surfaceContainerLowest, borderWidth: 1, borderColor: COLORS.alpha(COLORS.outlineVariant, '40'), marginBottom: 26 },
+  overviewTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 16 },
+  totalRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  total: { fontSize: 38, lineHeight: 46, fontWeight: '800', letterSpacing: -1.5, color: COLORS.primary },
+  totalLabel: { fontSize: 12, fontWeight: '600', color: COLORS.onSurface },
+  totalHint: { fontSize: 10, color: COLORS.onSurfaceVariant, marginTop: 4 },
+  allButton: { flexDirection: 'row', gap: 5, alignItems: 'center', minHeight: 44, paddingLeft: 8 },
+  allText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
+  stat: { flexDirection: 'row', alignItems: 'center', gap: 9, padding: 10, borderRadius: 14, borderWidth: 1, borderColor: 'transparent', backgroundColor: COLORS.background, minHeight: 70 },
+  statActive: { borderColor: COLORS.primary, backgroundColor: COLORS.alpha(COLORS.primary, '04') },
+  statIcon: { width: 33, height: 33, alignItems: 'center', justifyContent: 'center', borderRadius: 11 },
+  statContent: { flex: 1 },
+  statNumber: { fontSize: 21, fontWeight: '700', color: COLORS.onSurface },
+  statLabel: { fontSize: 10, lineHeight: 15, color: COLORS.onSurfaceVariant, marginTop: 1 },
+  listHeading: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  listTitle: { fontSize: 19, fontWeight: '700', letterSpacing: -0.3, color: COLORS.onSurface },
+  listSubtitle: { fontSize: 11, lineHeight: 16, color: COLORS.onSurfaceVariant, marginTop: 4 },
+  addButton: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 44, paddingHorizontal: 14, backgroundColor: COLORS.primary, borderRadius: 13 },
+  addText: { fontSize: 12, fontWeight: '700', color: COLORS.onPrimary },
+  locations: { gap: 8, paddingBottom: 16 },
+  locationChip: { paddingHorizontal: 14, minHeight: 44, justifyContent: 'center', borderRadius: 12, backgroundColor: COLORS.surfaceContainerLowest, borderWidth: 1, borderColor: COLORS.alpha(COLORS.outlineVariant, '40') },
+  locationActive: { backgroundColor: COLORS.alpha(COLORS.primary, '04'), borderColor: COLORS.primary },
+  locationText: { fontSize: 12, fontWeight: '600', color: COLORS.onSurfaceVariant },
+  frames: { gap: 18 },
+  frame: { padding: 14, backgroundColor: COLORS.surfaceContainerLowest, borderRadius: 24, borderWidth: 1, borderColor: COLORS.alpha(COLORS.outlineVariant, '40') },
+  frameHeader: { flexDirection: 'row', gap: 10, alignItems: 'center', paddingBottom: 16 },
+  storageIcon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.alpha(COLORS.primary, '04') },
+  storageName: { fontSize: 16, fontWeight: '700', color: COLORS.onSurface },
+  storageSubtitle: { fontSize: 10, color: COLORS.onSurfaceVariant, marginTop: 4 },
+  frameCount: { backgroundColor: COLORS.surfaceContainer, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  frameCountText: { fontSize: 12, fontWeight: '700', color: COLORS.onSurfaceVariant },
+  foodGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  addTile: { minHeight: 220, alignItems: 'center', justifyContent: 'center', padding: 12, gap: 8, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed', borderColor: COLORS.alpha(COLORS.outlineVariant, '80'), backgroundColor: COLORS.alpha(COLORS.primary, '04') },
+  addTileIcon: { width: 44, height: 44, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surfaceContainerLowest },
+  addTileTitle: { fontSize: 12, fontWeight: '600', color: COLORS.primary, textAlign: 'center' },
+  addTileHint: { fontSize: 10, color: COLORS.onSurfaceVariant, textAlign: 'center' },
+  loader: { marginVertical: 60 },
+  empty: { paddingHorizontal: 24, paddingVertical: 36, alignItems: 'center', borderRadius: 24, backgroundColor: COLORS.surfaceContainerLowest },
+  emptyIcon: { width: 72, height: 72, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.alpha(COLORS.primary, '04'), marginBottom: 18 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: COLORS.onSurface, textAlign: 'center' },
+  emptySubtitle: { fontSize: 13, lineHeight: 21, color: COLORS.onSurfaceVariant, textAlign: 'center', marginTop: 8, maxWidth: 300 },
+  emptyButton: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 18, minHeight: 48, marginTop: 16 },
+  errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 16, backgroundColor: COLORS.alpha(COLORS.error, '18'), marginBottom: 16 },
+  errorText: { flex: 1, fontSize: 12, lineHeight: 18, color: COLORS.onSurface },
+  retry: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 6 },
+  retryText: { fontSize: 12, fontWeight: '700', color: COLORS.tertiary },
 });

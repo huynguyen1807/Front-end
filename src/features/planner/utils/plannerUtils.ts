@@ -8,13 +8,39 @@ import {
 } from "../types/planner";
 
 export function toDateInput(date: Date) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function addDays(date: Date, days: number) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
+}
+
+export function parseDateInput(value: string) {
+  return new Date(`${value}T00:00:00`);
+}
+
+export function startOfWeekMonday(value: string | Date) {
+  const date = typeof value === "string" ? parseDateInput(value) : new Date(value);
+  date.setHours(0, 0, 0, 0);
+  const daysFromMonday = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - daysFromMonday);
+  return date;
+}
+
+export function getWeekDateRange(value: string | Date) {
+  const start = startOfWeekMonday(value);
+  const end = addDays(start, 6);
+  return {
+    start,
+    end,
+    startDate: toDateInput(start),
+    endDate: toDateInput(end),
+  };
 }
 
 export function getErrorMessage(error: any) {
@@ -66,16 +92,20 @@ function matchesFoodName(ingredientName: string, foodName: string) {
 
 function normalizeUnit(value?: string) {
   const unit = normalizeName(value);
+  const normalizedText = unit
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "d");
   if (["kg", "kilogram", "kilograms"].includes(unit)) return "kg";
   if (["g", "gram", "grams"].includes(unit)) return "g";
   if (["l", "liter", "litre", "liters", "litres"].includes(unit)) return "l";
   if (["ml", "milliliter", "millilitre", "milliliters", "millilitres"].includes(unit)) {
     return "ml";
   }
-  if (["item", "piece", "pieces", "cai", "cái", "qua", "quả", "trai", "trái"].includes(unit)) {
+  if (["item", "piece", "pieces", "cai", "qua", "trai"].includes(normalizedText)) {
     return "item";
   }
-  if (["serving", "portion", "phan", "phần"].includes(unit)) return "serving";
+  if (["serving", "portion", "phan"].includes(normalizedText)) return "serving";
   return unit;
 }
 
