@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   locType: { fontSize: 13, color: COLORS.onSurfaceVariant, marginTop: 2 },
   defaultBadge: {
     marginTop: 6, alignSelf: 'flex-start',
-    backgroundColor: COLORS.primary + '20', paddingHorizontal: 10, paddingVertical: 3,
+    backgroundColor: COLORS.alpha(COLORS.primary, '20'), paddingHorizontal: 10, paddingVertical: 3,
     borderRadius: 10,
   },
   defaultText: { fontSize: 11, color: COLORS.primary, fontWeight: '700' },

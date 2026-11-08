@@ -818,7 +818,7 @@ export const plannerStyles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: COLORS.outlineVariant + "60",
+    borderTopColor: COLORS.alpha(COLORS.outlineVariant, "60"),
   },
   extractionSectionTitle: {
     color: COLORS.onSurface,

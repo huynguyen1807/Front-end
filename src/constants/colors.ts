@@ -26,4 +26,6 @@ export const COLORS = {
   onSurfaceVariant: "#3e4942",
 
   error: "#ba1a1a",
+
+  alpha: (color: string, opacity: string) => `${color}${opacity}`,
 };

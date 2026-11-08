@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: 'bold', color: colors.onSurface },
   subtitle: { fontSize: 16, color: colors.onSurfaceVariant, marginTop: 8, textAlign: 'center' },
   card: {
-    width: '100%', maxWidth: 480, backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    width: '100%', maxWidth: 480, backgroundColor: Platform.OS === 'web' ? colors.surface : 'rgba(255, 255, 255, 0.95)',
     borderRadius: 16, padding: 24, borderWidth: 1, borderColor: colors.outlineVariant,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2
   },

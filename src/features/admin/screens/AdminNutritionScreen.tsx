@@ -314,14 +314,14 @@ export default function AdminNutritionScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: COLORS.surface, borderBottomWidth: 1, borderColor: COLORS.outlineVariant + '50' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: COLORS.surface, borderBottomWidth: 1, borderColor: COLORS.alpha(COLORS.outlineVariant, '50') },
   backButton: { padding: 8, marginLeft: -8 },
   addButton: { padding: 8, marginRight: -8 },
   headerTitle: { fontSize: 18, fontWeight: '600', color: COLORS.onSurface },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty: { textAlign: 'center', marginTop: 20, color: COLORS.onSurfaceVariant },
   list: { padding: 16, gap: 16 },
-  card: { backgroundColor: COLORS.surface, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: COLORS.outlineVariant + '50', elevation: 1 },
+  card: { backgroundColor: COLORS.surface, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: COLORS.alpha(COLORS.outlineVariant, '50'), elevation: 1 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   title: { fontSize: 16, fontWeight: 'bold', color: COLORS.onSurface },
   actionBtn: { padding: 4 },
@@ -343,6 +343,6 @@ const styles = StyleSheet.create({
   macroGrid: { flexDirection: 'row', gap: 12 },
   saveBtn: { backgroundColor: COLORS.primary, padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 16, marginBottom: 24 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  categoryItem: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.outlineVariant + '30' },
+  categoryItem: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.alpha(COLORS.outlineVariant, '30') },
   categoryItemText: { fontSize: 16, color: COLORS.onSurface }
 });

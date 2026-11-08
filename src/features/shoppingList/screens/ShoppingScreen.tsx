@@ -537,7 +537,7 @@ export default function ShoppingScreen() {
                 <View key={list._id} style={[styles.card, { marginBottom: 16, padding: 16 }]}>
                   <Text style={{ fontSize: 16, fontWeight: 'bold', color: COLORS.onSurface }}>{list.listName}</Text>
                   <Text style={{ fontSize: 12, color: COLORS.onSurfaceVariant, marginTop: 4 }}>
-                    Hoàn tất: {new Date(list.updatedAt).toLocaleDateString("vi-VN")}
+                    Hoàn tất: {list.updatedAt ? new Date(list.updatedAt).toLocaleDateString("vi-VN") : '—'}
                   </Text>
                   <View style={{ marginTop: 12 }}>
                     {list.items.map((item, idx) => (

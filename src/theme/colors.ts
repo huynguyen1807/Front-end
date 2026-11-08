@@ -47,4 +47,6 @@ export const colors = {
   border: '#bdcabf', // Same as outlineVariant
   success: '#22C55E',
   warning: '#F59E0B',
+
+  alpha: (color: string, opacity: string) => `${color}${opacity}`,
 };

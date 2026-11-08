@@ -3,8 +3,11 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { Platform, View } from "react-native";
+import { WebThemeProvider } from "./src/theme/WebThemeProvider";
 
 import ReduxProvider from "./src/app/providers/ReduxProvider";
+import LandingScreen from "./src/features/landing/screens/LandingScreen";
 import LoginScreen from "./src/features/auth/screens/LoginScreen";
 import RegisterScreen from "./src/features/auth/screens/RegisterScreen";
 import OTPVerificationScreen from "./src/features/auth/screens/OTPVerificationScreen";
@@ -40,47 +43,64 @@ function MainApp() {
 }
 
 export default function App() {
+  const navigation = (
+    <NavigationContainer>
+      <Stack.Navigator
+        initialRouteName={Platform.OS === "web" ? "Landing" : "Login"}
+        screenOptions={{ headerShown: false }}
+      >
+        {Platform.OS === "web" && (
+          <Stack.Screen name="Landing" component={LandingScreen} />
+        )}
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={Platform.OS === "web" ? { animation: "fade_from_bottom" } : undefined}
+        />
+        <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+        <Stack.Screen name="Main" component={MainApp} />
+        {/* Food Inventory screens */}
+        <Stack.Screen name="AddFood" component={AddFoodScreen} />
+        <Stack.Screen name="UpdateFood" component={UpdateFoodScreen} />
+        <Stack.Screen name="StorageLocations" component={StorageLocationScreen} />
+        <Stack.Screen name="FoodDetail" component={FoodDetailScreen} />
+        {/* Notifications screen */}
+        <Stack.Screen name="Notifications" component={NotificationScreen} />
+        {/* Family Cloud screen */}
+        <Stack.Screen name="FamilyCloud" component={FamilyCloudScreen} />
+        <Stack.Screen name="Subscription" component={SubscriptionScreen} />
+
+        {/* Settings screens */}
+        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+
+        {/* Admin screens */}
+        <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+        <Stack.Screen name="AdminUserList" component={AdminUserListScreen} />
+        <Stack.Screen name="AdminSupportList" component={AdminSupportListScreen} />
+        <Stack.Screen name="AdminSystemData" component={AdminSystemDataScreen} />
+        <Stack.Screen name="AdminCategoryList" component={AdminCategoryListScreen} />
+        <Stack.Screen name="AdminStorageRules" component={AdminStorageRulesScreen} />
+        <Stack.Screen name="AdminRecipes" component={AdminRecipesScreen} />
+        <Stack.Screen name="AdminNutrition" component={AdminNutritionScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ReduxProvider>
-          <StatusBar style="dark" translucent={false} />
-          <NavigationContainer>
-            <Stack.Navigator
-              initialRouteName="Login"
-              screenOptions={{ headerShown: false }}
-            >
-              <Stack.Screen name="Login" component={LoginScreen} />
-              <Stack.Screen name="Register" component={RegisterScreen} />
-              <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
-              <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-              <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-              <Stack.Screen name="Main" component={MainApp} />
-              {/* Food Inventory screens */}
-              <Stack.Screen name="AddFood" component={AddFoodScreen} />
-              <Stack.Screen name="UpdateFood" component={UpdateFoodScreen} />
-              <Stack.Screen name="StorageLocations" component={StorageLocationScreen} />
-              <Stack.Screen name="FoodDetail" component={FoodDetailScreen} />
-              {/* Notifications screen */}
-              <Stack.Screen name="Notifications" component={NotificationScreen} />
-              {/* Family Cloud screen */}
-              <Stack.Screen name="FamilyCloud" component={FamilyCloudScreen} />
-              <Stack.Screen name="Subscription" component={SubscriptionScreen} />
-              
-              {/* Settings screens */}
-              <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-
-              {/* Admin screens */}
-              <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
-              <Stack.Screen name="AdminUserList" component={AdminUserListScreen} />
-              <Stack.Screen name="AdminSupportList" component={AdminSupportListScreen} />
-              <Stack.Screen name="AdminSystemData" component={AdminSystemDataScreen} />
-              <Stack.Screen name="AdminCategoryList" component={AdminCategoryListScreen} />
-              <Stack.Screen name="AdminStorageRules" component={AdminStorageRulesScreen} />
-              <Stack.Screen name="AdminRecipes" component={AdminRecipesScreen} />
-              <Stack.Screen name="AdminNutrition" component={AdminNutritionScreen} />
-            </Stack.Navigator>
-          </NavigationContainer>
+          <StatusBar style="dark" />
+          {Platform.OS === "web" ? (
+            <WebThemeProvider>
+              <View style={{ flex: 1, backgroundColor: "var(--ff-background)" }}>
+                {navigation}
+              </View>
+            </WebThemeProvider>
+          ) : navigation}
         </ReduxProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
