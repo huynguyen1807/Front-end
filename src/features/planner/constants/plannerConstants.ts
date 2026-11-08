@@ -179,12 +179,17 @@ export const calorieGoalOptions: Array<{
   { key: "OVER_2000", label: "Trên 2000", min: 2000, target: 2300 },
 ];
 
-export const mealTypeOptions: Array<{ key: MealType; label: string; time: string }> = [
-  { key: "BREAKFAST", label: "Sáng", time: "07:30" },
-  { key: "LUNCH", label: "Trưa", time: "12:00" },
-  { key: "AFTERNOON", label: "Chiều", time: "15:30" },
-  { key: "DINNER", label: "Tối", time: "18:30" },
-  { key: "LATE_NIGHT", label: "Khuya", time: "21:30" },
+export const mealTypeOptions: Array<{
+  key: MealType;
+  label: string;
+  time: string;
+  rangeLabel: string;
+}> = [
+  { key: "BREAKFAST", label: "Sáng", time: "07:30", rangeLabel: "04:00–10:59" },
+  { key: "LUNCH", label: "Trưa", time: "12:00", rangeLabel: "11:00–13:59" },
+  { key: "AFTERNOON", label: "Chiều", time: "15:30", rangeLabel: "14:00–17:59" },
+  { key: "DINNER", label: "Tối", time: "19:00", rangeLabel: "18:00–22:59" },
+  { key: "LATE_NIGHT", label: "Khuya", time: "23:30", rangeLabel: "23:00–03:59" },
 ];
 
 export const storageTypeOptions: Array<{ key: StorageRuleType; label: string }> = [

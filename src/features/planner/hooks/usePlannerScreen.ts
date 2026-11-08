@@ -56,8 +56,9 @@ import {
   updateUserRecipeApi,
 } from "../../recipes/services/userRecipeApi";
 import {
-  createMealPlanApi,
+  addMealToPlanApi,
   deleteMealPlanApi,
+  dismissRecipeRecommendationApi,
   extractRecipeFromVideoApi,
   addMissingIngredientsToShoppingListApi,
   generateDailyMealPlanApi,
@@ -84,6 +85,8 @@ import {
   Recipe,
   RecipeAvailabilityStatus,
   ScheduleDate,
+  ScheduleNotice,
+  ScheduleRolloverPrompt,
   StorageRuleData,
   VideoRecipeExtraction,
 } from "../types/planner";
@@ -100,6 +103,18 @@ import {
   normalizeMealForApi,
   toDateInput,
 } from "../utils/plannerUtils";
+import {
+  getAdjacentWeekSelection,
+  getInitialScheduleDateTime,
+  getMealPlanDateKey,
+  getMealTypeForTime,
+  getNextScheduleDate,
+  getScheduleDateWindow,
+  getScheduleValidationMessage,
+  getTimeForMealSlot,
+  isNextDayLateNightTime,
+  isDateWithinRange,
+} from "../utils/scheduleDateTime";
 
 const mapRecipeIngredientsToForm = (recipe: Recipe) => {
   if (!recipe.ingredients?.length) {
@@ -378,8 +393,14 @@ export default function usePlannerScreen() {
   const [detailTab, setDetailTab] = useState<PlannerDetailTab>("video");
   const [adminSection, setAdminSection] = useState<AdminSection>("category");
 
-  const [activeDate, setActiveDate] = useState(toDateInput(new Date()));
+  const initialDate = toDateInput(new Date());
+  const [activeDate, setActiveDate] = useState(initialDate);
   const activeDateRef = useRef(activeDate);
+  const [visibleWeekStart, setVisibleWeekStart] = useState(
+    getWeekDateRange(initialDate).startDate
+  );
+  const visibleWeekStartRef = useRef(visibleWeekStart);
+  const scheduleRequestIdRef = useRef(0);
   const hiddenRecommendationKeysRef = useRef(new Set<string>());
   const hiddenRecommendationStorageKeyRef = useRef("plannerHiddenRecommendations:current");
   const dismissedRecommendationRefsRef = useRef<AvoidRecipeReference[]>([]);
@@ -410,9 +431,14 @@ export default function usePlannerScreen() {
     "DINNER",
   ]);
   const [scheduleDraft, setScheduleDraft] = useState<ScheduleDraft>(null);
+  const [scheduleDate, setScheduleDate] = useState(initialDate);
   const [scheduleMealType, setScheduleMealType] = useState<MealType>("BREAKFAST");
   const [scheduleTime, setScheduleTime] = useState(mealTypeOptions[0].time);
   const [scheduleFoodQuantity, setScheduleFoodQuantity] = useState("1");
+  const [scheduleNotice, setScheduleNotice] = useState<ScheduleNotice | null>(null);
+  const [scheduleRolloverPrompt, setScheduleRolloverPrompt] =
+    useState<ScheduleRolloverPrompt | null>(null);
+  const [scheduleEarlyMorningConfirmed, setScheduleEarlyMorningConfirmed] = useState(false);
   const [selectedMealType, setSelectedMealType] = useState<MealType>("LUNCH");
   const [missingIngredientPrompt, setMissingIngredientPrompt] = useState<{
     sourceName: string;
@@ -437,7 +463,7 @@ export default function usePlannerScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const weekRange = useMemo(() => getWeekDateRange(activeDate), [activeDate]);
+  const weekRange = useMemo(() => getWeekDateRange(visibleWeekStart), [visibleWeekStart]);
   const dates = useMemo<ScheduleDate[]>(() => {
     const todayValue = toDateInput(new Date());
     return Array.from({ length: 7 }, (_, index) => {
@@ -458,7 +484,7 @@ export default function usePlannerScreen() {
   }, [weekRange.startDate]);
 
   const plans = useMemo(
-    () => weekPlans.filter((plan) => String(plan.planDate).slice(0, 10) === activeDate),
+    () => weekPlans.filter((plan) => getMealPlanDateKey(plan) === activeDate),
     [activeDate, weekPlans]
   );
 
@@ -580,6 +606,7 @@ export default function usePlannerScreen() {
     const planDate = options?.date || activeDateRef.current;
     const requestedWeek = getWeekDateRange(planDate);
     const shouldShowLoading = options?.showLoading !== false;
+    const scheduleRequestId = ++scheduleRequestIdRef.current;
 
     try {
       if (shouldShowLoading) {
@@ -615,16 +642,18 @@ export default function usePlannerScreen() {
       setUserRecipes(userRecipeList.filter(
         (recipe) => recipe.isActive !== false && recipe.sourceType === "USER_CREATED"
       ));
-      setWeekPlans(planList);
-      setReport(macroReport);
+      if (scheduleRequestId === scheduleRequestIdRef.current) {
+        setWeekPlans(planList);
+        setReport(macroReport);
+      }
       setFoods(foodList);
       setRecommendedItems((current) => {
         const refreshedCurrent = current.map((item) => decorateRecommendation(item, foodList));
         const baseRecommendations = activeRecipes
-          .filter((recipe) => recipe.sourceType === "SYSTEM")
+          .filter((recipe) => ["SYSTEM", "AI_GENERATED"].includes(recipe.sourceType))
           .map((recipe) => buildRecipeRecommendation(recipe, foodList));
 
-        return mergeRecommendations(refreshedCurrent, baseRecommendations)
+        return mergeRecommendations(baseRecommendations, refreshedCurrent)
           .filter((item) => !isRecommendationHidden(item.recipe));
       });
 
@@ -648,6 +677,7 @@ export default function usePlannerScreen() {
   ]);
 
   const loadScheduleForDate = useCallback(async (date: string) => {
+    const scheduleRequestId = ++scheduleRequestIdRef.current;
     try {
       const requestedWeek = getWeekDateRange(date);
       const [planList, macroReport, foodList] = await Promise.all([
@@ -669,9 +699,11 @@ export default function usePlannerScreen() {
           householdId: inventoryHouseholdId,
         }),
       ]);
-      setWeekPlans(planList);
-      setReport(macroReport);
-      setFoods(foodList);
+      if (scheduleRequestId === scheduleRequestIdRef.current) {
+        setWeekPlans(planList);
+        setReport(macroReport);
+        setFoods(foodList);
+      }
     } catch (error: any) {
       Alert.alert("Không tải được lịch bữa ăn", getErrorMessage(error));
     }
@@ -680,6 +712,10 @@ export default function usePlannerScreen() {
   useEffect(() => {
     activeDateRef.current = activeDate;
   }, [activeDate]);
+
+  useEffect(() => {
+    visibleWeekStartRef.current = visibleWeekStart;
+  }, [visibleWeekStart]);
 
   useEffect(() => {
     const loadRole = async () => {
@@ -740,11 +776,12 @@ export default function usePlannerScreen() {
 
   const handleChangeActiveDate = useCallback(
     (date: string) => {
-      const currentWeekStart = getWeekDateRange(activeDateRef.current).startDate;
       const nextWeekStart = getWeekDateRange(date).startDate;
       activeDateRef.current = date;
       setActiveDate(date);
-      if (currentWeekStart !== nextWeekStart) {
+      if (visibleWeekStartRef.current !== nextWeekStart) {
+        visibleWeekStartRef.current = nextWeekStart;
+        setVisibleWeekStart(nextWeekStart);
         void loadScheduleForDate(date);
       }
     },
@@ -752,13 +789,28 @@ export default function usePlannerScreen() {
   );
 
   const handleChangeWeek = useCallback((offset: number) => {
-    const target = toDateInput(addDays(getWeekDateRange(activeDateRef.current).start, offset * 7));
-    handleChangeActiveDate(target);
-  }, [handleChangeActiveDate]);
+    const next = getAdjacentWeekSelection(
+      visibleWeekStartRef.current,
+      activeDateRef.current,
+      offset
+    );
+
+    visibleWeekStartRef.current = next.weekStart;
+    activeDateRef.current = next.activeDate;
+    setVisibleWeekStart(next.weekStart);
+    setActiveDate(next.activeDate);
+    void loadScheduleForDate(next.weekStart);
+  }, [loadScheduleForDate]);
 
   const handleGoToCurrentWeek = useCallback(() => {
-    handleChangeActiveDate(toDateInput(new Date()));
-  }, [handleChangeActiveDate]);
+    const today = toDateInput(new Date());
+    const currentWeekStart = getWeekDateRange(today).startDate;
+    visibleWeekStartRef.current = currentWeekStart;
+    activeDateRef.current = today;
+    setVisibleWeekStart(currentWeekStart);
+    setActiveDate(today);
+    void loadScheduleForDate(currentWeekStart);
+  }, [loadScheduleForDate]);
 
   const handleSelectCalorieGoal = (goalKey: CalorieGoalKey) => {
     const option =
@@ -863,6 +915,9 @@ export default function usePlannerScreen() {
     setRecommendedItems((current) =>
       current.filter((item) => !isRecommendationHidden(item.recipe))
     );
+    void dismissRecipeRecommendationApi(recipe._id).catch((error) => {
+      console.warn("[Planner] Không đồng bộ được trạng thái ẩn recommendation", error);
+    });
   };
 
   const handleGenerateDailyPlan = async () => {
@@ -942,10 +997,14 @@ export default function usePlannerScreen() {
   };
 
   const openScheduleDraft = (draft: Exclude<ScheduleDraft, null>) => {
-    const defaultOption = mealTypeOptions[0];
+    const initialSchedule = getInitialScheduleDateTime(activeDateRef.current);
     setScheduleDraft(draft);
-    setScheduleMealType(defaultOption.key);
-    setScheduleTime(defaultOption.time);
+    setScheduleDate(initialSchedule.date);
+    setScheduleMealType(initialSchedule.mealType);
+    setScheduleTime(initialSchedule.time);
+    setScheduleNotice(null);
+    setScheduleRolloverPrompt(null);
+    setScheduleEarlyMorningConfirmed(isNextDayLateNightTime(initialSchedule.time));
     if (draft.type === "food") {
       setScheduleFoodQuantity(getDefaultFoodPortion(draft.food));
     }
@@ -953,34 +1012,193 @@ export default function usePlannerScreen() {
 
   const handleSelectScheduleMealType = (mealType: MealType) => {
     const option = mealTypeOptions.find((item) => item.key === mealType) || mealTypeOptions[0];
+    const nextTime = getTimeForMealSlot(option.key, scheduleDate);
+    if (!nextTime) {
+      setScheduleNotice({
+        tone: "warning",
+        title: `Khung ${option.label} đã kết thúc`,
+        message: "Hãy chọn một khung giờ còn lại trong hôm nay hoặc chọn ngày khác.",
+      });
+      return;
+    }
+    setScheduleRolloverPrompt(null);
     setScheduleMealType(option.key);
-    setScheduleTime(option.time);
+    setScheduleTime(nextTime);
+    setScheduleEarlyMorningConfirmed(isNextDayLateNightTime(nextTime));
+    setScheduleNotice(
+      nextTime === option.time
+        ? null
+        : {
+            tone: "info",
+            title: "Đã điều chỉnh theo thời gian thực",
+            message: `Khung ${option.label} vẫn còn hiệu lực. Giờ lên lịch được đặt thành ${nextTime}.`,
+          }
+    );
+  };
+
+  const handleChangeScheduleDate = (date: string) => {
+    const window = getScheduleDateWindow();
+    if (date < window.minDate || date > window.maxDate) {
+      setScheduleNotice({
+        tone: "error",
+        title: "Ngày nằm ngoài phạm vi",
+        message: "Bạn chỉ có thể chọn ngày còn lại của tuần này hoặc một ngày trong tuần sau.",
+      });
+      return;
+    }
+
+    if (!getScheduleValidationMessage(date, scheduleTime)) {
+      setScheduleDate(date);
+      setScheduleRolloverPrompt(null);
+      setScheduleEarlyMorningConfirmed(isNextDayLateNightTime(scheduleTime));
+      setScheduleNotice(null);
+      return;
+    }
+
+    const fallback = getInitialScheduleDateTime(date);
+    if (fallback.date !== date) {
+      setScheduleNotice({
+        tone: "warning",
+        title: "Hôm nay không còn giờ hợp lệ",
+        message: "Hãy chọn một ngày khác trong phạm vi cho phép.",
+      });
+      return;
+    }
+    setScheduleDate(fallback.date);
+    setScheduleTime(fallback.time);
+    setScheduleMealType(fallback.mealType);
+    setScheduleRolloverPrompt(null);
+    setScheduleEarlyMorningConfirmed(isNextDayLateNightTime(fallback.time));
+    setScheduleNotice({
+      tone: "info",
+      title: "Đã cập nhật giờ lên lịch",
+      message: `Giờ cũ đã qua nên hệ thống chuyển sang ${fallback.time}, thuộc khung ${
+        mealTypeOptions.find((option) => option.key === fallback.mealType)?.label || "phù hợp"
+      }.`,
+    });
+  };
+
+  const handleChangeScheduleTime = (time: string) => {
+    if (/^([01]\d|2[0-3]):([0-5]\d)$/.test(time)) {
+      if (isNextDayLateNightTime(time) && !scheduleEarlyMorningConfirmed) {
+        const nextDate = getNextScheduleDate(scheduleDate);
+        const rolloverError = nextDate
+          ? getScheduleValidationMessage(nextDate, time)
+          : "Không tính được ngày kế tiếp.";
+
+        if (!nextDate || rolloverError) {
+          setScheduleNotice({
+            tone: "error",
+            title: "Không thể chuyển sang ngày kế tiếp",
+            message: rolloverError || "Ngày kế tiếp nằm ngoài phạm vi cho phép.",
+          });
+          return;
+        }
+
+        setScheduleRolloverPrompt({
+          sourceDate: scheduleDate,
+          targetDate: nextDate,
+          time,
+        });
+        setScheduleNotice(null);
+        return;
+      }
+
+      const validationMessage = getScheduleValidationMessage(scheduleDate, time);
+      if (validationMessage) {
+        setScheduleNotice({
+          tone: "error",
+          title: "Giờ không hợp lệ",
+          message: validationMessage,
+        });
+        return;
+      }
+      setScheduleMealType(getMealTypeForTime(time));
+      setScheduleEarlyMorningConfirmed(isNextDayLateNightTime(time));
+      setScheduleRolloverPrompt(null);
+      setScheduleNotice(null);
+    }
+    setScheduleTime(time);
+  };
+
+  const handleAcceptScheduleRollover = () => {
+    if (!scheduleRolloverPrompt) return;
+
+    const validationMessage = getScheduleValidationMessage(
+      scheduleRolloverPrompt.targetDate,
+      scheduleRolloverPrompt.time
+    );
+    if (validationMessage) {
+      setScheduleRolloverPrompt(null);
+      setScheduleNotice({
+        tone: "error",
+        title: "Không thể chuyển sang ngày kế tiếp",
+        message: validationMessage,
+      });
+      return;
+    }
+
+    setScheduleDate(scheduleRolloverPrompt.targetDate);
+    setScheduleTime(scheduleRolloverPrompt.time);
+    setScheduleMealType(getMealTypeForTime(scheduleRolloverPrompt.time));
+    setScheduleEarlyMorningConfirmed(true);
+    setScheduleRolloverPrompt(null);
+    setScheduleNotice({
+      tone: "info",
+      title: "Đã chuyển sang ngày kế tiếp",
+      message: `Lịch được đặt vào ${scheduleRolloverPrompt.time}, ngày ${scheduleRolloverPrompt.targetDate}.`,
+    });
+  };
+
+  const handleCancelScheduleRollover = () => {
+    setScheduleRolloverPrompt(null);
+    setScheduleNotice({
+      tone: "warning",
+      title: "Chưa thay đổi lịch",
+      message: "Ngày và giờ lên lịch vẫn được giữ nguyên.",
+    });
   };
 
   const closeScheduleModal = () => {
     setScheduleDraft(null);
     setScheduleFoodQuantity("1");
+    setScheduleNotice(null);
+    setScheduleRolloverPrompt(null);
+    setScheduleEarlyMorningConfirmed(false);
   };
 
+  const clearScheduleNotice = () => setScheduleNotice(null);
+
   const saveMealToPlan = async (meal: MealPlanMeal) => {
-    if (plans[0]) {
-      await updateMealPlanApi(plans[0]._id, {
-        planDate: activeDate,
-        meals: [...plans[0].meals.map(normalizeMealForApi), meal],
-      });
-    } else {
-      await createMealPlanApi({
-        planDate: activeDate,
-        ownerType: inventoryOwnerType,
-        householdId: inventoryHouseholdId,
-        goal: "Balanced daily meals",
-        meals: [meal],
-      });
+    const savedPlan = await addMealToPlanApi({
+      planDate: scheduleDate,
+      ownerType: inventoryOwnerType,
+      householdId: inventoryHouseholdId,
+      goal: "Balanced daily meals",
+      meal,
+    });
+    const savedDateKey = getMealPlanDateKey(savedPlan);
+
+    if (isDateWithinRange(savedDateKey, weekRange.startDate, weekRange.endDate)) {
+      setWeekPlans((current) => [
+        ...current.filter((plan) => plan._id !== savedPlan._id),
+        savedPlan,
+      ].sort((left, right) => getMealPlanDateKey(left).localeCompare(getMealPlanDateKey(right))));
     }
   };
 
   const handleConfirmScheduleMeal = async () => {
     if (!scheduleDraft) return;
+
+    const scheduleError = getScheduleValidationMessage(scheduleDate, scheduleTime);
+    if (scheduleError) {
+      setScheduleNotice({
+        tone: "error",
+        title: "Thời gian chưa hợp lệ",
+        message: scheduleError,
+      });
+      return;
+    }
 
     try {
       setSaving(true);
@@ -1003,19 +1221,28 @@ export default function usePlannerScreen() {
         const { food } = scheduleDraft;
         const quantityUsed = Number(scheduleFoodQuantity.replace(",", "."));
         if (!Number.isFinite(quantityUsed) || quantityUsed <= 0) {
-          Alert.alert("Số lượng không hợp lệ", "Vui lòng nhập số lượng thực phẩm muốn dùng lớn hơn 0.");
+          setScheduleNotice({
+            tone: "error",
+            title: "Số lượng không hợp lệ",
+            message: "Vui lòng nhập số lượng thực phẩm muốn dùng lớn hơn 0.",
+          });
           return;
         }
         if (quantityUsed > Number(food.quantity)) {
-          Alert.alert(
-            "Không đủ số lượng",
-            `Trong kho chỉ còn ${food.quantity} ${food.unit}. Vui lòng chọn lượng nhỏ hơn hoặc bằng số lượng hiện có.`
-          );
+          setScheduleNotice({
+            tone: "warning",
+            title: "Không đủ số lượng",
+            message: `Trong kho chỉ còn ${food.quantity} ${food.unit}. Vui lòng chọn lượng nhỏ hơn hoặc bằng số lượng hiện có.`,
+          });
           return;
         }
         const usedFood = buildUsedFoodUsage(food, quantityUsed, food.unit);
         if (!usedFood) {
-          Alert.alert("Không tính được khẩu phần", "Vui lòng kiểm tra lại số lượng và đơn vị thực phẩm.");
+          setScheduleNotice({
+            tone: "error",
+            title: "Không tính được khẩu phần",
+            message: "Vui lòng kiểm tra lại số lượng và đơn vị thực phẩm.",
+          });
           return;
         }
         await saveMealToPlan({
@@ -1032,9 +1259,12 @@ export default function usePlannerScreen() {
       }
 
       closeScheduleModal();
-      await loadScheduleForDate(activeDateRef.current);
     } catch (error: any) {
-      Alert.alert("Không thêm được meal", getErrorMessage(error));
+      setScheduleNotice({
+        tone: "error",
+        title: "Không thể thêm vào lịch trình",
+        message: getErrorMessage(error),
+      });
     } finally {
       setSaving(false);
     }
@@ -1118,7 +1348,7 @@ export default function usePlannerScreen() {
           ? { ...normalizeMealForApi(meal), status: nextStatus[meal.status] }
           : normalizeMealForApi(meal)
       );
-      await updateMealPlanApi(plan._id, { planDate: activeDate, meals });
+      await updateMealPlanApi(plan._id, { planDate: getMealPlanDateKey(plan), meals });
       await loadScheduleForDate(activeDateRef.current);
     } catch (error: any) {
       Alert.alert("Không cập nhật được meal", getErrorMessage(error));
@@ -1136,7 +1366,7 @@ export default function usePlannerScreen() {
           ? { ...normalizeMealForApi(meal), status }
           : normalizeMealForApi(meal)
       );
-      await updateMealPlanApi(plan._id, { planDate: activeDate, meals });
+      await updateMealPlanApi(plan._id, { planDate: getMealPlanDateKey(plan), meals });
       await loadScheduleForDate(activeDateRef.current);
     } catch (error: any) {
       Alert.alert("Không cập nhật được meal", getErrorMessage(error));
@@ -1148,7 +1378,7 @@ export default function usePlannerScreen() {
       const meals = plan.meals
         .filter((_, index) => index !== mealIndex)
         .map(normalizeMealForApi);
-      await updateMealPlanApi(plan._id, { planDate: activeDate, meals });
+      await updateMealPlanApi(plan._id, { planDate: getMealPlanDateKey(plan), meals });
       await loadScheduleForDate(activeDateRef.current);
     } catch (error: any) {
       Alert.alert("Không xóa được meal", getErrorMessage(error));
@@ -1575,12 +1805,19 @@ export default function usePlannerScreen() {
     selectedMealType,
     setSelectedMealType,
     scheduleDraft,
+    scheduleDate,
     scheduleMealType,
     scheduleTime,
-    setScheduleTime,
+    scheduleNotice,
+    scheduleRolloverPrompt,
+    handleChangeScheduleDate,
+    handleChangeScheduleTime,
     scheduleFoodQuantity,
     setScheduleFoodQuantity,
     handleSelectScheduleMealType,
+    clearScheduleNotice,
+    handleAcceptScheduleRollover,
+    handleCancelScheduleRollover,
     closeScheduleModal,
     handleConfirmScheduleMeal,
     missingIngredientPrompt,

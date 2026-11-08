@@ -3,10 +3,11 @@ import { Image, Modal, ScrollView, Text, TouchableOpacity, View } from "react-na
 import { useState } from "react";
 
 import { COLORS } from "../../../constants/colors";
-import { InventoryFood, MacroSummary } from "../types/planner";
+import { InventoryFood } from "../types/planner";
 import { getFoodScheduleRule } from "../utils/foodScheduleRules";
 import { getCategoryName, getDaysUntilExpiry } from "../utils/plannerUtils";
 import { formatFoodAmount } from "../../../utils/foodUnits";
+import { formatNutritionBasis, getFoodDisplayNutrition } from "../../../utils/nutritionDisplay";
 import { plannerStyles as styles } from "../styles/PlannerScreen.styles";
 
 type InventoryBucketProps = {
@@ -16,14 +17,12 @@ type InventoryBucketProps = {
   onAddToPlan: (food: InventoryFood) => void;
 };
 
-const emptyMacro: MacroSummary = { protein: 0, carbs: 0, fat: 0 };
-
 function getFoodMacro(food: InventoryFood) {
-  return food.macroSummary || food.nutrition?.macroSummary || emptyMacro;
+  return getFoodDisplayNutrition(food).macroSummary;
 }
 
 function getFoodCalories(food: InventoryFood) {
-  return Math.round(food.calories || food.nutrition?.calories || 0);
+  return Math.round(getFoodDisplayNutrition(food).calories);
 }
 
 function getStorageName(value?: string | { _id: string; storageName: string; storageType: string }) {
@@ -102,7 +101,7 @@ export default function InventoryBucket({
                       {food.foodName}
                     </Text>
                     <Text style={styles.foodMeta}>
-                      {formatFoodAmount(food.quantity, food.unit)} • {expiryText(food.expiryDate)}
+                      {formatFoodAmount(food.quantity, food.unit)} • {expiryText(food.expiryDate)} • DD {formatNutritionBasis(getFoodDisplayNutrition(food))}
                     </Text>
                   </View>
                   <View style={styles.foodNutrientRow}>
@@ -175,6 +174,7 @@ export default function InventoryBucket({
                 </View>
                 <View style={styles.detailInfoList}>
                   <DetailInfo label="Số lượng" value={formatFoodAmount(selectedFood.quantity, selectedFood.unit)} />
+                  <DetailInfo label="Cơ sở dinh dưỡng" value={formatNutritionBasis(getFoodDisplayNutrition(selectedFood))} />
                   <DetailInfo label="Hạn dùng" value={expiryText(selectedFood.expiryDate)} />
                   <DetailInfo label="Trạng thái" value={selectedFood.status} />
                   <DetailInfo label="Danh mục" value={getCategoryName(selectedFood.categoryId) || "Chưa phân loại"} />

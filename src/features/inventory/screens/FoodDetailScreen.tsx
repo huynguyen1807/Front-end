@@ -1,14 +1,16 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { COLORS } from "../../../constants/colors";
 import { RADIUS, SPACING } from "../../../constants/spacing";
 import { FoodItem } from "../types/inventory";
 import { formatFoodAmount } from "../../../utils/foodUnits";
+import { formatNutritionBasis, getFoodDisplayNutrition } from "../../../utils/nutritionDisplay";
 import {
   FOOD_STATUS_CONFIG,
+  getFoodStatusConfig,
   getCategoryDisplayName,
   getDaysLeft,
   getInventoryUrgencyLabel,
@@ -27,13 +29,13 @@ export default function FoodDetailScreen() {
   const route = useRoute<any>();
   const { item } = route.params as { item: FoodItem };
 
-  const cfg = FOOD_STATUS_CONFIG[item.status] ?? FOOD_STATUS_CONFIG.SAFE;
+  const cfg = getFoodStatusConfig(item);
   const daysLeft = getDaysLeft(item.expiryDate);
   const freshnessScore = item.freshnessScore ?? 0;
   const urgentLabel = getInventoryUrgencyLabel(item);
-  const nutrition = item.nutrition;
-  const calories = nutrition?.calories ?? item.calories ?? 0;
-  const macroSummary = nutrition?.macroSummary ?? item.macroSummary ?? { protein: 0, carbs: 0, fat: 0 };
+  const nutrition = getFoodDisplayNutrition(item);
+  const calories = nutrition.calories;
+  const macroSummary = nutrition.macroSummary;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -76,7 +78,7 @@ export default function FoodDetailScreen() {
 
           <View style={styles.card}>
             <View style={styles.progressHeader}>
-              <Text style={styles.cardTitle}>Độ tươi ngon</Text>
+              <Text style={styles.cardTitle}>{item.expiryBasis === 'REFERENCE' ? 'Tiến trình mốc bảo quản' : 'Thời gian theo hạn đã nhập'}</Text>
               <Text style={[styles.percent, { color: cfg.color, fontWeight: "bold" }]}>
                 {freshnessScore}%
               </Text>
@@ -85,12 +87,14 @@ export default function FoodDetailScreen() {
               <View style={[styles.progressFill, { width: `${freshnessScore}%`, backgroundColor: cfg.color }]} />
             </View>
             <Text style={[styles.daysLeft, { color: cfg.color, marginTop: 8 }]}>
-              {daysLeft > 0
+              {item.expiryBasis === 'REFERENCE' ? daysLeft > 0 ? `Còn ${daysLeft} ngày đến mốc kiểm tra` : 'Đã đến mốc kiểm tra tham khảo' : daysLeft > 0
                 ? `Còn ${daysLeft} ngày`
                 : daysLeft === 0
                   ? "Hết hạn hôm nay"
                   : `Quá hạn ${Math.abs(daysLeft)} ngày`}
             </Text>
+            <Text style={styles.nutritionHint}>Chỉ báo theo thời gian, không đo được độ tươi hoặc an toàn thực tế từ ảnh.</Text>
+            {item.storageGuide && <><Text style={styles.nutritionHint}>{item.storageGuide.minDays}–{item.storageGuide.maxDays} ngày · {item.storageGuide.temperature}. {item.storageGuide.conditions}</Text><TouchableOpacity accessibilityRole="link" onPress={() => void Linking.openURL(item.storageGuide!.sourceUrl)} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: COLORS.primary, fontSize: 12 }}>Xem nguồn hướng dẫn bảo quản ↗</Text></TouchableOpacity></>}
           </View>
 
           <View style={styles.card}>
@@ -102,15 +106,21 @@ export default function FoodDetailScreen() {
               <NutritionMetric label="Fat" value={`${Math.round(macroSummary.fat)}g`} />
             </View>
             <Text style={styles.nutritionHint}>
-              {nutrition?.matched === false
+              {nutrition.matched === false
                 ? "Chưa tìm thấy nutrition fact khớp với thực phẩm này."
-                : "Dữ liệu được tính từ nutrition fact theo số lượng trong inventory."}
+                : `Dữ liệu ${formatNutritionBasis(nutrition)}${nutrition.estimated ? " (ước tính)" : ""}.`}
             </Text>
+            {!nutrition.isTotalInventory && item.totalNutrition ? (
+              <Text style={styles.nutritionHint}>
+                Toàn bộ {formatFoodAmount(item.quantity, item.unit)}: {Math.round(item.totalNutrition.calories)} kcal.
+              </Text>
+            ) : null}
           </View>
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Thông tin chi tiết</Text>
             <DetailRow icon="inventory" label="Số lượng:" value={formatFoodAmount(item.quantity, item.unit)} />
+            {!!item.containerLabel && <DetailRow icon="label-outline" label="Mã hộp / phần:" value={item.containerLabel} />}
             <DetailRow
               icon="place"
               label="Vị trí lưu trữ:"
@@ -128,11 +138,19 @@ export default function FoodDetailScreen() {
             <DetailRow icon="event" label="Ngày mua:" value={formatDate(item.purchaseDate)} />
             <DetailRow
               icon="event-busy"
-              label="Ngày hết hạn:"
+              label={item.expiryBasis === 'REFERENCE' ? 'Mốc kiểm tra:' : item.expiryBasis === 'PACKAGE' ? 'Hạn trên bao bì:' : 'Ngày đã xác nhận:'}
               value={formatDate(item.expiryDate)}
               danger={!!urgentLabel}
             />
+            {!!item.storageStartedAt && <DetailRow icon="ac-unit" label="Bắt đầu bảo quản:" value={formatDate(item.storageStartedAt)} />}
+            {!!item.packageExpiryDate && item.expiryBasis !== 'PACKAGE' && <DetailRow icon="event-busy" label="Hạn ghi trên bao bì:" value={formatDate(item.packageExpiryDate)} />}
           </View>
+          {!!item.originalImageUrl && <View style={styles.card}>
+            <Text style={styles.cardTitle}>Ảnh tổng của lô mua</Text>
+            <Text style={styles.nutritionHint}>Ngày mua bạn xác nhận: {formatDate(item.purchaseDate)}. Ảnh này giúp đối chiếu các món cùng lô; ảnh đầu trang là vùng riêng của món này.</Text>
+            <Image source={{ uri: item.originalImageUrl }} resizeMode="contain" style={{ height: 210, width: '100%', borderRadius: 16, marginTop: 12, backgroundColor: COLORS.surfaceContainer }} />
+            {!!item.itemSourceImageUrl && item.itemSourceImageUrl !== item.originalImageUrl && <><Text style={styles.nutritionHint}>Ảnh chụp bổ sung dùng để cắt riêng món này</Text><Image source={{ uri: item.itemSourceImageUrl }} resizeMode="contain" style={{ height: 170, width: '100%', borderRadius: 16, marginTop: 10, backgroundColor: COLORS.surfaceContainer }} /></>}
+          </View>}
         </View>
       </ScrollView>
     </SafeAreaView>

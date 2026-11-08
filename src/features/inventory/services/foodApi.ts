@@ -1,4 +1,5 @@
 import { apiClient } from '../../../services/apiClient';
+import { Platform } from 'react-native';
 
 // ─── Image Upload ─────────────────────────────────────────────────────────────
 export const uploadImageApi = async (imageUri: string): Promise<{ url: string; publicId: string }> => {
@@ -9,13 +10,17 @@ export const uploadImageApi = async (imageUri: string): Promise<{ url: string; p
   const match = /\.(\w+)$/.exec(fileName);
   const fileType = match ? `image/${match[1]}` : 'image/jpeg';
 
-  formData.append('image', {
+  if (Platform.OS === 'web') {
+    const blob = await (await fetch(imageUri)).blob();
+    formData.append('image', blob, 'food-image.jpg');
+  } else formData.append('image', {
     uri: imageUri,
     name: fileName,
     type: fileType,
   } as any);
 
   const res = await apiClient.post('/api/upload/image', formData, {
+    timeout: 30_000,
     headers: {
       'Content-Type': 'multipart/form-data',
     },

@@ -23,6 +23,11 @@ npx eas-cli@latest build --profile development --platform ios
 
 ## Notes
 
+- Scanning supports tick selection, inline corrections, supplemental scans, quantity-preserving portion splits and reviewed batch saves. Drafts are stored locally per account; successful rows are reconciled with the API to prevent accidental repeats.
+- Each item uses a reviewable cropped region. The complete scene remains linked to the purchase batch and is shown in food details. Library images work independently from camera permission.
+- Shelf-life reminders distinguish package dates, user-entered dates and sourced reference windows. A reference date does not establish freshness or safety.
+- Run `npm run test:scan-review` for the focused review-state tests.
+
 - API base URL comes from `EXPO_PUBLIC_API_URL`
 - No standalone shared repo is used
 - Types and API contract come from the backend OpenAPI document

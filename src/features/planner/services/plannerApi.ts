@@ -26,6 +26,11 @@ export const getRecipesApi = async (params?: { q?: string; mine?: boolean }) => 
   return res.data.data as Recipe[];
 };
 
+export const dismissRecipeRecommendationApi = async (recipeId: string) => {
+  const res = await apiClient.patch(`/api/recipes/${recipeId}/recommendation/dismiss`);
+  return res.data;
+};
+
 export const getMealPlansApi = async (params?: {
   date?: string;
   startDate?: string;
@@ -82,6 +87,13 @@ export const extractRecipeFromVideoApi = async (data: {
 
 export const createMealPlanApi = async (data: MealPlanPayload) => {
   const res = await apiClient.post("/api/meal-plans", data);
+  return res.data.data as MealPlan;
+};
+
+export const addMealToPlanApi = async (data: Omit<MealPlanPayload, "meals"> & {
+  meal: MealPlanMeal;
+}) => {
+  const res = await apiClient.post("/api/meal-plans/meals", data);
   return res.data.data as MealPlan;
 };
 
