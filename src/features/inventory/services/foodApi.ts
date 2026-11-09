@@ -1,4 +1,5 @@
 import { apiClient } from '../../../services/apiClient';
+import type { StorageLocation } from '../types/inventory';
 
 // ─── Image Upload ─────────────────────────────────────────────────────────────
 export const uploadImageApi = async (imageUri: string): Promise<{ url: string; publicId: string }> => {
@@ -105,7 +106,7 @@ export const consumeFoodApi = async (id: string, ownerType?: string, householdId
 };
 
 // ─── Storage Locations ────────────────────────────────────────────────────────
-export const getStorageLocationsApi = async (ownerType?: string, householdId?: string) => {
+export const getStorageLocationsApi = async (ownerType?: string, householdId?: string): Promise<StorageLocation[]> => {
   const params: any = {};
   if (ownerType) params.ownerType = ownerType;
   if (householdId) params.householdId = householdId;

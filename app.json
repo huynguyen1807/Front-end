@@ -3,11 +3,6 @@
     "name": "SmartHouseholdFoodManagement",
     "slug": "smart-household-food-management",
     "scheme": "freshfriends",
-    "permissions": [
-      "camera",
-      "photos",
-      "location"
-    ],
     "plugins": [
       "expo-asset",
       "expo-font",
@@ -20,6 +15,7 @@
         }
       ],
       "expo-web-browser",
+      "expo-notifications",
       [
         "expo-image-picker",
         {
@@ -33,7 +29,8 @@
           "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to find nearby stores.",
           "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to find nearby stores."
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {

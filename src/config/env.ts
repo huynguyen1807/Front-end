@@ -2,11 +2,14 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 const getApiUrl = () => {
+  const configuredUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (configuredUrl) return configuredUrl.replace(/\/+$/, '');
+
   // Tự động lấy IP mạng LAN của máy tính đang chạy Expo
   const debuggerHost = Constants.expoConfig?.hostUri;
   const localhost = debuggerHost?.split(':')[0];
 
-  if (localhost) {
+  if (localhost && /^(localhost|(?:\d{1,3}\.){3}\d{1,3})$/.test(localhost)) {
     return `http://${localhost}:4000`; // Trỏ về backend đang chạy ở port 4000
   }
 

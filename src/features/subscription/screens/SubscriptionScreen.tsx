@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PurchasesPackage } from 'react-native-purchases';
+import Constants from 'expo-constants';
 
 import { COLORS } from '../../../constants/colors';
 import { getCurrentSubscriptionApi, getPaymentHistoryApi, getSubscriptionPlansApi } from '../services/paymentApi';
@@ -56,17 +57,21 @@ export default function SubscriptionScreen() {
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const expirationDate = formatExpirationDate(current?.endDate);
+  const isExpoGo = Constants.appOwnership === 'expo';
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const subscription = await getCurrentSubscriptionApi();
-      await initializeRevenueCat(subscription.appUserId);
-      const [nextPackages, nextHistory, nextPlans] = await Promise.all([
-        getRevenueCatPackages(),
+      const [subscription, nextHistory, nextPlans] = await Promise.all([
+        getCurrentSubscriptionApi(),
         getPaymentHistoryApi(),
         getSubscriptionPlansApi()
       ]);
+      let nextPackages: PurchasesPackage[] = [];
+      if (!isExpoGo) {
+        await initializeRevenueCat(subscription.appUserId);
+        nextPackages = await getRevenueCatPackages();
+      }
       setCurrent(subscription);
       setPackages(nextPackages);
       setSelected((value) => value ?? nextPackages[0] ?? null);
@@ -133,6 +138,7 @@ export default function SubscriptionScreen() {
             ) : null}
           </View>
           <Text style={styles.sectionTitle}>Chọn gói Premium</Text>
+          {isExpoGo ? <Text style={styles.featureText}>Expo Go chỉ hỗ trợ xem trước. Cần bản development build để thanh toán và khôi phục giao dịch.</Text> : null}
           {packages.map((item) => {
             const active = selected?.identifier === item.identifier;
             const planCode = getPackagePlanCode(item);
@@ -151,10 +157,10 @@ export default function SubscriptionScreen() {
               <Text style={styles.featureText}>{isYearly ? 'Thanh toán mỗi năm' : 'Thanh toán mỗi tháng'}</Text>
             </TouchableOpacity>;
           })}
-          <TouchableOpacity onPress={handlePurchase} disabled={paying || !selected} style={[styles.payButton, (paying || !selected) && styles.payButtonDisabled]}>
+          {!isExpoGo ? <TouchableOpacity onPress={handlePurchase} disabled={paying || !selected} style={[styles.payButton, (paying || !selected) && styles.payButtonDisabled]}>
             {paying ? <ActivityIndicator color={COLORS.onPrimary} /> : <Text style={styles.payButtonText}>Đăng ký qua App Store / Google Play</Text>}
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleRestore} disabled={paying} style={styles.restoreButton}><Text style={styles.restoreButtonText}>Khôi phục giao dịch</Text></TouchableOpacity>
+          </TouchableOpacity> : null}
+          {!isExpoGo ? <TouchableOpacity onPress={handleRestore} disabled={paying} style={styles.restoreButton}><Text style={styles.restoreButtonText}>Khôi phục giao dịch</Text></TouchableOpacity> : null}
           <Text style={styles.sectionTitle}>Lịch sử thanh toán</Text>
           {history.slice(0, 5).map((item) => <View key={item._id} style={styles.historyItem}>
             <Text style={styles.historyTitle}>{item.transactionCode} - {item.status}</Text>
