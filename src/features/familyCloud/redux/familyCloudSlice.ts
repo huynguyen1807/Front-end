@@ -63,12 +63,21 @@ export const deleteFamilyHousehold = createAsyncThunk(
   }
 );
 
-export const addFamilyMember = createAsyncThunk(
+export type FamilyInvitationFailure = { message: string; status?: number };
+
+export const addFamilyMember = createAsyncThunk<
+  { householdId: string; result: Awaited<ReturnType<typeof addHouseholdMemberApi>> },
+  { householdId: string; payload: AddMemberPayload },
+  { rejectValue: FamilyInvitationFailure }
+>(
   "familyCloud/addMember",
-  async ({ householdId, payload }: { householdId: string; payload: AddMemberPayload }) => ({
-    householdId,
-    result: await addHouseholdMemberApi(householdId, payload),
-  })
+  async ({ householdId, payload }, { rejectWithValue }) => {
+    try { return { householdId, result: await addHouseholdMemberApi(householdId, payload) }; }
+    catch (error: any) {
+      return rejectWithValue({ status: error?.response?.status,
+        message: error?.response?.data?.message || error?.message || 'Không gửi được lời mời. Vui lòng thử lại.' });
+    }
+  }
 );
 
 export const updateFamilyMember = createAsyncThunk(
@@ -259,7 +268,7 @@ const familyCloudSlice = createSlice({
       })
       .addCase(addFamilyMember.rejected, (state, action) => {
         state.saving = false;
-        state.error = action.error.message ?? "Failed to add member";
+        state.error = action.payload?.message ?? action.error.message ?? "Failed to add member";
       })
       .addCase(updateFamilyMember.fulfilled, (state, action) => {
         const index = state.members.findIndex((member) => member._id === action.payload._id);

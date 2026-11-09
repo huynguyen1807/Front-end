@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction, ActionReducerMapBuilder } from '@reduxjs/toolkit';
 import {
   getFoodsApi,
   getFoodSummaryApi,
@@ -7,28 +7,36 @@ import {
 } from '../services/foodApi';
 import { FoodItem, FoodStatus, FoodSummary, InventoryFilter } from '../types/inventory';
 
+type ReadFailure = { status?: number; message: string };
+type ReadThunkApi = { getState: () => unknown; signal: AbortSignal; rejectWithValue: (failure: ReadFailure) => any };
+type AsyncAction<T> = PayloadAction<T, string, { requestId: string; aborted?: boolean }>;
+type ReadRejection = AsyncAction<ReadFailure | undefined> & { error: { message?: string } };
+const readFailure = (error: any): ReadFailure => ({ status: error?.response?.status, message: error?.response?.data?.message || error?.message || 'Không tải được dữ liệu.' });
+
 // ─── Async Thunks ─────────────────────────────────────────────────────────────
-export const fetchFoods = createAsyncThunk(
+export const fetchFoods = createAsyncThunk<FoodItem[], Exclude<InventoryFilter, 'all'> | undefined, { rejectValue: ReadFailure }>(
   'inventory/fetchFoods',
-  async (filter: Exclude<InventoryFilter, 'all'> | undefined, { getState }) => {
+  async (filter: Exclude<InventoryFilter, 'all'> | undefined, { getState, signal, rejectWithValue }: ReadThunkApi) => {
     const state = getState() as any;
     const { ownerType, householdId } = state.inventory.context;
-    return getFoodsApi(filter, ownerType, householdId);
+    try { return await getFoodsApi(filter, ownerType, householdId, { signal, timeout: 10000 }); }
+    catch (error) { return rejectWithValue(readFailure(error)); }
   }
 );
 
-export const fetchSummary = createAsyncThunk(
+export const fetchSummary = createAsyncThunk<FoodSummary, void, { rejectValue: ReadFailure }>(
   'inventory/fetchSummary',
-  async (_, { getState }) => {
+  async (_: void, { getState, signal, rejectWithValue }: ReadThunkApi) => {
     const state = getState() as any;
     const { ownerType, householdId } = state.inventory.context;
-    return getFoodSummaryApi(ownerType, householdId);
+    try { return await getFoodSummaryApi(ownerType, householdId, { signal, timeout: 10000 }); }
+    catch (error) { return rejectWithValue(readFailure(error)); }
   }
 );
 
 export const deleteFood = createAsyncThunk(
   'inventory/deleteFood',
-  async (id: string, { getState }) => {
+  async (id: string, { getState }: { getState: () => unknown }) => {
     const state = getState() as any;
     const { ownerType, householdId } = state.inventory.context;
     await deleteFoodApi(id, ownerType, householdId);
@@ -38,7 +46,7 @@ export const deleteFood = createAsyncThunk(
 
 export const consumeFood = createAsyncThunk(
   'inventory/consumeFood',
-  async (id: string, { getState }) => {
+  async (id: string, { getState }: { getState: () => unknown }) => {
     const state = getState() as any;
     const { ownerType, householdId } = state.inventory.context;
     await consumeFoodApi(id, ownerType, householdId);
@@ -57,6 +65,10 @@ type InventoryState = {
   };
   loading: boolean;
   error: string | null;
+  foodsRequest: string | null;
+  summaryRequest: string | null;
+  contextRevision: number;
+  mutations: Record<string, number>;
 };
 
 const initialState: InventoryState = {
@@ -66,7 +78,21 @@ const initialState: InventoryState = {
   context: { ownerType: 'USER' },
   loading: false,
   error: null,
+  foodsRequest: null,
+  summaryRequest: null,
+  contextRevision: 0,
+  mutations: {},
 };
+
+function invalidateReads(state: InventoryState) {
+  state.foodsRequest = null; state.summaryRequest = null; state.loading = false;
+}
+
+function clearInventory(state: InventoryState) {
+  invalidateReads(state);
+  state.items = [];
+  state.summary = { total: 0, safe: 0, nearExpiry: 0, expired: 0, needCheck: 0 };
+}
 
 function updateSummaryByStatus(summary: FoodSummary, status: FoodStatus, delta: number) {
   if (status === 'SAFE') summary.safe = Math.max(0, summary.safe + delta);
@@ -84,25 +110,30 @@ const inventorySlice = createSlice({
   name: 'inventory',
   initialState,
   reducers: {
-    setActiveFilter: (state, action: PayloadAction<InventoryFilter>) => {
+    setActiveFilter: (state: InventoryState, action: PayloadAction<InventoryFilter>) => {
+      if (state.activeFilter !== action.payload) { state.foodsRequest = null; state.loading = false; state.items = []; }
       state.activeFilter = action.payload;
     },
-    setInventoryContext: (state, action: PayloadAction<{ ownerType: 'USER' | 'HOUSEHOLD', householdId?: string }>) => {
+    invalidateInventoryAccess: (state: InventoryState, action: PayloadAction<string>) => {
+      clearInventory(state); state.error = action.payload;
+    },
+    setInventoryContext: (state: InventoryState, action: PayloadAction<{ ownerType: 'USER' | 'HOUSEHOLD', householdId?: string }>) => {
       if (
         state.context.ownerType !== action.payload.ownerType ||
         state.context.householdId !== action.payload.householdId
       ) {
-        state.items = [];
-        state.summary = { total: 0, safe: 0, nearExpiry: 0, expired: 0, needCheck: 0 };
+        clearInventory(state); state.contextRevision++; state.mutations = {}; state.error = null;
       }
       state.context = action.payload;
     },
-    addFoodItem: (state, action: PayloadAction<FoodItem>) => {
+    addFoodItem: (state: InventoryState, action: PayloadAction<FoodItem>) => {
+      invalidateReads(state);
       state.items.unshift(action.payload);
       state.summary.total += 1;
       updateSummaryByStatus(state.summary, action.payload.status, 1);
     },
-    updateFoodItem: (state, action: PayloadAction<FoodItem>) => {
+    updateFoodItem: (state: InventoryState, action: PayloadAction<FoodItem>) => {
+      invalidateReads(state);
       const idx = state.items.findIndex((i) => i._id === action.payload._id);
       if (idx !== -1) {
         updateSummaryByStatus(state.summary, state.items[idx].status, -1);
@@ -116,24 +147,44 @@ const inventorySlice = createSlice({
       }
     },
   },
-  extraReducers: (builder) => {
+  extraReducers: (builder: ActionReducerMapBuilder<InventoryState>) => {
     builder
       // fetchFoods
-      .addCase(fetchFoods.pending, (state) => { state.loading = true; state.error = null; })
-      .addCase(fetchFoods.fulfilled, (state, action) => {
+      .addCase(fetchFoods.pending, (state: InventoryState, action: AsyncAction<undefined>) => { state.loading = true; state.error = null; state.foodsRequest = action.meta.requestId; })
+      .addCase(fetchFoods.fulfilled, (state: InventoryState, action: AsyncAction<FoodItem[]>) => {
+        if (state.foodsRequest !== action.meta.requestId) return;
+        state.foodsRequest = null;
         state.loading = false;
         state.items = action.payload;
       })
-      .addCase(fetchFoods.rejected, (state, action) => {
+      .addCase(fetchFoods.rejected, (state: InventoryState, action: ReadRejection) => {
+        if (state.foodsRequest !== action.meta.requestId) return;
+        state.foodsRequest = null;
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load foods';
+        if (action.meta.aborted) return;
+        if ([401, 403].includes(action.payload?.status ?? 0)) clearInventory(state);
+        state.error = action.payload?.message ?? action.error.message ?? 'Failed to load foods';
       })
       // fetchSummary
-      .addCase(fetchSummary.fulfilled, (state, action) => {
+      .addCase(fetchSummary.pending, (state: InventoryState, action: AsyncAction<undefined>) => { state.summaryRequest = action.meta.requestId; })
+      .addCase(fetchSummary.fulfilled, (state: InventoryState, action: AsyncAction<FoodSummary>) => {
+        if (state.summaryRequest !== action.meta.requestId) return;
+        state.summaryRequest = null;
         state.summary = action.payload;
       })
+      .addCase(fetchSummary.rejected, (state: InventoryState, action: ReadRejection) => {
+        if (state.summaryRequest !== action.meta.requestId) return;
+        state.summaryRequest = null;
+        if (action.meta.aborted) return;
+        if ([401, 403].includes(action.payload?.status ?? 0)) clearInventory(state);
+        state.error = action.payload?.message ?? action.error.message ?? 'Failed to load summary';
+      })
       // deleteFood
-      .addCase(deleteFood.fulfilled, (state, action) => {
+      .addCase(deleteFood.pending, (state: InventoryState, action: AsyncAction<undefined>) => { invalidateReads(state); state.mutations[action.meta.requestId] = state.contextRevision; })
+      .addCase(deleteFood.fulfilled, (state: InventoryState, action: AsyncAction<string>) => {
+        const revision = state.mutations[action.meta.requestId]; delete state.mutations[action.meta.requestId];
+        if (revision !== state.contextRevision) return;
+        invalidateReads(state);
         const removed = state.items.find((i) => i._id === action.payload);
         if (removed) {
           state.summary.total = Math.max(0, state.summary.total - 1);
@@ -141,17 +192,23 @@ const inventorySlice = createSlice({
         }
         state.items = state.items.filter((i) => i._id !== action.payload);
       })
+      .addCase(deleteFood.rejected, (state: InventoryState, action: AsyncAction<unknown>) => { delete state.mutations[action.meta.requestId]; })
       // consumeFood
-      .addCase(consumeFood.fulfilled, (state, action) => {
+      .addCase(consumeFood.pending, (state: InventoryState, action: AsyncAction<undefined>) => { invalidateReads(state); state.mutations[action.meta.requestId] = state.contextRevision; })
+      .addCase(consumeFood.fulfilled, (state: InventoryState, action: AsyncAction<string>) => {
+        const revision = state.mutations[action.meta.requestId]; delete state.mutations[action.meta.requestId];
+        if (revision !== state.contextRevision) return;
+        invalidateReads(state);
         const consumed = state.items.find((i) => i._id === action.payload);
         if (consumed) {
           state.summary.total = Math.max(0, state.summary.total - 1);
           updateSummaryByStatus(state.summary, consumed.status, -1);
         }
         state.items = state.items.filter((i) => i._id !== action.payload);
-      });
+      })
+      .addCase(consumeFood.rejected, (state: InventoryState, action: AsyncAction<unknown>) => { delete state.mutations[action.meta.requestId]; });
   },
 });
 
-export const { setActiveFilter, setInventoryContext, addFoodItem, updateFoodItem } = inventorySlice.actions;
+export const { setActiveFilter, setInventoryContext, addFoodItem, updateFoodItem, invalidateInventoryAccess } = inventorySlice.actions;
 export default inventorySlice.reducer;

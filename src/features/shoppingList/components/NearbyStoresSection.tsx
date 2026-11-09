@@ -12,6 +12,7 @@ import {
 } from "react-native";
 
 import { COLORS } from "../../../constants/colors";
+import { reloadPageOrRefresh } from '../../../utils/reloadPage';
 import { RADIUS, SPACING } from "../../../constants/spacing";
 import {
   buildOpenRouteServiceUrl,
@@ -78,7 +79,7 @@ export default function NearbyStoresSection() {
           <Text style={styles.title}>Gần bạn</Text>
           <Text style={styles.subtitle}>Siêu thị, chợ, mart và cửa hàng tiện lợi</Text>
         </View>
-        <TouchableOpacity activeOpacity={0.8} onPress={loadNearbyStores} style={styles.refreshButton}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Làm mới trang" activeOpacity={0.8} onPress={() => reloadPageOrRefresh(loadNearbyStores)} style={styles.refreshButton}>
           <Ionicons name="refresh" size={18} color={COLORS.primary} />
         </TouchableOpacity>
       </View>

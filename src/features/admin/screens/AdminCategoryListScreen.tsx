@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../../../constants/colors';
+import { reloadPageOrRefresh } from '../../../utils/reloadPage';
 import { apiClient } from '../../../services/apiClient';
 
 export default function AdminCategoryListScreen() {
@@ -168,7 +169,7 @@ export default function AdminCategoryListScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.listContainer}
           refreshing={loading}
-          onRefresh={fetchCategories}
+          onRefresh={() => reloadPageOrRefresh(fetchCategories)}
           ListEmptyComponent={
             <View style={styles.center}>
               <Text style={styles.emptyText}>Chưa có danh mục nào</Text>

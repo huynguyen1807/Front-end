@@ -18,6 +18,7 @@ import BottomNavbar from "../../../components/layout/BottomNavbar";
 import ScreenContainer from "../../../components/layout/ScreenContainer";
 import TopNavbar from "../../../components/layout/TopNavbar";
 import { COLORS } from "../../../constants/colors";
+import { reloadPageOrRefresh } from '../../../utils/reloadPage';
 import AdminDataConsole from "../../adminData/components/AdminDataConsole";
 import RecipeCard from "../../recipes/components/RecipeCard";
 import UserRecipePanel from "../../recipes/components/UserRecipePanel";
@@ -184,7 +185,7 @@ export default function PlannerScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={planner.loading} onRefresh={planner.loadPlanner} />
+          <RefreshControl refreshing={planner.loading} onRefresh={() => reloadPageOrRefresh(planner.loadPlanner)} />
         }
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomSpace }]}
       >

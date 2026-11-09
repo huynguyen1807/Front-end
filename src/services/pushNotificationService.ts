@@ -1,9 +1,4 @@
-<<<<<<< HEAD
-import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
-=======
 import Constants, { ExecutionEnvironment } from 'expo-constants';
->>>>>>> origin/main
 import { Platform } from 'react-native';
 import appJson from '../../app.json';
 import { apiClient } from './apiClient';
@@ -58,20 +53,12 @@ export async function registerForPushNotifications(): Promise<void> {
   }
 
   try {
-<<<<<<< HEAD
-    // Push notification chỉ hoạt động trên thiết bị thật (không phải emulator)
-    if (Platform.OS === 'web') return;
-    // Expo Go (SDK 53+) không hỗ trợ remote push; tránh xin quyền và lấy token vô ích.
-    if (Constants.appOwnership === 'expo') return;
-
-=======
     const projectId = getExpoProjectId();
     if (!projectId) return;
 
     const Notifications = await getNotifications();
 
     // Android needs a channel before requesting notification permissions.
->>>>>>> origin/main
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'FreshFriends',
@@ -103,12 +90,7 @@ export async function registerForPushNotifications(): Promise<void> {
 
     // Gửi token lên server để lưu
     await apiClient.patch('/api/users/push-token', { token });
-<<<<<<< HEAD
-    console.log('[PushNotification] Đã đăng ký push token:', token);
-
-=======
     console.log('[PushNotification] Đã đăng ký thông báo.');
->>>>>>> origin/main
   } catch (error) {
     // Không throw — lỗi đăng ký push không được làm crash app
     console.warn('[PushNotification] Chưa đăng ký được thông báo; bạn vẫn có thể sử dụng ứng dụng.', error);

@@ -3,13 +3,9 @@ import { Platform } from 'react-native';
 
 const getApiUrl = () => {
   const configuredUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
-<<<<<<< HEAD
-  if (configuredUrl) return configuredUrl.replace(/\/+$/, '');
-=======
   if (configuredUrl) {
     return configuredUrl.replace(/\/+$/, '');
   }
->>>>>>> origin/main
 
   // Tự động lấy IP mạng LAN của máy tính đang chạy Expo
   const debuggerHost = Constants.expoConfig?.hostUri;
