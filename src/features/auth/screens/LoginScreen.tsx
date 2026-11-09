@@ -203,12 +203,7 @@ export default function LoginScreen() {
 
             {/* Password Field */}
             <View style={styles.inputContainer}>
-              <View style={styles.passwordHeader}>
-                <Text style={styles.label}>Mật khẩu</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-                  <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
-                </TouchableOpacity>
-              </View>
+              <Text style={styles.label}>Mật khẩu</Text>
               <View style={[
                 styles.inputWrapper,
                 isPasswordFocused && styles.inputWrapperFocused
@@ -235,6 +230,12 @@ export default function LoginScreen() {
                   />
                 </TouchableOpacity>
               </View>
+              <TouchableOpacity 
+                style={styles.forgotPasswordContainer}
+                onPress={() => navigation.navigate('ForgotPassword')}
+              >
+                <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+              </TouchableOpacity>
             </View>
 
             {/* Submit Button */}
@@ -384,6 +385,10 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
     letterSpacing: 0.5,
     marginLeft: 4,
+  },
+  forgotPasswordContainer: {
+    alignSelf: 'flex-end',
+    marginTop: 4,
   },
   forgotPasswordText: {
     fontSize: 13,
