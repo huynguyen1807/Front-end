@@ -19,16 +19,22 @@ export default function AddMemberForm({
   return (
     <View style={styles.formBox}>
       <Text style={styles.sectionTitle}>Thêm thành viên</Text>
+      <Text style={styles.upgradeText}>Nhập email của người đã đăng ký tài khoản FreshFriends.</Text>
       <TextInput
         value={inviteEmail}
         onChangeText={onChangeInviteEmail}
         placeholder="email@example.com"
         autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="email"
+        accessibilityLabel="Email người nhận lời mời"
+        maxLength={254}
         keyboardType="email-address"
         placeholderTextColor={COLORS.onSurfaceVariant}
         style={styles.input}
       />
       <TouchableOpacity
+        accessibilityRole="button"
         onPress={onSubmit}
         disabled={saving}
         style={[styles.fullButton, saving && styles.disabled]}

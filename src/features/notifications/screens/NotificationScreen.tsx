@@ -23,6 +23,7 @@ import { useNavigation } from "@react-navigation/native";
 
 import ScreenContainer from "../../../components/layout/ScreenContainer";
 import { COLORS } from "../../../constants/colors";
+import { reloadPageOrRefresh } from '../../../utils/reloadPage';
 import { apiClient } from "../../../services/apiClient";
 
 interface NotificationItem {
@@ -320,7 +321,7 @@ export default function NotificationScreen() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={handleRefresh}
+              onRefresh={() => reloadPageOrRefresh(handleRefresh)}
               colors={[COLORS.primary]}
               tintColor={COLORS.primary}
             />

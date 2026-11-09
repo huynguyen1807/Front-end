@@ -1,18 +1,20 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
   RefreshControl, Platform, Alert, StyleSheet, useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 
 import BottomNavbar from '../../../components/layout/BottomNavbar';
 import ScreenContainer from '../../../components/layout/ScreenContainer';
 import TopNavbar from '../../../components/layout/TopNavbar';
 import { COLORS } from '../../../constants/colors';
+import { reloadPageOrRefresh } from '../../../utils/reloadPage';
 import { useAppDispatch, useAppSelector } from '../../../redux/hooks';
 import InventoryGridCard from '../components/InventoryGridCard';
-import { fetchFoods, fetchSummary, setActiveFilter, deleteFood, consumeFood, setInventoryContext } from '../redux/inventorySlice';
+import { fetchFoods, fetchSummary, setActiveFilter, deleteFood, consumeFood, setInventoryContext, invalidateInventoryAccess } from '../redux/inventorySlice';
+import { useHouseholdSync } from '../../../hooks/useHouseholdSync';
 import { InventoryFilter, FoodItem, StorageTypeBackend } from '../types/inventory';
 import { getMyHouseholdsApi } from '../../familyCloud/services/familyCloudApi';
 import { MyHousehold } from '../../familyCloud/types/familyCloud';
@@ -47,16 +49,48 @@ export default function InventoryDashboardScreen() {
   const { width, fontScale } = useWindowDimensions();
   const { items, summary, activeFilter, loading, error, context } = useAppSelector((s) => s.inventory);
   const [households, setHouseholds] = useState<MyHousehold[]>([]);
+  const [syncError, setSyncError] = useState('');
+  const mutationLock = useRef(false);
   const [activeLocationFilter, setActiveLocationFilter] = useState<string | null>(null);
   const contentWidth = Math.min(width, 1120);
   const columns = width < 340 || fontScale > 1.35 ? 1 : contentWidth >= 900 ? 4 : 2;
   const pagePadding = width < 380 ? 16 : 20;
   const gridWidth = contentWidth - pagePadding * 2 - 28 - 2;
 
-  const load = useCallback(() => {
-    dispatch(fetchFoods(activeFilter === 'all' ? undefined : activeFilter));
-    dispatch(fetchSummary());
-  }, [activeFilter, context, dispatch]);
+  const membership = households.find((item) => item.household._id === context.householdId);
+  const canEdit = context.ownerType === 'USER' || membership?.permission?.canEditInventory === true;
+  const refresh = useCallback(async (signal: AbortSignal) => {
+    try {
+      const memberships = await getMyHouseholdsApi({ signal, timeout: 10000 });
+      if (signal.aborted) return;
+      setHouseholds(memberships);
+      const member = memberships.find((item) => item.household._id === context.householdId);
+      if (context.ownerType === 'HOUSEHOLD' && member?.permission?.canViewInventory !== true) {
+        const message = 'Bạn không còn quyền xem kho gia đình này.';
+        dispatch(invalidateInventoryAccess(message)); setSyncError(message);
+        return true;
+      }
+      const foods = dispatch(fetchFoods(activeFilter === 'all' ? undefined : activeFilter));
+      const summary = dispatch(fetchSummary());
+      const abort = () => { foods.abort(); summary.abort(); };
+      signal.addEventListener('abort', abort, { once: true });
+      try { await Promise.all([foods.unwrap(), summary.unwrap()]); }
+      catch (error) { abort(); throw error; }
+      finally { signal.removeEventListener('abort', abort); }
+      if (!signal.aborted) setSyncError('');
+      return true;
+    } catch (error: any) {
+      if (signal.aborted) return;
+      if ([401, 403].includes(error?.status ?? error?.response?.status)) {
+        dispatch(invalidateInventoryAccess('Bạn không có quyền truy cập kho này.'));
+      }
+      setSyncError('Chưa đồng bộ được kho. Vui lòng kiểm tra kết nối hoặc quyền truy cập.');
+      return false;
+    }
+  }, [activeFilter, context.ownerType, context.householdId, dispatch]);
+  const sync = useHouseholdSync({ scopeKey: `${context.ownerType}:${context.householdId ?? ''}:${activeFilter}`,
+    polling: context.ownerType === 'HOUSEHOLD', refresh });
+  const load = () => { void sync.refresh(); };
 
   const groupedItems = useMemo(() => {
     const groups = new Map<string, { name: string; type?: StorageTypeBackend; items: FoodItem[] }>();
@@ -75,29 +109,24 @@ export default function InventoryDashboardScreen() {
   const visibleCount = visibleGroups.reduce((count, [, group]) => count + group.items.length, 0);
   const counts = { SAFE: summary.safe, NEAR_EXPIRY: summary.nearExpiry, EXPIRED: summary.expired, NEED_CHECK: summary.needCheck ?? 0 };
 
-  useFocusEffect(useCallback(() => {
-    let mounted = true;
-    getMyHouseholdsApi().then((memberships) => {
-      if (!mounted) return;
-      setHouseholds(memberships);
-      if (context.ownerType === 'HOUSEHOLD' && !memberships.some((m) => m.household._id === context.householdId)) {
-        dispatch(setInventoryContext({ ownerType: 'USER' }));
-      } else load();
-    }).catch(() => { if (mounted) load(); });
-    return () => { mounted = false; };
-  }, [context.ownerType, context.householdId, dispatch, load]));
-
   const confirmAction = (item: FoodItem, kind: 'delete' | 'consume') => {
     const title = kind === 'delete' ? 'Xoá thực phẩm' : 'Đánh dấu đã dùng';
     const message = kind === 'delete' ? `Xoá "${item.foodName}"?` : `Đã dùng hết "${item.foodName}"?`;
     const perform = async () => {
+      if (!canEdit || mutationLock.current) return;
+      mutationLock.current = true; sync.pause();
       try {
         if (kind === 'delete') await dispatch(deleteFood(item._id)).unwrap();
         else await dispatch(consumeFood(item._id)).unwrap();
       } catch {
         Alert.alert('Chưa cập nhật được', 'Vui lòng kiểm tra kết nối và thử lại.');
-      }
+      } finally { mutationLock.current = false; sync.resume(); }
     };
+    if (!canEdit) {
+      const message = 'Bạn không có quyền sửa kho gia đình này.';
+      if (Platform.OS === 'web') window.alert(message); else Alert.alert('Quyền truy cập', message);
+      return;
+    }
     if (Platform.OS === 'web') {
       if (window.confirm(message)) void perform();
       return;
@@ -114,7 +143,7 @@ export default function InventoryDashboardScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={COLORS.primary} />}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={() => reloadPageOrRefresh(load)} tintColor={COLORS.primary} />}
       >
         <View style={[styles.content, { paddingHorizontal: pagePadding }]}>
           <View style={styles.heading}>
@@ -126,11 +155,12 @@ export default function InventoryDashboardScreen() {
             <View style={styles.headingIcon}><Ionicons name="leaf-outline" size={28} color={COLORS.primary} /></View>
           </View>
 
-          {households.length > 0 && (
+          {(households.length > 0 || context.ownerType === 'HOUSEHOLD') && (
             <View style={styles.contextToggle}>
               {(['USER', 'HOUSEHOLD'] as const).map((owner) => (
                 <TouchableOpacity
                   key={owner}
+                  disabled={owner === 'HOUSEHOLD' && households.length === 0}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: context.ownerType === owner }}
                   style={[styles.contextButton, context.ownerType === owner && styles.contextActive]}
@@ -176,7 +206,7 @@ export default function InventoryDashboardScreen() {
               <Text style={styles.listTitle}>{activeFilter === 'all' ? 'Thực phẩm của bạn' : FILTERS.find((f) => f.key === activeFilter)?.label}</Text>
               <Text style={styles.listSubtitle}>{visibleCount} thực phẩm · Sắp xếp theo nơi bảo quản</Text>
             </View>
-            <TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('AddFood')} style={styles.addButton}>
+            <TouchableOpacity disabled={!canEdit} accessibilityRole="button" onPress={() => navigation.navigate('AddFood')} style={styles.addButton}>
               <Ionicons name="add" size={20} color={COLORS.onPrimary} /><Text style={styles.addText}>Thêm</Text>
             </TouchableOpacity>
           </View>
@@ -191,10 +221,10 @@ export default function InventoryDashboardScreen() {
             </ScrollView>
           )}
 
-          {error && (
+          {(error || syncError) && (
             <View style={styles.errorBanner}>
               <Ionicons name="cloud-offline-outline" size={22} color={COLORS.tertiary} />
-              <Text style={styles.errorText}>Chưa tải được thực phẩm. Kiểm tra kết nối rồi thử lại.</Text>
+              <Text style={styles.errorText}>{syncError || error}</Text>
               <TouchableOpacity accessibilityRole="button" onPress={load} style={styles.retry}><Text style={styles.retryText}>Thử lại</Text></TouchableOpacity>
             </View>
           )}
@@ -206,7 +236,7 @@ export default function InventoryDashboardScreen() {
               <View style={styles.emptyIcon}><Ionicons name={activeFilter === 'all' ? 'basket-outline' : 'checkmark-circle-outline'} size={36} color={COLORS.primary} /></View>
               <Text style={styles.emptyTitle}>{activeFilter === 'all' ? 'Tủ của bạn đang trống' : 'Không có thực phẩm ở trạng thái này'}</Text>
               <Text style={styles.emptySubtitle}>{activeFilter === 'all' ? 'Thêm những món đầu tiên để theo dõi độ tươi và hạn sử dụng.' : 'Chọn Tất cả để xem những món khác trong tủ.'}</Text>
-              <TouchableOpacity accessibilityRole="button" style={styles.emptyButton} onPress={() => activeFilter === 'all' ? navigation.navigate('AddFood') : dispatch(setActiveFilter('all'))}>
+              <TouchableOpacity disabled={activeFilter === 'all' && !canEdit} accessibilityRole="button" style={styles.emptyButton} onPress={() => activeFilter === 'all' ? navigation.navigate('AddFood') : dispatch(setActiveFilter('all'))}>
                 <Text style={styles.allText}>{activeFilter === 'all' ? 'Thêm thực phẩm' : 'Xem tất cả'}</Text><Ionicons name="arrow-forward" size={16} color={COLORS.primary} />
               </TouchableOpacity>
             </View>
@@ -234,13 +264,13 @@ export default function InventoryDashboardScreen() {
                           <InventoryGridCard
                             item={item}
                             onPress={() => navigation.navigate('FoodDetail', { item })}
-                            onEdit={() => navigation.navigate('UpdateFood', { item })}
+                            onEdit={() => { if (canEdit) navigation.navigate('UpdateFood', { item }); }}
                             onDelete={() => confirmAction(item, 'delete')}
                             onConsume={() => confirmAction(item, 'consume')}
                           />
                         </View>
                       ))}
-                      {showAddTile && (
+                      {showAddTile && canEdit && (
                         <TouchableOpacity
                           accessibilityRole="button"
                           accessibilityLabel={`Thêm thực phẩm vào ${group.name}`}

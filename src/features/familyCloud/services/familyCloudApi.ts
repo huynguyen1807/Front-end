@@ -16,8 +16,8 @@ export const createHouseholdApi = async (
   return res.data.data;
 };
 
-export const getMyHouseholdsApi = async (): Promise<MyHousehold[]> => {
-  const res = await apiClient.get("/api/households/me");
+export const getMyHouseholdsApi = async (options?: { signal?: AbortSignal; timeout?: number }): Promise<MyHousehold[]> => {
+  const res = await apiClient.get("/api/households/me", options);
   return res.data.data;
 };
 

@@ -4,6 +4,17 @@ import { COLORS } from "../../../constants/colors";
 import { RADIUS, SPACING } from "../../../constants/spacing";
 
 export const subscriptionStyles = StyleSheet.create({
+  familySection: { gap: SPACING.md },
+  successCard: {
+    backgroundColor: COLORS.surfaceContainerLowest,
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    gap: SPACING.sm,
+  },
+  successTitle: { color: COLORS.primary, fontSize: 20, fontWeight: '800' },
+  errorText: { color: COLORS.error, fontSize: 14 },
   container: { flex: 1, backgroundColor: COLORS.background },
   header: {
     alignItems: "center",

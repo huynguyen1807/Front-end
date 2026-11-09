@@ -9,9 +9,10 @@ import {
 } from "../types/shopping";
 
 export const getShoppingListsApi = async (
-  status: ShoppingListStatus | "ALL" = "ACTIVE"
+  status: ShoppingListStatus | "ALL" = "ACTIVE",
+  options?: { signal?: AbortSignal; timeout?: number }
 ): Promise<ShoppingList[]> => {
-  const res = await apiClient.get("/api/shopping-lists", { params: { status } });
+  const res = await apiClient.get("/api/shopping-lists", { ...options, params: { status } });
   return res.data.data;
 };
 

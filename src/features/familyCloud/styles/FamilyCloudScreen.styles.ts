@@ -157,6 +157,8 @@ export const familyCloudStyles = StyleSheet.create({
   },
   avatarText: { color: COLORS.primary, fontSize: 17, fontWeight: "800" },
   memberInfo: { flex: 1 },
+  permissionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.sm, marginTop: SPACING.xs },
+  permissionLabel: { color: COLORS.onSurfaceVariant, fontSize: 12, flex: 1 },
   memberName: { color: COLORS.onSurface, fontSize: 15, fontWeight: "700" },
   memberEmail: { color: COLORS.onSurfaceVariant, fontSize: 13, marginTop: 2 },
   memberRole: { color: COLORS.primary, fontSize: 12, fontWeight: "700", marginTop: SPACING.xs },

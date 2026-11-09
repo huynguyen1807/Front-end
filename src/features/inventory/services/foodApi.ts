@@ -40,19 +40,19 @@ export type NutritionSnapshotPayload = {
 };
 
 // ─── Food Items ───────────────────────────────────────────────────────────────
-export const getFoodsApi = async (filter?: 'SAFE' | 'NEAR_EXPIRY' | 'EXPIRED' | 'NEED_CHECK', ownerType?: string, householdId?: string) => {
+export const getFoodsApi = async (filter?: 'SAFE' | 'NEAR_EXPIRY' | 'EXPIRED' | 'NEED_CHECK', ownerType?: string, householdId?: string, options?: { signal?: AbortSignal; timeout?: number }) => {
   const params: any = filter ? { filter } : {};
   if (ownerType) params.ownerType = ownerType;
   if (householdId) params.householdId = householdId;
-  const res = await apiClient.get('/api/foods', { params });
+  const res = await apiClient.get('/api/foods', { ...options, params });
   return res.data.data;
 };
 
-export const getFoodSummaryApi = async (ownerType?: string, householdId?: string) => {
+export const getFoodSummaryApi = async (ownerType?: string, householdId?: string, options?: { signal?: AbortSignal; timeout?: number }) => {
   const params: any = {};
   if (ownerType) params.ownerType = ownerType;
   if (householdId) params.householdId = householdId;
-  const res = await apiClient.get('/api/foods/summary', { params });
+  const res = await apiClient.get('/api/foods/summary', { ...options, params });
   return res.data.data;
 };
 
@@ -123,7 +123,7 @@ export const consumeFoodApi = async (id: string, ownerType?: string, householdId
 };
 
 // ─── Storage Locations ────────────────────────────────────────────────────────
-export const getStorageLocationsApi = async (ownerType?: string, householdId?: string) => {
+export const getStorageLocationsApi = async (ownerType?: string, householdId?: string): Promise<StorageLocation[]> => {
   const params: any = {};
   if (ownerType) params.ownerType = ownerType;
   if (householdId) params.householdId = householdId;

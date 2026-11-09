@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 
 
 import { COLORS } from '../../../constants/colors';
+import { reloadPageOrRefresh } from '../../../utils/reloadPage';
 
 import { apiClient } from '../../../services/apiClient';
 
@@ -112,7 +113,7 @@ export default function AdminUserListScreen() {
           renderItem={renderUser}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => reloadPageOrRefresh(handleRefresh)} />
           }
           ListEmptyComponent={
             <Text style={styles.emptyText}>Không có dữ liệu người dùng.</Text>

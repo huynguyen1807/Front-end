@@ -22,6 +22,7 @@ import FoodDetailScreen from "./src/features/inventory/screens/FoodDetailScreen"
 import NotificationScreen from "./src/features/notifications/screens/NotificationScreen";
 import { FamilyCloudScreen } from "./src/features/familyCloud";
 import { SubscriptionScreen } from "./src/features/subscription";
+import { parsePayOSReturnOrder } from './src/features/subscription/utils/familyPayment';
 import EditProfileScreen from "./src/features/settings/screens/EditProfileScreen";
 import AdminDashboardScreen from "./src/features/admin/screens/AdminDashboardScreen";
 import AdminUserListScreen from "./src/features/admin/screens/AdminUserListScreen";
@@ -43,10 +44,11 @@ function MainApp() {
 }
 
 export default function App() {
+  const returnedOrderCode = Platform.OS === 'web' ? parsePayOSReturnOrder(window.location.href) : undefined;
   const navigation = (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName={Platform.OS === "web" ? "Landing" : "Login"}
+        initialRouteName={Platform.OS === "web" ? returnedOrderCode ? 'Subscription' : "Landing" : "Login"}
         screenOptions={{ headerShown: false }}
       >
         {Platform.OS === "web" && (
@@ -71,7 +73,7 @@ export default function App() {
         <Stack.Screen name="Notifications" component={NotificationScreen} />
         {/* Family Cloud screen */}
         <Stack.Screen name="FamilyCloud" component={FamilyCloudScreen} />
-        <Stack.Screen name="Subscription" component={SubscriptionScreen} />
+        <Stack.Screen name="Subscription" component={SubscriptionScreen} initialParams={returnedOrderCode ? { returnedOrderCode } : undefined} />
 
         {/* Settings screens */}
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />

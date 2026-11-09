@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
 import { COLORS } from '../../../constants/colors';
+import { reloadPageOrRefresh } from '../../../utils/reloadPage';
 import { apiClient } from '../../../services/apiClient';
 
 export default function AdminSupportListScreen() {
@@ -142,7 +143,7 @@ export default function AdminSupportListScreen() {
           renderItem={renderTicketItem}
           contentContainerStyle={styles.listContainer}
           refreshing={loading}
-          onRefresh={fetchTickets}
+          onRefresh={() => reloadPageOrRefresh(fetchTickets)}
         />
       )}
     </SafeAreaView>
