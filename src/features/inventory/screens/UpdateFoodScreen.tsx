@@ -344,7 +344,7 @@ export default function UpdateFoodScreen() {
                 style={styles.input}
                 value={form.unit}
                 onChangeText={(value) => setForm((current) => ({ ...current, unit: value }))}
-                placeholder="kg, g, item..."
+                placeholder="kg, g, ml, l, quả, cái..."
               />
             </Field>
           </View>

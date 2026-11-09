@@ -18,6 +18,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback } from "react";
 
 import BottomNavbar from "../../../components/layout/BottomNavbar";
+import LogoutConfirmationModal from "../../../components/layout/LogoutConfirmationModal";
 import ScreenContainer from "../../../components/layout/ScreenContainer";
 import TopNavbar from "../../../components/layout/TopNavbar";
 import { COLORS } from "../../../constants/colors";
@@ -106,7 +107,23 @@ export default function SettingsScreen() {
 
   const bottomSpace = Platform.OS === "ios" ? 100 + insets.bottom : 100;
 
+  const performLogout = async () => {
+    try {
+      await logOutRevenueCat().catch(() => undefined);
+      await AsyncStorage.removeItem('userToken');
+      await AsyncStorage.removeItem('userInfo');
+      navigation.replace('Login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
   const handleLogout = () => {
+    if (Platform.OS === "web") {
+      setLogoutModalVisible(true);
+      return;
+    }
+
     Alert.alert(
       "Đăng xuất",
       "Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?",
@@ -114,16 +131,7 @@ export default function SettingsScreen() {
         { text: "Hủy", onPress: () => {}, style: "cancel" },
         {
           text: "Đăng xuất",
-          onPress: async () => {
-            try {
-              await logOutRevenueCat().catch(() => undefined);
-              await AsyncStorage.removeItem('userToken');
-              await AsyncStorage.removeItem('userInfo');
-              navigation.replace('Login');
-            } catch (error) {
-              console.error('Logout error:', error);
-            }
-          },
+          onPress: performLogout,
           style: "destructive",
         },
       ]
@@ -249,6 +257,16 @@ export default function SettingsScreen() {
       <BottomNavbar />
 
       {/* Support Ticket Modal */}
+      {Platform.OS === "web" && (
+        <LogoutConfirmationModal
+          visible={logoutModalVisible}
+          onCancel={() => setLogoutModalVisible(false)}
+          onConfirm={() => {
+            setLogoutModalVisible(false);
+            void performLogout();
+          }}
+        />
+      )}
       <Modal
         visible={supportModalVisible}
         transparent

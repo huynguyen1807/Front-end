@@ -1,10 +1,17 @@
 import React, { useRef, useState } from "react";
-import { Animated, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Swipeable } from "react-native-gesture-handler";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Swipeable, { type SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  type SharedValue,
+} from "react-native-reanimated";
 import { MaterialIcons } from "@expo/vector-icons";
 import { COLORS } from "../../../constants/colors";
 import { RADIUS, SPACING } from "../../../constants/spacing";
 import { FoodItem } from "../types/inventory";
+import { formatFoodAmount } from "../../../utils/foodUnits";
 import {
   FOOD_STATUS_CONFIG,
   getCategoryDisplayName,
@@ -20,8 +27,37 @@ type InventoryCardProps = {
   onPress?: () => void;
 };
 
+function DeleteSwipeAction({
+  translation,
+  onPress,
+}: {
+  translation: SharedValue<number>;
+  onPress: () => void;
+}) {
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        scale: interpolate(translation.value, [-90, 0], [1, 0.65], Extrapolation.CLAMP),
+      },
+    ],
+  }));
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      style={styles.deleteSwipeAction}
+      onPress={onPress}
+    >
+      <Animated.View style={[styles.deleteSwipeInner, animatedStyle]}>
+        <MaterialIcons name="delete-outline" size={24} color={COLORS.onTertiary} />
+        <Text style={styles.deleteSwipeText}>Xoá</Text>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
 export default function InventoryCard({ item, onEdit, onDelete, onConsume, onPress }: InventoryCardProps) {
-  const swipeableRef = useRef<Swipeable>(null);
+  const swipeableRef = useRef<SwipeableMethods>(null);
 
   const cfg = FOOD_STATUS_CONFIG[item.status] ?? FOOD_STATUS_CONFIG.SAFE;
   const daysLeft = getDaysLeft(item.expiryDate);
@@ -33,30 +69,6 @@ export default function InventoryCard({ item, onEdit, onDelete, onConsume, onPre
     onDelete?.();
   };
 
-  const renderRightAction = (
-    _progress: Animated.AnimatedInterpolation<number>,
-    dragX: Animated.AnimatedInterpolation<number>
-  ) => {
-    const scale = dragX.interpolate({
-      inputRange: [-90, 0],
-      outputRange: [1, 0.65],
-      extrapolate: "clamp",
-    });
-
-    return (
-      <TouchableOpacity
-        activeOpacity={0.85}
-        style={styles.deleteSwipeAction}
-        onPress={handleDelete}
-      >
-        <Animated.View style={[styles.deleteSwipeInner, { transform: [{ scale }] }]}>
-          <MaterialIcons name="delete-outline" size={24} color={COLORS.onTertiary} />
-          <Text style={styles.deleteSwipeText}>Xoá</Text>
-        </Animated.View>
-      </TouchableOpacity>
-    );
-  };
-
   const card = (
     <TouchableOpacity activeOpacity={0.8} style={styles.card} onPress={onPress}>
       {/* Small thumbnail on the left */}
@@ -65,7 +77,7 @@ export default function InventoryCard({ item, onEdit, onDelete, onConsume, onPre
           <Image source={{ uri: item.imageUrl }} style={styles.thumbnail} />
         ) : (
           <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
-            <MaterialIcons name="fastfood" size={24} color={COLORS.primary + "80"} />
+            <MaterialIcons name="fastfood" size={24} color={COLORS.alpha(COLORS.primary, "80")} />
           </View>
         )}
         {urgentLabel && (
@@ -86,7 +98,7 @@ export default function InventoryCard({ item, onEdit, onDelete, onConsume, onPre
 
         <View style={styles.midRow}>
           <Text style={styles.meta} numberOfLines={1}>
-            {item.quantity} {item.unit} • {getCategoryDisplayName(item.categoryId)}
+            {formatFoodAmount(item.quantity, item.unit)} • {getCategoryDisplayName(item.categoryId)}
           </Text>
         </View>
 
@@ -111,7 +123,9 @@ export default function InventoryCard({ item, onEdit, onDelete, onConsume, onPre
       friction={2}
       overshootRight={false}
       rightThreshold={45}
-      renderRightActions={renderRightAction}
+      renderRightActions={(_progress, translation) => (
+        <DeleteSwipeAction translation={translation} onPress={handleDelete} />
+      )}
       onSwipeableOpen={(direction) => {
         if (direction === "right") {
           handleDelete();
@@ -245,4 +259,3 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 });
-

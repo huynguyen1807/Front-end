@@ -15,8 +15,8 @@ export const scannerScreenStyles = StyleSheet.create({
     position: "relative",
   },
   cameraPlaceholder: {
-    width: "100%",
-    height: "100%",
+    width: "100%" as const,
+    height: "100%" as const,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#2a3d35",

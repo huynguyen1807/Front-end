@@ -7,7 +7,7 @@ export const familyCloudStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   header: {
     alignItems: "center",
-    borderBottomColor: COLORS.outlineVariant + "70",
+    borderBottomColor: COLORS.alpha(COLORS.outlineVariant, "70"),
     borderBottomWidth: 1,
     flexDirection: "row",
     justifyContent: "space-between",
@@ -24,7 +24,7 @@ export const familyCloudStyles = StyleSheet.create({
   content: { gap: SPACING.lg, padding: SPACING.lg, paddingBottom: SPACING.xxl },
   formBox: {
     backgroundColor: COLORS.surfaceContainerLowest,
-    borderColor: COLORS.outlineVariant + "45",
+    borderColor: COLORS.alpha(COLORS.outlineVariant, "45"),
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     padding: SPACING.lg,
@@ -89,7 +89,7 @@ export const familyCloudStyles = StyleSheet.create({
   emptyBox: {
     alignItems: "center",
     backgroundColor: COLORS.surfaceContainerLowest,
-    borderColor: COLORS.outlineVariant + "45",
+    borderColor: COLORS.alpha(COLORS.outlineVariant, "45"),
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     padding: SPACING.xl,
@@ -104,7 +104,7 @@ export const familyCloudStyles = StyleSheet.create({
   },
   upgradeBox: {
     backgroundColor: COLORS.surfaceContainerLowest,
-    borderColor: COLORS.outlineVariant + "45",
+    borderColor: COLORS.alpha(COLORS.outlineVariant, "45"),
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     padding: SPACING.lg,
@@ -139,7 +139,7 @@ export const familyCloudStyles = StyleSheet.create({
   memberCard: {
     alignItems: "center",
     backgroundColor: COLORS.surfaceContainerLowest,
-    borderColor: COLORS.outlineVariant + "45",
+    borderColor: COLORS.alpha(COLORS.outlineVariant, "45"),
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     flexDirection: "row",
@@ -148,7 +148,7 @@ export const familyCloudStyles = StyleSheet.create({
   },
   avatar: {
     alignItems: "center",
-    backgroundColor: COLORS.primary + "20",
+    backgroundColor: COLORS.alpha(COLORS.primary, "20"),
     borderRadius: RADIUS.full,
     height: 44,
     justifyContent: "center",
@@ -162,7 +162,7 @@ export const familyCloudStyles = StyleSheet.create({
   memberRole: { color: COLORS.primary, fontSize: 12, fontWeight: "700", marginTop: SPACING.xs },
   invitationCard: {
     backgroundColor: COLORS.surfaceContainerLowest,
-    borderColor: COLORS.outlineVariant + "45",
+    borderColor: COLORS.alpha(COLORS.outlineVariant, "45"),
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     marginBottom: SPACING.sm,
@@ -172,7 +172,7 @@ export const familyCloudStyles = StyleSheet.create({
   invitationActionRow: { flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.md },
   invitationEmptyBox: {
     backgroundColor: COLORS.surfaceContainerLowest,
-    borderColor: COLORS.outlineVariant + "45",
+    borderColor: COLORS.alpha(COLORS.outlineVariant, "45"),
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     padding: SPACING.md,
@@ -181,7 +181,7 @@ export const familyCloudStyles = StyleSheet.create({
   memberActions: { flexDirection: "row", gap: SPACING.xs },
   actionButton: {
     alignItems: "center",
-    borderColor: COLORS.outlineVariant + "70",
+    borderColor: COLORS.alpha(COLORS.outlineVariant, "70"),
     borderRadius: RADIUS.full,
     borderWidth: 1,
     height: 36,
@@ -190,7 +190,7 @@ export const familyCloudStyles = StyleSheet.create({
   },
   deleteHouseholdButton: {
     alignItems: "center",
-    borderColor: COLORS.error + "55",
+    borderColor: COLORS.alpha(COLORS.error, "55"),
     borderRadius: RADIUS.full,
     borderWidth: 1,
     height: 46,

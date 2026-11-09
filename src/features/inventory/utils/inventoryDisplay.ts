@@ -13,6 +13,12 @@ export const FOOD_STATUS_CONFIG: Record<FoodStatus, { color: string; label: stri
   NEED_CHECK: { color: COLORS.onSurfaceVariant, label: "Cần kiểm tra", icon: "help" },
 };
 
+export function getFoodStatusConfig(item: FoodItem) {
+  const config = FOOD_STATUS_CONFIG[item.status] ?? FOOD_STATUS_CONFIG.NEED_CHECK;
+  if (item.expiryBasis !== 'REFERENCE') return config;
+  return { ...config, label: item.status === 'SAFE' ? 'Trong mốc nhắc' : item.status === 'NEAR_EXPIRY' ? 'Sắp đến mốc kiểm tra' : 'Cần kiểm tra' };
+}
+
 export function getCategoryDisplayName(category?: FoodCategory | string | null) {
   if (!category) return "Chưa phân loại";
   if (typeof category === "string") return category.trim() || "Chưa phân loại";
@@ -35,6 +41,7 @@ export function getDaysLeft(expiryDate: string): number {
 
 export function getInventoryUrgencyLabel(item: FoodItem) {
   const daysLeft = getDaysLeft(item.expiryDate);
+  if (item.expiryBasis === 'REFERENCE') return daysLeft <= 0 ? 'Đến mốc kiểm tra' : item.status === 'NEED_CHECK' ? 'Cần kiểm tra' : null;
   if (item.status === "EXPIRED" || daysLeft <= 0) return "Cần xử lý ngay!";
   if (item.status === "NEED_CHECK") return "Cần kiểm tra!";
   if (daysLeft <= 1) return "Cần dùng ngay!";

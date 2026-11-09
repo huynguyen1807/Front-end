@@ -8,10 +8,25 @@
 2. Trong thư mục `Front-end`, chạy `npm ci` và `npm start`. Quét mã QR bằng Expo Go. Điện thoại và máy tính cần cùng mạng LAN.
 3. Nếu API không tự kết nối được, tạo `Front-end/.env.local` với `EXPO_PUBLIC_API_URL=http://<IP_LAN_CUA_MAY_TINH>:4000`, rồi khởi động lại Expo. Không dùng `localhost` làm API URL trên điện thoại. Nếu dùng Expo tunnel hoặc hai thiết bị khác mạng, đặt biến này thành địa chỉ HTTPS truy cập được từ điện thoại.
 
-`npm run android` / `npm run ios` mở Expo Go trên máy ảo. `npm run typecheck` kiểm tra TypeScript.
+On web, the root page shows the FreshFriends introduction. Use **Đăng nhập** to open the existing sign-in screen. Android and iOS continue to open the app's sign-in screen directly.
 
-## Giới hạn của Expo Go
+## Run on a phone
 
-- Màn Premium hiển thị thông tin gói và lịch sử từ backend. Mua hàng và khôi phục giao dịch qua RevenueCat cần development build; chạy `npm run dev-client` sau khi đã tạo build theo `eas.json`.
-- Remote push notification không hoạt động trong Expo Go từ SDK 53. Để kiểm thử push, dùng development build.
-- Các biến `EXPO_PUBLIC_REVENUECAT_*` dành cho RevenueCat trong development build. Không đặt khóa bí mật vào biến `EXPO_PUBLIC_*`.
+This app uses native modules, including RevenueCat, so Expo Go cannot run it. Install a development build of the app on the phone and open the Metro QR code with that build. Rebuild the development client after changing the Expo SDK or native dependencies.
+
+For an iPhone, create the development build with EAS:
+
+```bash
+npx eas-cli@latest build --profile development --platform ios
+```
+
+## Notes
+
+- Scanning supports tick selection, inline corrections, supplemental scans, quantity-preserving portion splits and reviewed batch saves. Drafts are stored locally per account; successful rows are reconciled with the API to prevent accidental repeats.
+- Each item uses a reviewable cropped region. The complete scene remains linked to the purchase batch and is shown in food details. Library images work independently from camera permission.
+- Shelf-life reminders distinguish package dates, user-entered dates and sourced reference windows. A reference date does not establish freshness or safety.
+- Run `npm run test:scan-review` for the focused review-state tests.
+
+- API base URL comes from `EXPO_PUBLIC_API_URL`
+- No standalone shared repo is used
+- Types and API contract come from the backend OpenAPI document

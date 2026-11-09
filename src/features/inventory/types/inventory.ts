@@ -2,6 +2,10 @@
 export type FoodStatus = 'SAFE' | 'NEAR_EXPIRY' | 'EXPIRED' | 'NEED_CHECK';
 export type StorageTypeBackend = 'REFRIGERATOR' | 'OUTSIDE' | 'FREEZER' | 'PANTRY' | 'KITCHEN_CABINET' | 'CUSTOM';
 export type InventoryFilter = 'all' | 'SAFE' | 'NEAR_EXPIRY' | 'EXPIRED' | 'NEED_CHECK';
+export type InventoryOwnerContext = {
+  ownerType: 'USER' | 'HOUSEHOLD';
+  householdId?: string;
+};
 
 // Legacy UI filter (dùng trong filter chips)
 export type UIFilter = 'all' | 'fridge' | 'outside' | 'expiring';
@@ -24,10 +28,31 @@ export type StorageLocation = {
   isDefault: boolean;
 };
 
+export type NutritionValue = {
+  calories: number;
+  macroSummary: {
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+};
+
 export type FoodItem = {
   _id: string;
   foodName: string;
   imageUrl?: string;
+  originalImageUrl?: string;
+  itemSourceImageUrl?: string;
+  imageBoundingBox?: number[];
+  scanResultId?: string;
+  containerLabel?: string;
+  storageStartedAt?: string;
+  foodState?: 'RAW' | 'COOKED' | 'UNKNOWN';
+  packaging?: 'SEALED' | 'OPENED' | 'PORTIONED' | 'UNKNOWN';
+  storageProfile?: string;
+  expiryBasis?: 'REFERENCE' | 'PACKAGE' | 'USER';
+  packageExpiryDate?: string;
+  storageGuide?: { minDays: number; maxDays: number; temperature: string; sourceUrl: string; conditions: string; kind: string };
   quantity: number;
   unit: string;
   status: FoodStatus;
@@ -40,6 +65,19 @@ export type FoodItem = {
     carbs: number;
     fat: number;
   };
+  totalNutrition?: NutritionValue;
+  nutritionReference?: NutritionValue & {
+    basisQuantity: number;
+    basisUnit: string;
+  };
+  nutritionDisplay?: NutritionValue & {
+    basisQuantity: number;
+    basisUnit: string;
+    isTotalInventory: boolean;
+    matched: boolean;
+    source?: 'NUTRITION_FACT' | 'SCAN_AI' | 'ADMIN' | 'CATEGORY_ESTIMATE' | 'UNAVAILABLE';
+    estimated?: boolean;
+  };
   nutrition?: {
     calories: number;
     macroSummary: {
@@ -50,6 +88,19 @@ export type FoodItem = {
     matched: boolean;
     nutritionFactId?: string;
     unit?: string;
+    baseQuantity?: number;
+    source?: 'NUTRITION_FACT' | 'SCAN_AI' | 'ADMIN' | 'CATEGORY_ESTIMATE' | 'UNAVAILABLE';
+    estimated?: boolean;
+  };
+  nutritionSnapshot?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    baseQuantity: number;
+    unit: string;
+    source: 'SCAN_AI' | 'ADMIN' | 'CATEGORY_ESTIMATE';
+    confidence?: number;
   };
   expiryDate: string;
   purchaseDate: string;

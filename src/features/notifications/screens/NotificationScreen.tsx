@@ -9,9 +9,14 @@ import {
   StyleSheet,
   Platform,
   Alert,
-  Animated,
 } from "react-native";
-import { Swipeable } from "react-native-gesture-handler";
+import Swipeable, { type SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  type SharedValue,
+} from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -36,36 +41,41 @@ interface SwipeableRowProps {
   onDelete: () => void;
 }
 
+function NotificationDeleteAction({
+  translation,
+  onPress,
+}: {
+  translation: SharedValue<number>;
+  onPress: () => void;
+}) {
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        scale: interpolate(translation.value, [-80, 0], [1, 0.6], Extrapolation.CLAMP),
+      },
+    ],
+  }));
+
+  return (
+    <TouchableOpacity
+      style={styles.deleteAction}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      <Animated.View style={[styles.deleteActionInner, animatedStyle]}>
+        <Ionicons name="trash" size={22} color="#fff" />
+        <Text style={styles.deleteActionText}>Xoá</Text>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
 function SwipeableRow({ children, onDelete }: SwipeableRowProps) {
-  const swipeableRef = useRef<Swipeable>(null);
+  const swipeableRef = useRef<SwipeableMethods>(null);
 
-  const renderRightAction = (
-    _progress: Animated.AnimatedInterpolation<number>,
-    dragX: Animated.AnimatedInterpolation<number>
-  ) => {
-    const scale = dragX.interpolate({
-      inputRange: [-80, 0],
-      outputRange: [1, 0.6],
-      extrapolate: "clamp",
-    });
-
-    const handlePress = () => {
-      swipeableRef.current?.close();
-      onDelete();
-    };
-
-    return (
-      <TouchableOpacity
-        style={styles.deleteAction}
-        onPress={handlePress}
-        activeOpacity={0.85}
-      >
-        <Animated.View style={[styles.deleteActionInner, { transform: [{ scale }] }]}>
-          <Ionicons name="trash" size={22} color="#fff" />
-          <Text style={styles.deleteActionText}>Xoá</Text>
-        </Animated.View>
-      </TouchableOpacity>
-    );
+  const handlePress = () => {
+    swipeableRef.current?.close();
+    onDelete();
   };
 
   return (
@@ -74,7 +84,9 @@ function SwipeableRow({ children, onDelete }: SwipeableRowProps) {
       friction={2}
       overshootRight={false}
       rightThreshold={40}
-      renderRightActions={renderRightAction}
+      renderRightActions={(_progress, translation) => (
+        <NotificationDeleteAction translation={translation} onPress={handlePress} />
+      )}
       onSwipeableOpen={(direction) => {
         if (direction === "right") {
           // Người dùng vuốt hết → tự động xoá
@@ -402,8 +414,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   unreadCard: {
-    borderColor: COLORS.primary + "30",
-    backgroundColor: COLORS.primary + "04",
+    borderColor: COLORS.alpha(COLORS.primary, "30"),
+    backgroundColor: COLORS.alpha(COLORS.primary, "04"),
   },
   iconWrapper: {
     width: 48,

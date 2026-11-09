@@ -23,7 +23,7 @@ type NutritionAdminPanelProps = {
   onDeleteNutritionFact: (fact: NutritionFact) => void;
 };
 
-const unitOptions = ["g", "ml", "item", "serving"] as const;
+const unitOptions = ["g", "kg", "ml", "l", "quả", "cái"] as const;
 
 export default function NutritionAdminPanel({
   nutritionFacts,
@@ -46,6 +46,14 @@ export default function NutritionAdminPanel({
           placeholder="Chicken breast"
         />
       </AdminField>
+      <AdminField label="Tên tương đương">
+        <TextInput
+          style={styles.input}
+          value={factForm.aliases}
+          onChangeText={(value) => setFactForm((form) => ({ ...form, aliases: value }))}
+          placeholder="Táo, Táo đỏ, Red apple"
+        />
+      </AdminField>
       <View style={styles.formGrid}>
         <AdminField label="Category">
           <TextInput
@@ -55,6 +63,17 @@ export default function NutritionAdminPanel({
               setFactForm((form) => ({ ...form, categoryName: value }))
             }
             placeholder="Meat"
+          />
+        </AdminField>
+        <AdminField label="Khẩu phần chuẩn">
+          <TextInput
+            style={styles.input}
+            value={factForm.baseQuantity}
+            keyboardType="numeric"
+            onChangeText={(value) =>
+              setFactForm((form) => ({ ...form, baseQuantity: value }))
+            }
+            placeholder="100"
           />
         </AdminField>
         <AdminField label="Calories / unit">
@@ -118,13 +137,15 @@ export default function NutritionAdminPanel({
         <AdminDataRow
           key={fact._id}
           title={fact.foodName}
-          subtitle={`${fact.caloriesPerUnit} kcal/${fact.unit} - P ${fact.protein}g - C ${fact.carbs}g - F ${fact.fat}g`}
+          subtitle={`${fact.caloriesPerUnit} kcal/${fact.baseQuantity || 100}${fact.unit} - P ${fact.protein}g - C ${fact.carbs}g - F ${fact.fat}g`}
           onEdit={() =>
             setFactForm({
               id: fact._id,
               foodName: fact.foodName,
+              aliases: (fact.aliases || []).join(", "),
               categoryName: getCategoryName(fact.categoryId),
               caloriesPerUnit: String(fact.caloriesPerUnit),
+              baseQuantity: String(fact.baseQuantity || 100),
               unit: fact.unit,
               protein: String(fact.protein || 0),
               carbs: String(fact.carbs || 0),

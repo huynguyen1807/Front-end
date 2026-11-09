@@ -3,7 +3,13 @@ import { Platform } from 'react-native';
 
 const getApiUrl = () => {
   const configuredUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+<<<<<<< HEAD
   if (configuredUrl) return configuredUrl.replace(/\/+$/, '');
+=======
+  if (configuredUrl) {
+    return configuredUrl.replace(/\/+$/, '');
+  }
+>>>>>>> origin/main
 
   // Tự động lấy IP mạng LAN của máy tính đang chạy Expo
   const debuggerHost = Constants.expoConfig?.hostUri;
@@ -11,6 +17,10 @@ const getApiUrl = () => {
 
   if (localhost && /^(localhost|(?:\d{1,3}\.){3}\d{1,3})$/.test(localhost)) {
     return `http://${localhost}:4000`; // Trỏ về backend đang chạy ở port 4000
+  }
+
+  if (Platform.OS === 'web') {
+    return 'http://localhost:4000';
   }
 
   // Fallback trong trường hợp không lấy được (môi trường máy ảo độc lập)

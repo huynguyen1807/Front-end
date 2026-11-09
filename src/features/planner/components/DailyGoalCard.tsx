@@ -1,9 +1,9 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { DimensionValue, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import Svg, { Circle } from "react-native-svg";
 
 import { COLORS } from "../../../constants/colors";
 import { MacroSummary } from "../types/planner";
+import CalorieProgressRing from "./CalorieProgressRing";
 
 type DailyGoalCardProps = {
   currentCalories: number;
@@ -29,9 +29,6 @@ export default function DailyGoalCard({
   const radius = 48;
   const strokeWidth = 10;
   const size = 132;
-  const center = size / 2;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - percentage * circumference;
 
   return (
     <TouchableOpacity
@@ -61,29 +58,13 @@ export default function DailyGoalCard({
       </Text>
 
       <View style={styles.chartContainer}>
-        <Svg height={size} width={size} viewBox={`0 0 ${size} ${size}`}>
-          <Circle
-            cx={center}
-            cy={center}
-            r={radius}
-            stroke="#e5e1e1"
-            strokeWidth={strokeWidth}
-            fill="none"
-          />
-          <Circle
-            cx={center}
-            cy={center}
-            r={radius}
-            stroke={COLORS.primary}
-            strokeWidth={strokeWidth}
-            fill="none"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            rotation="-90"
-            origin={`${center}, ${center}`}
-          />
-        </Svg>
+        <CalorieProgressRing
+          percentage={percentage}
+          size={size}
+          radius={radius}
+          strokeWidth={strokeWidth}
+          color={COLORS.primary}
+        />
         <View style={styles.iconContainer}>
           <MaterialCommunityIcons
             name="silverware-fork-knife"

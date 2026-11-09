@@ -12,7 +12,7 @@ import { plannerStyles as styles } from "../styles/PlannerScreen.styles";
 import ActionButton from "./shared/ActionButton";
 import ChipButton from "./shared/ChipButton";
 import Field from "./shared/Field";
-import Section from "./shared/Section";
+import CollapsiblePlannerPanel from "./shared/CollapsiblePlannerPanel";
 
 type DailyPlanGeneratorProps = {
   selectedCalorieGoal: CalorieGoalKey;
@@ -34,7 +34,7 @@ export default function DailyPlanGenerator({
   onGenerate,
 }: DailyPlanGeneratorProps) {
   return (
-    <Section
+    <CollapsiblePlannerPanel
       title="Tạo kế hoạch bữa ăn"
       subtitle="AI tạo món gợi ý từ tủ thực phẩm theo mức calories đã chọn, ưu tiên đồ sắp hết hạn và sở thích."
     >
@@ -99,6 +99,6 @@ export default function DailyPlanGenerator({
           })}
         </View>
       ) : null}
-    </Section>
+    </CollapsiblePlannerPanel>
   );
 }

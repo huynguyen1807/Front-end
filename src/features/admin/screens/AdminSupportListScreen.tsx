@@ -65,10 +65,10 @@ export default function AdminSupportListScreen() {
     const isStuck = item.category === 'STUCK_HOUSEHOLD';
 
     return (
-      <View style={[styles.ticketCard, isStuck && { borderColor: COLORS.error + '40', borderWidth: 2 }]}>
+      <View style={[styles.ticketCard, isStuck && { borderColor: COLORS.alpha(COLORS.error, '40'), borderWidth: 2 }]}>
         <View style={styles.ticketHeader}>
           <View style={styles.userInfo}>
-            <View style={[styles.avatarPlaceholder, isStuck && { backgroundColor: COLORS.error + '20' }]}>
+            <View style={[styles.avatarPlaceholder, isStuck && { backgroundColor: COLORS.alpha(COLORS.error, '20') }]}>
               <Ionicons name="person" size={20} color={isStuck ? COLORS.error : COLORS.primary} />
             </View>
             <View>
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
     borderWidth: 1,
-    borderColor: COLORS.outlineVariant + '40',
+    borderColor: COLORS.alpha(COLORS.outlineVariant, '40'),
   },
   ticketHeader: {
     flexDirection: 'row',
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.primaryContainer + '40',
+    backgroundColor: COLORS.alpha(COLORS.primaryContainer, '40'),
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
