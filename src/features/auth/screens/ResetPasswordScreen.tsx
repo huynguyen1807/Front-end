@@ -22,33 +22,36 @@ export default function ResetPasswordScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const email = (route.params?.email || '').trim().toLowerCase();
 
   const handleResetPassword = async () => {
-    if (!otp || otp.length < 6) {
-      Alert.alert("Lỗi", "Vui lòng nhập đủ 6 số OTP");
+    const trimmedOtp = otp.trim();
+    if (!trimmedOtp || trimmedOtp.length < 6) {
+      setError('Vui lòng nhập đủ 6 số OTP');
       return;
     }
     if (!newPassword || newPassword.length < 8) {
-      Alert.alert("Lỗi", "Mật khẩu mới phải có ít nhất 8 ký tự");
+      setError('Mật khẩu mới phải có ít nhất 8 ký tự');
       return;
     }
 
     try {
       setLoading(true);
-      await resetPasswordApi({ email, otp, newPassword });
+      setError('');
+      setSuccess('');
+      await resetPasswordApi({ email, otp: trimmedOtp, newPassword });
       
-      Alert.alert(
-        "Thành công", 
-        "Đặt lại mật khẩu thành công! Bạn có thể đăng nhập ngay bây giờ.",
-        [{ text: "OK", onPress: () => navigation.navigate('Login') }]
-      );
+      setSuccess('Đặt lại mật khẩu thành công! Đang chuyển về trang đăng nhập...');
+      setTimeout(() => {
+        navigation.replace('Login');
+      }, 1500);
     } catch (err: any) {
-      Alert.alert("Lỗi", err.response?.data?.message || err.message || 'Đặt lại mật khẩu thất bại');
-    } finally {
+      setError(err.response?.data?.message || err.message || 'Đặt lại mật khẩu thất bại');
       setLoading(false);
     }
   };
@@ -78,6 +81,9 @@ export default function ResetPasswordScreen() {
           </View>
 
           <View style={styles.card}>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {success ? <Text style={styles.successText}>{success}</Text> : null}
+
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Mã xác nhận (OTP)</Text>
               <View style={styles.inputWrapper}>
@@ -120,12 +126,12 @@ export default function ResetPasswordScreen() {
             <TouchableOpacity 
               style={styles.button} 
               onPress={handleResetPassword}
-              disabled={loading}
+              disabled={loading || !!success}
             >
               {loading ? (
                 <ActivityIndicator color={colors.onPrimary} />
               ) : (
-                <Text style={styles.buttonText}>Xác nhận</Text>
+                <Text style={styles.buttonText}>{success ? 'Đã đổi mật khẩu ✓' : 'Xác nhận'}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -151,6 +157,21 @@ const styles = StyleSheet.create({
     width: '100%', maxWidth: 480, backgroundColor: Platform.OS === 'web' ? colors.surface : 'rgba(255, 255, 255, 0.95)',
     borderRadius: 16, padding: 24, borderWidth: 1, borderColor: colors.outlineVariant,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2
+  },
+  errorText: {
+    color: colors.error, marginBottom: 16, textAlign: 'center',
+    backgroundColor: colors.errorContainer, padding: 12, borderRadius: 8
+  },
+  successText: {
+    color: '#0F5132',
+    backgroundColor: '#D1E7DD',
+    marginBottom: 16,
+    textAlign: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BADBCC',
+    fontWeight: '600'
   },
   inputContainer: { gap: 8, marginBottom: 24 },
   label: { fontSize: 14, fontWeight: '600', color: colors.onSurfaceVariant, marginLeft: 4 },

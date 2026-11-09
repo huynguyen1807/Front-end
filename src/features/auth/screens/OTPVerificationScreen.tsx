@@ -21,13 +21,15 @@ export default function OTPVerificationScreen() {
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const email = (route.params?.email || '').trim().toLowerCase();
 
   const handleVerify = async () => {
-    if (!otp || otp.length < 6) {
+    const trimmedOtp = otp.trim();
+    if (!trimmedOtp || trimmedOtp.length < 6) {
       setError('Vui lòng nhập đủ 6 số OTP');
       return;
     }
@@ -35,16 +37,15 @@ export default function OTPVerificationScreen() {
     try {
       setLoading(true);
       setError('');
-      await verifyOTPApi(email, otp);
+      setSuccess('');
+      await verifyOTPApi(email, trimmedOtp);
       
-      Alert.alert(
-        "Thành công", 
-        "Xác thực email thành công! Bạn đã có thể đăng nhập.",
-        [{ text: "OK", onPress: () => navigation.replace('Login') }]
-      );
+      setSuccess('Xác thực email thành công! Đang chuyển hướng về trang đăng nhập...');
+      setTimeout(() => {
+        navigation.replace('Login');
+      }, 1500);
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || 'Xác thực thất bại');
-    } finally {
       setLoading(false);
     }
   };
@@ -89,6 +90,7 @@ export default function OTPVerificationScreen() {
 
           <View style={styles.card}>
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {success ? <Text style={styles.successText}>{success}</Text> : null}
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Mã xác nhận (OTP)</Text>
@@ -108,12 +110,12 @@ export default function OTPVerificationScreen() {
             <TouchableOpacity 
               style={styles.button} 
               onPress={handleVerify}
-              disabled={loading}
+              disabled={loading || !!success}
             >
               {loading ? (
                 <ActivityIndicator color={colors.onPrimary} />
               ) : (
-                <Text style={styles.buttonText}>Xác nhận</Text>
+                <Text style={styles.buttonText}>{success ? 'Đã xác thực ✓' : 'Xác nhận'}</Text>
               )}
             </TouchableOpacity>
 
@@ -155,6 +157,17 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.error, marginBottom: 16, textAlign: 'center',
     backgroundColor: colors.errorContainer, padding: 12, borderRadius: 8
+  },
+  successText: {
+    color: '#0F5132',
+    backgroundColor: '#D1E7DD',
+    marginBottom: 16,
+    textAlign: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BADBCC',
+    fontWeight: '600'
   },
   inputContainer: { gap: 8, marginBottom: 24 },
   label: { fontSize: 14, fontWeight: '600', color: colors.onSurfaceVariant, marginLeft: 4 },
