@@ -21,9 +21,31 @@ import * as Google from 'expo-auth-session/providers/google';
 
 WebBrowser.maybeCompleteAuthSession();
 import { useNavigation } from '@react-navigation/native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import Svg, { Path } from 'react-native-svg';
 
 import * as AuthSession from 'expo-auth-session';
+
+const GoogleIcon = ({ size = 20 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      fill="#4285F4"
+    />
+    <Path
+      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      fill="#34A853"
+    />
+    <Path
+      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+      fill="#FBBC05"
+    />
+    <Path
+      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+      fill="#EA4335"
+    />
+  </Svg>
+);
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -69,10 +91,15 @@ export default function LoginScreen() {
     }
   };
 
+  const redirectUri = AuthSession.makeRedirectUri({
+    scheme: 'freshfriends',
+  });
+
   const [request, response, promptAsync] = Google.useAuthRequest({
     webClientId: '1099487569083-6lglj5h2og8nqrpk300oa5kqalp060io.apps.googleusercontent.com',
-    androidClientId: '1099487569083-6lglj5h2og8nqrpk300oa5kqalp060io.apps.googleusercontent.com',
-    iosClientId: '1099487569083-6lglj5h2og8nqrpk300oa5kqalp060io.apps.googleusercontent.com',
+    androidClientId: '1099487569083-72uf7o9utn5gknn8ahlo7jf32kqjs4mh.apps.googleusercontent.com',
+    iosClientId: '1099487569083-bi8cfkannjfjhdchpia69v0f5vs7rjhj.apps.googleusercontent.com',
+    redirectUri,
   });
 
   React.useEffect(() => {
@@ -176,12 +203,7 @@ export default function LoginScreen() {
 
             {/* Password Field */}
             <View style={styles.inputContainer}>
-              <View style={styles.passwordHeader}>
-                <Text style={styles.label}>Mật khẩu</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-                  <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
-                </TouchableOpacity>
-              </View>
+              <Text style={styles.label}>Mật khẩu</Text>
               <View style={[
                 styles.inputWrapper,
                 isPasswordFocused && styles.inputWrapperFocused
@@ -208,6 +230,12 @@ export default function LoginScreen() {
                   />
                 </TouchableOpacity>
               </View>
+              <TouchableOpacity 
+                style={styles.forgotPasswordContainer}
+                onPress={() => navigation.navigate('ForgotPassword')}
+              >
+                <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+              </TouchableOpacity>
             </View>
 
             {/* Submit Button */}
@@ -236,12 +264,13 @@ export default function LoginScreen() {
             <TouchableOpacity
               style={styles.socialButton}
               onPress={() => promptAsync()}
+              disabled={loading || !request}
             >
-              <View style={[styles.socialIconPlaceholder, { backgroundColor: colors.googleRed }]} />
+              <GoogleIcon size={18} />
               <Text style={styles.socialButtonText}>Google</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.socialButton}>
-              <MaterialIcons name="apps" size={20} color={colors.onSurface} />
+              <Ionicons name="logo-apple" size={18} color={colors.onSurface} />
               <Text style={styles.socialButtonText}>Apple</Text>
             </TouchableOpacity>
           </View>
@@ -356,6 +385,10 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
     letterSpacing: 0.5,
     marginLeft: 4,
+  },
+  forgotPasswordContainer: {
+    alignSelf: 'flex-end',
+    marginTop: 4,
   },
   forgotPasswordText: {
     fontSize: 13,
