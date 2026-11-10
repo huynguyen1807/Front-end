@@ -9,8 +9,14 @@ import {
   StyleSheet,
   Platform,
   Alert,
+  type StyleProp,
+  type ViewStyle,
 } from "react-native";
 import Swipeable, { type SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
+// Dùng TouchableOpacity của gesture-handler (không phải của react-native) cho nội dung
+// bên trong Swipeable: nó chia sẻ cùng "gesture arena" với Swipeable nên khi người dùng
+// vuốt, việc nhận gesture vuốt sẽ huỷ press — tránh vừa vuốt vừa bị tính là bấm mở nội dung.
+import { TouchableOpacity as GestureTouchableOpacity } from "react-native-gesture-handler";
 import Animated, {
   Extrapolation,
   interpolate,
@@ -25,6 +31,7 @@ import ScreenContainer from "../../../components/layout/ScreenContainer";
 import { COLORS } from "../../../constants/colors";
 import { reloadPageOrRefresh } from '../../../utils/reloadPage';
 import { apiClient } from "../../../services/apiClient";
+import { getFoodByIdApi } from "../../inventory/services/foodApi";
 
 interface NotificationItem {
   _id: string;
@@ -34,11 +41,34 @@ interface NotificationItem {
   priority: "LOW" | "MEDIUM" | "HIGH";
   isRead: boolean;
   createdAt: string;
+  foodItemId?: string;
+}
+
+// ─── Nhãn module để người dùng biết thông báo thuộc phần nào ────────────────
+const TYPE_META: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
+  EXPIRY_ALERT: { label: "Hạn sử dụng", icon: "time-outline", color: COLORS.tertiary },
+  STORAGE_WARNING: { label: "Bảo quản / Kho", icon: "thermometer-outline", color: "#F59E0B" },
+  MEAL_REMINDER: { label: "Kế hoạch bữa ăn", icon: "restaurant-outline", color: COLORS.primary },
+  FAMILY_SYNC: { label: "Gia đình", icon: "people-outline", color: COLORS.primary },
+  PAYMENT_RESULT: { label: "Thanh toán", icon: "card-outline", color: COLORS.primary },
+  SUPPORT_UPDATE: { label: "Hỗ trợ", icon: "help-buoy-outline", color: COLORS.primary },
+};
+
+function getTypeMeta(type: string) {
+  return TYPE_META[type] ?? { label: "Thông báo", icon: "notifications-outline" as const, color: COLORS.primary };
 }
 
 // ─── Swipeable row wrapper ──────────────────────────────────────────────────
+// Hành vi mong muốn:
+//  - Mặc định nút xoá ẨN, chỉ hiện khi người dùng VUỐT sang trái.
+//  - Nhấp (không vuốt) khi hàng đang ĐÓNG → chỉ mở nội dung thông báo.
+//  - Nhấp vào hàng khi đang MỞ (do vừa vuốt) → chỉ đóng lại, KHÔNG mở nội dung.
+//  - Chỉ xoá khi người dùng bấm thẳng vào nút "Xoá" màu đỏ.
 interface SwipeableRowProps {
   children: React.ReactNode;
+  cardStyle?: StyleProp<ViewStyle>;
+  disabled?: boolean;
+  onPressContent: () => void;
   onDelete: () => void;
 }
 
@@ -58,7 +88,7 @@ function NotificationDeleteAction({
   }));
 
   return (
-    <TouchableOpacity
+    <GestureTouchableOpacity
       style={styles.deleteAction}
       onPress={onPress}
       activeOpacity={0.85}
@@ -67,16 +97,26 @@ function NotificationDeleteAction({
         <Ionicons name="trash" size={22} color="#fff" />
         <Text style={styles.deleteActionText}>Xoá</Text>
       </Animated.View>
-    </TouchableOpacity>
+    </GestureTouchableOpacity>
   );
 }
 
-function SwipeableRow({ children, onDelete }: SwipeableRowProps) {
+function SwipeableRow({ children, cardStyle, disabled, onPressContent, onDelete }: SwipeableRowProps) {
   const swipeableRef = useRef<SwipeableMethods>(null);
+  const isOpenRef = useRef(false);
 
-  const handlePress = () => {
+  const handleDeleteButtonPress = () => {
     swipeableRef.current?.close();
     onDelete();
+  };
+
+  const handleCardPress = () => {
+    if (isOpenRef.current) {
+      // Hàng đang mở do vừa vuốt → nhấp vào chỉ để đóng lại, không mở nội dung.
+      swipeableRef.current?.close();
+      return;
+    }
+    onPressContent();
   };
 
   return (
@@ -85,18 +125,25 @@ function SwipeableRow({ children, onDelete }: SwipeableRowProps) {
       friction={2}
       overshootRight={false}
       rightThreshold={40}
+      dragOffsetFromRight={-20}
       renderRightActions={(_progress, translation) => (
-        <NotificationDeleteAction translation={translation} onPress={handlePress} />
+        <NotificationDeleteAction translation={translation} onPress={handleDeleteButtonPress} />
       )}
-      onSwipeableOpen={(direction) => {
-        if (direction === "right") {
-          // Người dùng vuốt hết → tự động xoá
-          swipeableRef.current?.close();
-          onDelete();
-        }
+      onSwipeableWillOpen={() => {
+        isOpenRef.current = true;
+      }}
+      onSwipeableWillClose={() => {
+        isOpenRef.current = false;
       }}
     >
-      {children}
+      <GestureTouchableOpacity
+        activeOpacity={0.8}
+        disabled={disabled}
+        style={cardStyle}
+        onPress={handleCardPress}
+      >
+        {children}
+      </GestureTouchableOpacity>
     </Swipeable>
   );
 }
@@ -150,6 +197,28 @@ export default function NotificationScreen() {
     }
   };
 
+  // ─── Mở thông báo: đánh dấu đã đọc + điều hướng tới phần liên quan ───────
+  const [openingId, setOpeningId] = useState<string | null>(null);
+  const handleOpenNotification = async (item: NotificationItem) => {
+    handleMarkAsRead(item);
+
+    if (!item.foodItemId) return; // SUPPORT_UPDATE và các loại khác chưa có màn chi tiết riêng
+
+    setOpeningId(item._id);
+    try {
+      const food = await getFoodByIdApi(item.foodItemId);
+      (navigation as any).navigate("FoodDetail", { item: food });
+    } catch (error) {
+      console.error("Error opening food from notification:", error);
+      Alert.alert(
+        "Không mở được",
+        "Thực phẩm liên quan đến thông báo này không còn tồn tại hoặc đã bị xoá."
+      );
+    } finally {
+      setOpeningId(null);
+    }
+  };
+
   // ─── Mark all as read ─────────────────────────────────────────────────────
   const handleMarkAllAsRead = async () => {
     if (unreadCount === 0) return;
@@ -173,43 +242,41 @@ export default function NotificationScreen() {
     }
   };
 
-  // ─── Delete all ───────────────────────────────────────────────────────────
-  const handleDeleteAll = () => {
-    if (notifications.length === 0) return;
-    Alert.alert("Xoá tất cả", "Bạn có chắc muốn xoá toàn bộ thông báo?", [
-      { text: "Huỷ", style: "cancel" },
-      {
-        text: "Xoá",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            setNotifications([]);
-            await apiClient.delete("/api/notifications");
-          } catch (error) {
-            console.error("Error deleting all:", error);
-            fetchNotifications(false);
-          }
+  // ─── Xoá tất cả thông báo ĐÃ ĐỌC (nút thùng rác ở header) ────────────────
+  const readCount = notifications.filter((n) => n.isRead).length;
+  const handleDeleteAllRead = () => {
+    if (readCount === 0) return;
+    Alert.alert(
+      "Xoá thông báo đã đọc",
+      `Bạn có chắc muốn xoá ${readCount} thông báo đã đọc? Thông báo chưa đọc sẽ được giữ lại.`,
+      [
+        { text: "Huỷ", style: "cancel" },
+        {
+          text: "Xoá",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setNotifications((prev) => prev.filter((n) => !n.isRead));
+              await apiClient.delete("/api/notifications/read");
+            } catch (error) {
+              console.error("Error deleting read notifications:", error);
+              fetchNotifications(false);
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   // ─── Icon theo loại ──────────────────────────────────────────────────────
   const renderIcon = (item: NotificationItem) => {
-    let iconName: keyof typeof Ionicons.glyphMap = "notifications-outline";
-    let iconColor = COLORS.primary;
+    const meta = getTypeMeta(item.type);
+    let iconName = meta.icon;
+    let iconColor = meta.color;
 
-    if (item.type === "EXPIRY_ALERT") {
-      if (item.priority === "HIGH") {
-        iconName = "alert-circle-outline";
-        iconColor = COLORS.tertiary;
-      } else {
-        iconName = "warning-outline";
-        iconColor = COLORS.secondary;
-      }
-    } else if (item.type === "STORAGE_WARNING") {
-      iconName = "thermometer-outline";
-      iconColor = "#F59E0B";
+    if (item.type === "EXPIRY_ALERT" && item.priority !== "HIGH") {
+      iconName = "warning-outline";
+      iconColor = COLORS.secondary;
     }
 
     return (
@@ -228,29 +295,38 @@ export default function NotificationScreen() {
       month: "2-digit",
       year: "numeric",
     });
+    const meta = getTypeMeta(item.type);
 
     return (
-      <SwipeableRow onDelete={() => handleDelete(item)}>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={[styles.card, !item.isRead && styles.unreadCard]}
-          onPress={() => handleMarkAsRead(item)}
-        >
-          {renderIcon(item)}
-          <View style={styles.cardContent}>
-            <View style={styles.cardHeader}>
-              <Text
-                style={[styles.title, !item.isRead && styles.unreadText]}
-                numberOfLines={1}
-              >
-                {item.title}
-              </Text>
-              {!item.isRead && <View style={styles.unreadDot} />}
-            </View>
-            <Text style={styles.message}>{item.message}</Text>
-            <Text style={styles.date}>{formattedDate}</Text>
+      <SwipeableRow
+        cardStyle={[styles.card, !item.isRead && styles.unreadCard]}
+        disabled={openingId === item._id}
+        onPressContent={() => handleOpenNotification(item)}
+        onDelete={() => handleDelete(item)}
+      >
+        {renderIcon(item)}
+        <View style={styles.cardContent}>
+          <View style={styles.cardHeader}>
+            <Text
+              style={[styles.title, !item.isRead && styles.unreadText]}
+              numberOfLines={1}
+            >
+              {item.title}
+            </Text>
+            {!item.isRead && <View style={styles.unreadDot} />}
           </View>
-        </TouchableOpacity>
+          <View style={styles.typeBadge}>
+            <Text style={[styles.typeBadgeText, { color: meta.color }]}>{meta.label}</Text>
+            {item.foodItemId && (
+              <Ionicons name="chevron-forward" size={12} color={meta.color} style={{ marginLeft: 2 }} />
+            )}
+          </View>
+          <Text style={styles.message}>{item.message}</Text>
+          <Text style={styles.date}>{formattedDate}</Text>
+        </View>
+        {openingId === item._id && (
+          <ActivityIndicator size="small" color={COLORS.primary} style={{ marginLeft: 8 }} />
+        )}
       </SwipeableRow>
     );
   };
@@ -286,8 +362,8 @@ export default function NotificationScreen() {
               <Ionicons name="checkmark-done-outline" size={22} color={COLORS.primary} />
             </TouchableOpacity>
           )}
-          {notifications.length > 0 && (
-            <TouchableOpacity onPress={handleDeleteAll} style={styles.headerBtn}>
+          {readCount > 0 && (
+            <TouchableOpacity onPress={handleDeleteAllRead} style={styles.headerBtn}>
               <Ionicons name="trash-outline" size={20} color={COLORS.onSurfaceVariant} />
             </TouchableOpacity>
           )}
@@ -453,6 +529,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     marginLeft: 8,
     flexShrink: 0,
+  },
+  typeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  typeBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
   message: {
     fontSize: 13,
