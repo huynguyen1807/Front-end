@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { useAppSelector } from "../../../redux/hooks";
+import type { ConfirmDialogState, NoticeState } from "../components/shared/AppAlertModal";
 
 import {
   AdminSection,
@@ -462,6 +463,8 @@ export default function usePlannerScreen() {
   const [calculation, setCalculation] = useState<NutritionCalculation | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
+  const [actionNotice, setActionNotice] = useState<NoticeState | null>(null);
 
   const weekRange = useMemo(() => getWeekDateRange(visibleWeekStart), [visibleWeekStart]);
   const dates = useMemo<ScheduleDate[]>(() => {
@@ -640,7 +643,9 @@ export default function usePlannerScreen() {
 
       setRecipes(activeRecipes);
       setUserRecipes(userRecipeList.filter(
-        (recipe) => recipe.isActive !== false && recipe.sourceType === "USER_CREATED"
+        (recipe) =>
+          recipe.isActive !== false &&
+          (recipe.sourceType === "USER_CREATED" || recipe.sourceType === "VIDEO_EXTRACTED")
       ));
       if (scheduleRequestId === scheduleRequestIdRef.current) {
         setWeekPlans(planList);
@@ -989,6 +994,7 @@ export default function usePlannerScreen() {
       const result = await extractRecipeFromVideoApi({ videoUrl: videoUrl.trim() });
       setVideoExtraction(result);
       setVideoUrl("");
+      await loadPlanner({ showLoading: false });
     } catch (error: any) {
       Alert.alert("Không trích xuất được công thức", getErrorMessage(error));
     } finally {
@@ -1385,22 +1391,32 @@ export default function usePlannerScreen() {
     }
   };
 
+  const confirmDestructive = (
+    title: string,
+    message: string,
+    onConfirm: () => void | Promise<void>
+  ) => {
+    setConfirmDialog({ title, message, onConfirm: () => void onConfirm() });
+  };
+
+  const closeConfirmDialog = () => setConfirmDialog(null);
+
+  const runConfirmDialog = (dialog: ConfirmDialogState) => {
+    setConfirmDialog(null);
+    dialog.onConfirm();
+  };
+
+  const closeActionNotice = () => setActionNotice(null);
+
   const handleDeletePlan = (plan: MealPlan) => {
-    Alert.alert("Xóa lịch bữa ăn", "Xóa toàn bộ lịch bữa ăn ngày này?", [
-      { text: "Hủy", style: "cancel" },
-      {
-        text: "Xóa",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteMealPlanApi(plan._id);
-            await loadScheduleForDate(activeDateRef.current);
-          } catch (error: any) {
-            Alert.alert("Không xóa được lịch bữa ăn", getErrorMessage(error));
-          }
-        },
-      },
-    ]);
+    confirmDestructive("Xóa lịch bữa ăn", "Xóa toàn bộ lịch bữa ăn ngày này?", async () => {
+      try {
+        await deleteMealPlanApi(plan._id);
+        await loadScheduleForDate(activeDateRef.current);
+      } catch (error: any) {
+        setActionNotice({ title: "Không xóa được lịch bữa ăn", message: getErrorMessage(error) });
+      }
+    });
   };
 
   const resetRecipeForm = () => {
@@ -1561,40 +1577,26 @@ export default function usePlannerScreen() {
   };
 
   const handleDeleteUserRecipe = (recipe: Recipe) => {
-    Alert.alert("Xóa công thức", `Xóa "${recipe.recipeName}"?`, [
-      { text: "Hủy", style: "cancel" },
-      {
-        text: "Xóa",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteUserRecipeApi(recipe._id);
-            await loadPlanner();
-          } catch (error: any) {
-            Alert.alert("Không xóa được công thức", getErrorMessage(error));
-          }
-        },
-      },
-    ]);
+    confirmDestructive("Xóa công thức", `Xóa "${recipe.recipeName}"?`, async () => {
+      try {
+        await deleteUserRecipeApi(recipe._id);
+        await loadPlanner();
+      } catch (error: any) {
+        setActionNotice({ title: "Không xóa được công thức", message: getErrorMessage(error) });
+      }
+    });
   };
 
   const handleDeleteRecipe = (recipe: Recipe) => {
     if (!isAdmin) return;
-    Alert.alert("Xóa công thức", `Xóa "${recipe.recipeName}"?`, [
-      { text: "Hủy", style: "cancel" },
-      {
-        text: "Xóa",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteAdminRecipeApi(recipe._id);
-            await loadPlanner();
-          } catch (error: any) {
-            Alert.alert("Không xóa được công thức", getErrorMessage(error));
-          }
-        },
-      },
-    ]);
+    confirmDestructive("Xóa công thức", `Xóa "${recipe.recipeName}"?`, async () => {
+      try {
+        await deleteAdminRecipeApi(recipe._id);
+        await loadPlanner();
+      } catch (error: any) {
+        setActionNotice({ title: "Không xóa được công thức", message: getErrorMessage(error) });
+      }
+    });
   };
 
   const handleSaveCategory = async () => {
@@ -1675,21 +1677,14 @@ export default function usePlannerScreen() {
   };
 
   const handleDeleteStorageRule = (rule: StorageRuleData) => {
-    Alert.alert("Xóa storage rule", "Xóa rule bảo quản này?", [
-      { text: "Hủy", style: "cancel" },
-      {
-        text: "Xóa",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteAdminStorageRuleApi(rule._id);
-            await loadPlanner();
-          } catch (error: any) {
-            Alert.alert("Không xóa được storage rule", getErrorMessage(error));
-          }
-        },
-      },
-    ]);
+    confirmDestructive("Xóa storage rule", "Xóa rule bảo quản này?", async () => {
+      try {
+        await deleteAdminStorageRuleApi(rule._id);
+        await loadPlanner();
+      } catch (error: any) {
+        setActionNotice({ title: "Không xóa được storage rule", message: getErrorMessage(error) });
+      }
+    });
   };
 
   const handleSaveNutritionFact = async () => {
@@ -1729,21 +1724,14 @@ export default function usePlannerScreen() {
   };
 
   const handleDeleteNutritionFact = (fact: NutritionFact) => {
-    Alert.alert("Xóa nutrition data", `Xóa "${fact.foodName}"?`, [
-      { text: "Hủy", style: "cancel" },
-      {
-        text: "Xóa",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteAdminNutritionFactApi(fact._id);
-            await loadPlanner();
-          } catch (error: any) {
-            Alert.alert("Không xóa được nutrition data", getErrorMessage(error));
-          }
-        },
-      },
-    ]);
+    confirmDestructive("Xóa nutrition data", `Xóa "${fact.foodName}"?`, async () => {
+      try {
+        await deleteAdminNutritionFactApi(fact._id);
+        await loadPlanner();
+      } catch (error: any) {
+        setActionNotice({ title: "Không xóa được nutrition data", message: getErrorMessage(error) });
+      }
+    });
   };
 
   const handleReviewAiData = async (item: AiGeneratedData, action: "APPROVE" | "REJECT") => {
@@ -1873,5 +1861,10 @@ export default function usePlannerScreen() {
     resetRecipeForm,
     handleCalculateRecipeNutrition,
     handleReviewAiData,
+    confirmDialog,
+    closeConfirmDialog,
+    runConfirmDialog,
+    actionNotice,
+    closeActionNotice,
   };
 }

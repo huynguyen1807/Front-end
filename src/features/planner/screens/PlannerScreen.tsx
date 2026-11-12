@@ -32,6 +32,7 @@ import PlannerDetailTabs from "../components/PlannerDetailTabs";
 import PlannerHero from "../components/PlannerHero";
 import ScheduleDayRolloverModal from "../components/ScheduleDayRolloverModal";
 import VideoRecipeExtractor from "../components/VideoRecipeExtractor";
+import AppAlertModal from "../components/shared/AppAlertModal";
 import MetricGrid from "../components/shared/MetricGrid";
 import Section from "../components/shared/Section";
 import usePlannerScreen from "../hooks/usePlannerScreen";
@@ -563,6 +564,14 @@ export default function PlannerScreen() {
           </View>
         </View>
       </Modal>
+
+      <AppAlertModal
+        confirmDialog={planner.confirmDialog}
+        onCancelConfirm={planner.closeConfirmDialog}
+        onConfirm={planner.runConfirmDialog}
+        notice={planner.actionNotice}
+        onCloseNotice={planner.closeActionNotice}
+      />
 
       <BottomNavbar />
     </ScreenContainer>
