@@ -7,6 +7,7 @@ export interface ChecklistItem {
 }
 
 export type ShoppingOwnerType = "USER" | "HOUSEHOLD";
+export type ShoppingDestination = { ownerType: 'USER'; listId?: string } | { ownerType: 'HOUSEHOLD'; householdId: string; listId?: string };
 export type ShoppingVisibility = "PERSONAL" | "SHARED";
 export type ShoppingListStatus = "ACTIVE" | "COMPLETED" | "ARCHIVED";
 export type ShoppingItemReason =

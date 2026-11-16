@@ -1,4 +1,5 @@
 import { apiClient } from "../../../services/apiClient";
+import type { ShoppingDestination } from '../../shoppingList/types/shopping';
 import {
   BmiProfile,
   GeneratedMealPlanResult,
@@ -121,8 +122,9 @@ export const addMissingIngredientsToShoppingListApi = async (
     categoryId?: string;
     quantity: number;
     unit: string;
-  }>
+  }>,
+  destination?: ShoppingDestination,
 ) => {
-  const res = await apiClient.post("/api/shopping-lists/missing-ingredients", { items });
+  const res = await apiClient.post("/api/shopping-lists/missing-ingredients", { items, ...(destination ? { destination } : {}) });
   return res.data.data;
 };

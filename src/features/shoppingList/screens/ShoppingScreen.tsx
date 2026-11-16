@@ -18,6 +18,11 @@ import ScreenContainer from "../../../components/layout/ScreenContainer";
 import TopNavbar from "../../../components/layout/TopNavbar";
 import { COLORS } from "../../../constants/colors";
 import { useHouseholdSync } from "../../../hooks/useHouseholdSync";
+import { useAppDispatch, useAppSelector } from '../../../redux/hooks';
+import HouseholdSelector from '../../familyCloud/components/HouseholdSelector';
+import { setSelectedHouseholdId } from '../../familyCloud/redux/familyCloudSlice';
+import type { MyHousehold } from '../../familyCloud/types/familyCloud';
+import { getHouseholdSubscriptionApi } from '../../subscription/services/paymentApi';
 import { getMyHouseholdsApi } from "../../familyCloud/services/familyCloudApi";
 import NearbyStoresSection from "../components/NearbyStoresSection";
 import {
@@ -26,10 +31,11 @@ import {
   createShoppingListApi,
   deleteShoppingListItemApi,
   getShoppingListsApi,
+  getShoppingListByIdApi,
   updateShoppingListItemApi,
 } from "../services/shoppingApi";
 import { shoppingScreenStyles as baseStyles } from "../styles/ShoppingScreen.styles";
-import { ShoppingList, ShoppingListItem } from "../types/shopping";
+import { ShoppingList, ShoppingListItem, ShoppingOwnerType } from "../types/shopping";
 
 type SectionKey = "pending" | "purchased";
 
@@ -123,6 +129,7 @@ interface ShoppingItemRowProps {
   onEdit: () => void;
   onShowDeleteAction: () => void;
   onToggle: () => void;
+  disabled: boolean;
 }
 
 function ShoppingItemRow({
@@ -133,16 +140,19 @@ function ShoppingItemRow({
   onEdit,
   onShowDeleteAction,
   onToggle,
+  disabled,
 }: ShoppingItemRowProps) {
   return (
     <View style={[styles.itemWrapper, isLast && styles.itemRowLast]}>
       <TouchableOpacity
+        disabled={disabled}
         activeOpacity={0.95}
         onLongPress={onShowDeleteAction}
         delayLongPress={350}
         style={[styles.itemRow, isLast && styles.itemRowLast]}
       >
         <TouchableOpacity
+          disabled={disabled}
           activeOpacity={0.75}
           onPress={onToggle}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -156,6 +166,7 @@ function ShoppingItemRow({
         </TouchableOpacity>
 
         <TouchableOpacity
+          disabled={disabled}
           activeOpacity={0.75}
           onPress={onEdit}
           onLongPress={onShowDeleteAction}
@@ -170,7 +181,7 @@ function ShoppingItemRow({
       </TouchableOpacity>
 
       {showDeleteAction && (
-        <TouchableOpacity activeOpacity={0.85} style={styles.inlineDeleteAction} onPress={onDelete}>
+        <TouchableOpacity disabled={disabled} activeOpacity={0.85} style={styles.inlineDeleteAction} onPress={onDelete}>
           <Ionicons name="trash-outline" size={18} color={COLORS.onPrimary} />
           <Text style={styles.deleteActionText}>Xóa nguyên liệu</Text>
         </TouchableOpacity>
@@ -181,20 +192,40 @@ function ShoppingItemRow({
 
 export default function ShoppingScreen() {
   const insets = useSafeAreaInsets();
+  const dispatch = useAppDispatch();
+  const selectedHouseholdId = useAppSelector(state => state.familyCloud.selectedHouseholdId);
+  const [ownerType, setOwnerType] = useState<ShoppingOwnerType>('USER');
+  const [households, setHouseholds] = useState<MyHousehold[]>([]);
   const [viewMode, setViewMode] = useState<"ACTIVE" | "HISTORY">("ACTIVE");
   const [lists, setLists] = useState<ShoppingList[]>([]);
+  const catalogue = useRef<ShoppingList[]>([]);
+  catalogue.current = lists;
   const [historyLists, setHistoryLists] = useState<ShoppingList[]>([]);
+  const [selectedListId, setSelectedListId] = useState('');
+  const selection = useRef({ contextKey: 'USER', id: '' });
+  const [showCreateList, setShowCreateList] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const createListScope = useRef('USER');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshingRequest = useRef<AbortSignal | null>(null);
+  const manualTarget = useRef<{ contextKey: string; listId: string; viewMode: 'ACTIVE' | 'HISTORY' } | null>(null);
   const [saving, setSaving] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState<ShoppingListItem | null>(null);
   const [deleteActionItemId, setDeleteActionItemId] = useState<string | null>(null);
-  const [familyHouseholdId, setFamilyHouseholdId] = useState<string>("");
+  const familyHouseholdId = ownerType === 'HOUSEHOLD' ? selectedHouseholdId : '';
+  const contextKey = ownerType === 'USER' ? 'USER' : `HOUSEHOLD:${familyHouseholdId}`;
   const [canEdit, setCanEdit] = useState(false);
+  const [readOnlyReason, setReadOnlyReason] = useState('');
   const [syncError, setSyncError] = useState('');
-  const access = useRef({ householdId: '', ready: false, canView: false, canEdit: false, generation: 0 });
+  const access = useRef({ householdId: '', contextKey: 'USER', ready: false, canView: false, canEdit: false, generation: 0 });
+  const currentContext = useRef(contextKey);
+  currentContext.current = contextKey;
+  const renderGeneration = access.current.generation;
   const formScope = useRef<string | null>(null);
   const editingListId = useRef<string | null>(null);
+  const formListId = useRef('');
   const writeLock = useRef(false);
   const [form, setForm] = useState({
     foodName: "",
@@ -202,9 +233,12 @@ export default function ShoppingScreen() {
     unit: "cái",
   });
 
-  const activeList = lists.find((list) => familyHouseholdId
-    ? list.ownerType === 'HOUSEHOLD' && listHouseholdId(list) === familyHouseholdId
-    : list.ownerType !== 'HOUSEHOLD' && !listHouseholdId(list));
+  const matchesContext = (list: ShoppingList) => ownerType === 'HOUSEHOLD'
+    ? Boolean(familyHouseholdId) && list.ownerType === 'HOUSEHOLD' && listHouseholdId(list) === familyHouseholdId
+    : list.ownerType === 'USER' && !listHouseholdId(list);
+  const availableLists = lists.filter(matchesContext);
+  const activeList = availableLists.find(list => list._id === selectedListId);
+  const visibleHistory = historyLists.filter(matchesContext);
   const items = activeList?.items ?? [];
   const hasItems = items.length > 0;
   const fabBottom = Platform.OS === "ios" ? 92 + insets.bottom : 92;
@@ -217,37 +251,96 @@ export default function ShoppingScreen() {
     [items]
   );
 
+  const applySelection = (id: string) => {
+    if (selection.current.contextKey === contextKey && selection.current.id === id) return;
+    selection.current = { contextKey, id }; setSelectedListId(id);
+    access.current = { ...access.current, generation: access.current.generation + 1 };
+    setDeleteActionItemId(null);
+  };
+
   const refresh = useCallback(async (signal: AbortSignal) => {
+    refreshingRequest.current = signal; setRefreshing(true);
+    const target = manualTarget.current; manualTarget.current = null;
+    const previousContext = access.current;
+    if (previousContext.contextKey !== contextKey) {
+      access.current = { householdId: familyHouseholdId, contextKey, ready: false, canView: false, canEdit: false, generation: previousContext.generation + 1 };
+      setLists([]); setHistoryLists([]); setDeleteActionItemId(null); setCanEdit(false); setLoading(true);
+    }
     try {
       const memberships = await getMyHouseholdsApi({ signal, timeout: 10000 });
-      if (signal.aborted) return;
-      const member = memberships[0];
-      const householdId = member?.household._id ?? '';
-      const canView = !member || member.permission?.canViewShoppingList === true;
-      const editable = canView && (!member || member.permission?.canEditShoppingList === true);
+      if (signal.aborted || currentContext.current !== contextKey) return;
+      const available = memberships.filter(item => item.household.status === 'ACTIVE');
+      setHouseholds(available);
+      const member = ownerType === 'HOUSEHOLD' ? available.find(item => item.household._id === familyHouseholdId) : undefined;
+      if (ownerType === 'HOUSEHOLD' && !member) {
+        access.current = { ...access.current, ready: false, canView: false, canEdit: false, generation: access.current.generation + 1 };
+        setLists([]); setHistoryLists([]); setCanEdit(false);
+        if (familyHouseholdId || available.length === 0) setOwnerType('USER');
+        setSyncError('Hãy chọn một gia đình đang tham gia để xem danh sách Family.');
+        return true;
+      }
+      const householdId = familyHouseholdId;
+      const owner = member?.role === 'OWNER';
+      const activeHousehold = !member || member.household.status === 'ACTIVE';
+      let canView = activeHousehold && (!member || owner || member.permission?.canViewShoppingList === true);
+      let editable = canView && (!member || owner || member.permission?.canEditShoppingList === true);
+      if (ownerType === 'HOUSEHOLD' && canView) {
+        access.current = { ...access.current, canEdit: false }; setCanEdit(false);
+        setReadOnlyReason('Đang kiểm tra quyền Family…');
+        const entitlement = await getHouseholdSubscriptionApi(householdId, { signal, timeout: 10000 });
+        if (signal.aborted || currentContext.current !== contextKey) return;
+        if (entitlement.householdId !== householdId) throw new Error('Thông tin Family không thuộc gia đình đang chọn.');
+        const permission = entitlement.memberPermission;
+        canView = entitlement.canReadSharedData && (entitlement.canManageSubscription || permission?.canViewShoppingList === true);
+        editable = canView && (entitlement.hasFamilyAccess ?? entitlement.hasPaidAccess) === true && !entitlement.readOnly
+          && (entitlement.canManageSubscription || permission?.canEditShoppingList === true);
+        setReadOnlyReason(editable ? '' : !entitlement.canReadSharedData
+          ? 'Gia đình chưa có Family Trial hoặc gói Family hiệu lực.'
+          : entitlement.readOnly || !(entitlement.hasFamilyAccess ?? entitlement.hasPaidAccess)
+            ? 'Quyền Family đã ngừng hiệu lực. Danh sách được giữ ở chế độ chỉ đọc.'
+            : 'Bạn chỉ có quyền xem danh sách mua sắm của gia đình.');
+      } else setReadOnlyReason(ownerType === 'USER' ? '' : 'Bạn không có quyền xem danh sách mua sắm của gia đình.');
       const previous = access.current;
-      const scopeChanged = !previous.ready || previous.householdId !== householdId;
+      const scopeChanged = !previous.ready || previous.contextKey !== contextKey;
       if (!previous.ready || previous.householdId !== householdId || previous.canView !== canView || previous.canEdit !== editable) {
-        access.current = { householdId, ready: !scopeChanged, canView, canEdit: editable, generation: previous.generation + 1 };
+        access.current = { householdId, contextKey, ready: !scopeChanged, canView, canEdit: editable, generation: previous.generation + 1 };
       }
       if (previous.householdId !== householdId || !canView) {
         setLists([]); setHistoryLists([]); setDeleteActionItemId(null);
       }
-      setFamilyHouseholdId(householdId);
       if (scopeChanged || !editable) setCanEdit(false);
       if (!canView) { setSyncError('Bạn không còn quyền xem danh sách mua sắm của gia đình.'); return true; }
-      const data = await getShoppingListsApi(viewMode === 'ACTIVE' ? 'ACTIVE' : 'COMPLETED', { signal, timeout: 10000 });
-      if (signal.aborted) return;
+      const selectedOnly = target?.contextKey === contextKey && target.viewMode === viewMode && viewMode === 'ACTIVE'
+        && Boolean(target.listId) && target.listId === selection.current.id;
+      let data: ShoppingList[];
+      if (selectedOnly) {
+        try { data = [await getShoppingListByIdApi(target!.listId, { signal, timeout: 10000 })]; }
+        catch (error: any) { if (error?.response?.status === 404) data = []; else throw error; }
+      } else {
+        data = await getShoppingListsApi(viewMode === 'ACTIVE' ? 'ACTIVE' : 'COMPLETED', { signal, timeout: 10000,
+          context: ownerType === 'USER' ? { ownerType: 'USER' } : { ownerType: 'HOUSEHOLD', householdId } });
+      }
+      if (signal.aborted || currentContext.current !== contextKey) return;
       access.current.ready = true; setCanEdit(editable);
-      const scoped = data.filter(list => householdId
+      const requestedStatus = viewMode === 'ACTIVE' ? 'ACTIVE' : 'COMPLETED';
+      const scoped = data.filter(list => list.status === requestedStatus && (ownerType === 'HOUSEHOLD'
         ? list.ownerType === 'HOUSEHOLD' && listHouseholdId(list) === householdId
-        : list.ownerType !== 'HOUSEHOLD' && !listHouseholdId(list));
-      if (viewMode === 'ACTIVE') setLists(scoped); else setHistoryLists(scoped);
-      setSyncError(formScope.current !== null && formScope.current !== householdId
-        ? 'Ngữ cảnh gia đình đã thay đổi. Đóng form và mở lại trước khi lưu.' : '');
+        : list.ownerType === 'USER' && !listHouseholdId(list)));
+      if (viewMode === 'ACTIVE') {
+        const next = selectedOnly ? [...catalogue.current.filter(list => matchesContext(list) && list._id !== target!.listId), ...scoped] : scoped;
+        catalogue.current = next; setLists(next);
+        const preferred = selection.current.contextKey === contextKey ? selection.current.id : '';
+        applySelection(next.some(list => list._id === preferred) ? preferred : next[0]?._id ?? '');
+      } else setHistoryLists(scoped);
+      setSyncError(formScope.current !== null && (formScope.current !== contextKey || formListId.current !== selection.current.id)
+        ? 'Ngữ cảnh hoặc danh sách mua sắm đã thay đổi. Đóng form và mở lại trước khi lưu.' : '');
       return true;
     } catch (error: any) {
-      if (signal.aborted) return;
+      if (signal.aborted || currentContext.current !== contextKey) return;
+      if (ownerType === 'HOUSEHOLD') {
+        access.current = { ...access.current, canEdit: false }; setCanEdit(false);
+        setReadOnlyReason('Chưa xác minh được quyền Family. Tạm thời chỉ xem dữ liệu hiện có.');
+      }
       if ([401, 403].includes(error?.response?.status)) {
         access.current = { ...access.current, ready: false, canView: false, canEdit: false, generation: access.current.generation + 1 };
         setLists([]); setHistoryLists([]); setCanEdit(false);
@@ -255,53 +348,95 @@ export default function ShoppingScreen() {
       setSyncError(getErrorMessage(error));
       return false;
     } finally {
-      if (!signal.aborted) setLoading(false);
+      if (refreshingRequest.current === signal) { refreshingRequest.current = null; setRefreshing(false); }
+      if (!signal.aborted && currentContext.current === contextKey) setLoading(false);
     }
-  }, [viewMode]);
-  const sync = useHouseholdSync({ scopeKey: `shopping:${viewMode}`, polling: Boolean(familyHouseholdId), refresh });
+  }, [viewMode, ownerType, familyHouseholdId, contextKey]);
+  const sync = useHouseholdSync({ scopeKey: `shopping:${contextKey}:${viewMode}`, polling: ownerType === 'HOUSEHOLD' && Boolean(familyHouseholdId), refresh });
 
-  const runWrite = async (operation: () => Promise<void>, title: string, generation = access.current.generation) => {
+  const selectContext = (nextOwner: ShoppingOwnerType, householdId = '') => {
+    if (saving || writeLock.current) return;
+    if (nextOwner === 'HOUSEHOLD' && householdId && !households.some(item => item.household._id === householdId)) return;
+    const nextKey = nextOwner === 'USER' ? 'USER' : `HOUSEHOLD:${householdId}`;
+    if (nextKey === contextKey) return;
+    sync.cancel();
+    manualTarget.current = null;
+    currentContext.current = nextKey;
+    access.current = { householdId, contextKey: nextKey, ready: false, canView: false, canEdit: false, generation: access.current.generation + 1 };
+    selection.current = { contextKey: nextKey, id: '' }; setSelectedListId('');
+    setReadOnlyReason('');
+    setShowCreateList(false); setNewListName('');
+    setLists([]); setHistoryLists([]); setCanEdit(false); setLoading(true); setDeleteActionItemId(null); setSyncError('');
+    if (nextOwner === 'HOUSEHOLD') dispatch(setSelectedHouseholdId(householdId));
+    setOwnerType(nextOwner);
+  };
+
+  const selectList = (id: string) => {
+    if (saving || writeLock.current || refreshingRequest.current || contextKey !== currentContext.current || !availableLists.some(list => list._id === id)) return;
+    applySelection(id);
+    setSyncError(formScope.current !== null && formListId.current !== id ? 'Danh sách đã thay đổi. Đóng form và mở lại trước khi lưu.' : '');
+  };
+
+  const manualRefresh = () => {
+    if (saving || loading || writeLock.current || refreshingRequest.current) return;
+    manualTarget.current = { contextKey, listId: selection.current.id, viewMode };
+    void sync.refresh();
+  };
+
+  const runWrite = async (operation: () => Promise<void>, title: string, generation = renderGeneration) => {
     if (writeLock.current) return;
-    if (!access.current.ready || !access.current.canEdit || generation !== access.current.generation) {
+    if (contextKey !== currentContext.current || contextKey !== access.current.contextKey || selection.current.contextKey !== contextKey
+      || selection.current.id !== selectedListId || !access.current.ready || !access.current.canEdit || generation !== access.current.generation) {
       notify('Quyền truy cập', 'Quyền hoặc ngữ cảnh đã thay đổi. Hãy làm mới danh sách trước khi thử lại.'); return;
     }
     writeLock.current = true; sync.pause(); setSaving(true);
     try { await operation(); }
-    catch (error: any) { setSyncError(getErrorMessage(error)); notify(title, getErrorMessage(error)); }
+    catch (error: any) {
+      if (ownerType === 'HOUSEHOLD' && error?.response?.status === 403) {
+        access.current = { ...access.current, canEdit: false, generation: access.current.generation + 1 };
+        setCanEdit(false); setReadOnlyReason('Quyền Family đã thay đổi. Danh sách tạm thời chỉ đọc.');
+      }
+      setSyncError(getErrorMessage(error)); notify(title, getErrorMessage(error));
+    }
     finally { writeLock.current = false; setSaving(false); sync.resume(); }
   };
 
-  const ensureActiveList = async () => {
-    if (familyHouseholdId) {
-      if (activeList) return activeList;
-
-      return createShoppingListApi({
-        ownerType: "HOUSEHOLD",
-        householdId: familyHouseholdId,
-        listName: "Danh sách mua sắm gia đình",
-        visibility: "SHARED",
-      });
-    }
-
-    if (activeList) return activeList;
-
-    return createShoppingListApi({
-      ownerType: "USER",
-      listName: "Danh sách mua sắm",
-      visibility: "PERSONAL",
+  const createList = async (listName: string) => {
+    if (ownerType === 'HOUSEHOLD' && !familyHouseholdId) throw new Error('Hãy chọn gia đình trước khi tạo danh sách.');
+    const created = await createShoppingListApi({
+      ownerType, ...(ownerType === 'HOUSEHOLD' ? { householdId: familyHouseholdId } : {}),
+      listName, visibility: ownerType === 'HOUSEHOLD' ? 'SHARED' : 'PERSONAL',
     });
+    if (!matchesContext(created)) throw new Error('Danh sách trả về không thuộc ngữ cảnh đang chọn.');
+    const next = [...catalogue.current.filter(list => list._id !== created._id), created];
+    catalogue.current = next; setLists(next);
+    applySelection(created._id);
+    return created;
+  };
+
+  const ensureActiveList = async () => activeList ?? createList(ownerType === 'HOUSEHOLD' ? 'Danh sách mua sắm gia đình' : 'Danh sách mua sắm');
+
+  const handleCreateList = async () => {
+    if (createListScope.current !== contextKey) return;
+    const name = newListName.trim();
+    if (!name) { notify('Thiếu tên danh sách', 'Vui lòng nhập tên danh sách mua sắm.'); return; }
+    await runWrite(async () => {
+      await createList(name); setShowCreateList(false); setNewListName('');
+    }, 'Không tạo được danh sách');
   };
 
   const resetForm = () => {
     formScope.current = null; editingListId.current = null;
+    formListId.current = '';
     setForm({ foodName: "", quantity: "1", unit: "cái" });
     setEditingItem(null);
     setShowAddForm(false);
   };
 
   const handleEditItem = (item: ShoppingListItem) => {
-    if (!canEdit || saving || !activeList) return;
-    formScope.current = access.current.householdId; editingListId.current = activeList._id;
+    if (!canEdit || saving || !activeList || contextKey !== currentContext.current || !access.current.ready) return;
+    formScope.current = contextKey; editingListId.current = activeList._id;
+    formListId.current = selectedListId;
     setDeleteActionItemId(null);
     setEditingItem(item);
     setForm({
@@ -313,7 +448,7 @@ export default function ShoppingScreen() {
   };
 
   const handleSubmitItem = async () => {
-    if (formScope.current !== access.current.householdId || (editingItem &&
+    if (contextKey !== access.current.contextKey || formScope.current !== contextKey || formListId.current !== selectedListId || (editingItem &&
       (editingListId.current !== activeList?._id || !activeList?.items.some(item => item._id === editingItem._id)))) {
       notify('Danh sách đã thay đổi', 'Món hoặc ngữ cảnh đang sửa đã thay đổi. Đóng form và mở lại trước khi lưu.'); return;
     }
@@ -362,7 +497,7 @@ export default function ShoppingScreen() {
   };
 
   const handleDeleteItem = (item: ShoppingListItem) => {
-    if (!activeList) return;
+    if (!activeList || !canEdit || !access.current.canEdit || saving) return;
 
     const generation = access.current.generation;
     confirm("Xóa nguyên liệu", `Xóa "${item.foodName}" khỏi Shopping List?`, () => {
@@ -374,6 +509,7 @@ export default function ShoppingScreen() {
   };
 
   const handleCompleteList = () => {
+    if (!canEdit || !access.current.canEdit || saving) return;
     if (!activeList) {
       notify("Chưa có danh sách", "Hãy thêm món đầu tiên để tạo Shopping List.");
       return;
@@ -388,8 +524,9 @@ export default function ShoppingScreen() {
   };
 
   const openAddForm = () => {
-    if (!canEdit || saving) return;
-    formScope.current = access.current.householdId; editingListId.current = null;
+    if (!canEdit || saving || contextKey !== currentContext.current || !access.current.ready) return;
+    formScope.current = contextKey; editingListId.current = null;
+    formListId.current = selectedListId;
     setShowAddForm(true);
   };
 
@@ -405,6 +542,22 @@ export default function ShoppingScreen() {
         style={styles.container}
       >
         <NearbyStoresSection />
+
+        <View style={styles.contextToggleRow}>
+          <View style={styles.contextToggleContainer}>
+            <TouchableOpacity accessibilityRole="tab" accessibilityLabel="Danh sách cá nhân" accessibilityState={{ selected: ownerType === 'USER' }} disabled={saving}
+              style={[styles.contextToggleBtn, ownerType === 'USER' && styles.contextToggleBtnActive]} onPress={() => selectContext('USER')}>
+              <Text style={[styles.contextToggleText, ownerType === 'USER' && styles.contextToggleTextActive]}>Cá nhân</Text>
+            </TouchableOpacity>
+            {households.length > 0 ? <TouchableOpacity accessibilityRole="tab" accessibilityLabel="Danh sách gia đình" accessibilityState={{ selected: ownerType === 'HOUSEHOLD' }} disabled={saving}
+              style={[styles.contextToggleBtn, ownerType === 'HOUSEHOLD' && styles.contextToggleBtnActive]} onPress={() => selectContext('HOUSEHOLD',
+                households.some(item => item.household._id === selectedHouseholdId) ? selectedHouseholdId : households.length === 1 ? households[0].household._id : '')}>
+              <Text style={[styles.contextToggleText, ownerType === 'HOUSEHOLD' && styles.contextToggleTextActive]}>Gia đình</Text>
+            </TouchableOpacity> : null}
+          </View>
+          {ownerType === 'HOUSEHOLD' ? <HouseholdSelector households={households} selectedHouseholdId={familyHouseholdId}
+            onSelectHousehold={id => selectContext('HOUSEHOLD', id)} /> : null}
+        </View>
 
         <View style={styles.contextToggleRow}>
           <View style={styles.contextToggleContainer}>
@@ -433,10 +586,34 @@ export default function ShoppingScreen() {
           <Text accessibilityLiveRegion="polite" style={{ color: COLORS.error }}>{syncError}</Text>
           <TouchableOpacity disabled={saving} onPress={() => void sync.refresh()}><Text style={{ color: COLORS.primary }}>Thử đồng bộ lại</Text></TouchableOpacity>
         </View> : null}
-        {familyHouseholdId && !canEdit ? <Text style={{ paddingHorizontal: 16, color: COLORS.onSurfaceVariant }}>Danh sách gia đình đang ở chế độ chỉ xem hoặc chưa có quyền truy cập.</Text> : null}
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Làm mới danh sách mua sắm" disabled={loading || saving || refreshing}
+          onPress={manualRefresh} style={styles.cancelEditButton}>
+          <Text style={styles.cancelEditButtonText}>{refreshing ? 'Đang làm mới…' : 'Làm mới danh sách'}</Text>
+        </TouchableOpacity>
+        {ownerType === 'HOUSEHOLD' && readOnlyReason ? <Text accessibilityLiveRegion="polite" style={{ paddingHorizontal: 16, color: COLORS.onSurfaceVariant }}>{readOnlyReason}</Text> : null}
 
         {viewMode === "ACTIVE" ? (
           <>
+            <View style={styles.contextToggleRow}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {availableLists.map(list => <TouchableOpacity key={list._id} accessibilityRole="button" accessibilityLabel={`Chọn danh sách ${list.listName}`}
+                  accessibilityState={{ selected: list._id === selectedListId }} disabled={saving || refreshing}
+                  onPress={() => selectList(list._id)} style={[styles.contextToggleBtn, styles.listChoice, list._id === selectedListId && styles.contextToggleBtnActive]}>
+                  <Text style={[styles.contextToggleText, list._id === selectedListId && styles.contextToggleTextActive]}>{list.listName}</Text>
+                </TouchableOpacity>)}
+              </ScrollView>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Tạo danh sách mới" disabled={loading || saving || !canEdit} style={styles.cancelEditButton}
+                onPress={() => { if (!access.current.ready || !access.current.canEdit || writeLock.current) return; createListScope.current = contextKey; setShowCreateList(true); }}>
+                <Text style={styles.cancelEditButtonText}>Tạo danh sách mới</Text>
+              </TouchableOpacity>
+              {showCreateList ? <View style={styles.addForm}>
+                <TextInput editable={!saving && canEdit} accessibilityLabel="Tên danh sách mới" placeholder="Tên danh sách" value={newListName} onChangeText={setNewListName} style={styles.input} />
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Xác nhận tạo danh sách" disabled={saving || !canEdit || createListScope.current !== contextKey} onPress={() => void handleCreateList()} style={styles.addButton}>
+                  <Text style={styles.addButtonText}>Tạo danh sách</Text>
+                </TouchableOpacity>
+                <TouchableOpacity disabled={saving} onPress={() => setShowCreateList(false)} style={styles.cancelEditButton}><Text style={styles.cancelEditButtonText}>Đóng</Text></TouchableOpacity>
+              </View> : null}
+            </View>
             <View style={styles.titleContainer}>
           <Text style={styles.title}>{activeList?.listName ?? "Shopping List"}</Text>
           <Text style={styles.subtitle}>Danh sách mua sắm được đồng bộ từ dữ liệu thật.</Text>
@@ -460,6 +637,7 @@ export default function ShoppingScreen() {
               {editingItem ? "Sửa nguyên liệu" : "Thêm món cần mua"}
             </Text>
             <TextInput
+              editable={!saving && canEdit}
               value={form.foodName}
               onChangeText={(value) => setForm((prev) => ({ ...prev, foodName: value }))}
               placeholder="VD: Cà chua bi"
@@ -468,6 +646,7 @@ export default function ShoppingScreen() {
             />
             <View style={styles.formRow}>
               <TextInput
+                editable={!saving && canEdit}
                 value={form.quantity}
                 onChangeText={(value) => setForm((prev) => ({ ...prev, quantity: value }))}
                 keyboardType="decimal-pad"
@@ -476,6 +655,7 @@ export default function ShoppingScreen() {
                 style={[styles.input, styles.quantityInput]}
               />
               <TextInput
+                editable={!saving && canEdit}
                 value={form.unit}
                 onChangeText={(value) => setForm((prev) => ({ ...prev, unit: value }))}
                 placeholder="kg, gram..."
@@ -486,7 +666,7 @@ export default function ShoppingScreen() {
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={handleSubmitItem}
-              disabled={saving || !canEdit || formScope.current !== access.current.householdId}
+              disabled={saving || !canEdit || formScope.current !== contextKey || formListId.current !== selectedListId}
               style={[styles.addButton, saving && styles.disabled]}
             >
               {saving ? (
@@ -542,11 +722,12 @@ export default function ShoppingScreen() {
                     <ShoppingItemRow
                       key={item._id}
                       item={item}
+                      disabled={saving || !canEdit}
                       isLast={idx === sectionItems.length - 1}
                       showDeleteAction={deleteActionItemId === item._id}
                       onDelete={() => handleDeleteItem(item)}
                       onEdit={() => handleEditItem(item)}
-                      onShowDeleteAction={() => setDeleteActionItemId(item._id)}
+                      onShowDeleteAction={() => { if (canEdit && !saving) setDeleteActionItemId(item._id); }}
                       onToggle={() => handleToggleItem(item)}
                     />
                   ))}
@@ -561,13 +742,13 @@ export default function ShoppingScreen() {
           <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
             {loading ? (
               <ActivityIndicator color={COLORS.primary} size="large" />
-            ) : historyLists.length === 0 ? (
+            ) : visibleHistory.length === 0 ? (
               <View style={styles.emptyAddContainer}>
                 <Ionicons name="receipt-outline" size={48} color={COLORS.outlineVariant} />
                 <Text style={[styles.title, { marginTop: 16, fontSize: 16, color: COLORS.onSurfaceVariant }]}>Chưa có lịch sử mua sắm</Text>
               </View>
             ) : (
-              historyLists.map(list => (
+              visibleHistory.map(list => (
                 <View key={list._id} style={[styles.card, { marginBottom: 16, padding: 16 }]}>
                   <Text style={{ fontSize: 16, fontWeight: 'bold', color: COLORS.onSurface }}>{list.listName}</Text>
                   <Text style={{ fontSize: 12, color: COLORS.onSurfaceVariant, marginTop: 4 }}>
@@ -614,6 +795,7 @@ export default function ShoppingScreen() {
 
 const styles = StyleSheet.create({
   ...baseStyles,
+  listChoice: { flex: 0, paddingHorizontal: 14, marginRight: 8 },
   contextToggleRow: {
     paddingHorizontal: 16,
     paddingTop: 8,

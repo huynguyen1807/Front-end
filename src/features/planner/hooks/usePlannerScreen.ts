@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { useAppSelector } from "../../../redux/hooks";
+import type { ShoppingDestination } from '../../shoppingList/types/shopping';
 
 import {
   AdminSection,
@@ -462,6 +463,12 @@ export default function usePlannerScreen() {
   const [calculation, setCalculation] = useState<NutritionCalculation | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [shoppingDestination, setShoppingDestination] = useState<ShoppingDestination | undefined>();
+  const [shoppingDestinationReady, setShoppingDestinationReady] = useState(false);
+  const missingShoppingLock = useRef(false);
+  const changeShoppingDestination = useCallback((destination: ShoppingDestination | undefined, ready: boolean) => {
+    setShoppingDestination(destination); setShoppingDestinationReady(ready);
+  }, []);
 
   const weekRange = useMemo(() => getWeekDateRange(visibleWeekStart), [visibleWeekStart]);
   const dates = useMemo<ScheduleDate[]>(() => {
@@ -1271,19 +1278,23 @@ export default function usePlannerScreen() {
   };
 
   const closeMissingIngredientPrompt = () => {
+    if (missingShoppingLock.current) return;
     setMissingIngredientPrompt(null);
+    setShoppingDestination(undefined); setShoppingDestinationReady(false);
   };
 
   const handleAddMissingIngredientsToShoppingList = async () => {
-    if (!missingIngredientPrompt?.items.length) return;
+    if (!missingIngredientPrompt?.items.length || !shoppingDestinationReady || missingShoppingLock.current) return;
+    missingShoppingLock.current = true;
 
     try {
       setSaving(true);
-      await addMissingIngredientsToShoppingListApi(missingIngredientPrompt.items);
+      await addMissingIngredientsToShoppingListApi(missingIngredientPrompt.items, shoppingDestination);
       setMissingIngredientPrompt(null);
     } catch (error: any) {
       Alert.alert("Không thêm được danh sách mua", getErrorMessage(error));
     } finally {
+      missingShoppingLock.current = false;
       setSaving(false);
     }
   };
@@ -1821,6 +1832,8 @@ export default function usePlannerScreen() {
     closeScheduleModal,
     handleConfirmScheduleMeal,
     missingIngredientPrompt,
+    shoppingDestinationReady,
+    changeShoppingDestination,
     closeMissingIngredientPrompt,
     handleAddMissingIngredientsToShoppingList,
     inventoryBuckets,

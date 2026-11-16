@@ -19,8 +19,9 @@ export const getFamilyPlansApi = async (): Promise<SubscriptionPlan[]> => {
   return res.data;
 };
 
-export const getHouseholdSubscriptionApi = async (householdId: string): Promise<HouseholdSubscription> => {
-  const res = await apiClient.get(`/api/households/${householdId}/subscription`);
+export const getHouseholdSubscriptionApi = async (householdId: string, options?: { signal?: AbortSignal; timeout?: number }): Promise<HouseholdSubscription> => {
+  const url = `/api/households/${householdId}/subscription`;
+  const res = options ? await apiClient.get(url, options) : await apiClient.get(url);
   return res.data.data;
 };
 
