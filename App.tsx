@@ -35,6 +35,40 @@ import AdminNutritionScreen from "./src/features/admin/screens/AdminNutritionScr
 
 const Stack = createNativeStackNavigator();
 
+// Không khai báo "linking" thì React Navigation chỉ đổi màn hình trong app,
+// KHÔNG đồng bộ URL trên web (đây là lý do bấm chuông thông báo không đổi URL
+// sang /notifications). Khai báo screens → path để URL luôn khớp màn hình hiện tại.
+const linking = {
+  prefixes: ["freshfriends://", "http://localhost:8081", "https://localhost:8081"],
+  config: {
+    screens: {
+      Landing: "",
+      Login: "login",
+      Register: "register",
+      OTPVerification: "otp-verification",
+      ForgotPassword: "forgot-password",
+      ResetPassword: "reset-password",
+      Main: "home",
+      AddFood: "add-food",
+      UpdateFood: "update-food",
+      StorageLocations: "storage-locations",
+      FoodDetail: "food-detail",
+      Notifications: "notifications",
+      FamilyCloud: "family-cloud",
+      Subscription: "subscription",
+      EditProfile: "edit-profile",
+      AdminDashboard: "admin",
+      AdminUserList: "admin/users",
+      AdminSupportList: "admin/support",
+      AdminSystemData: "admin/system-data",
+      AdminCategoryList: "admin/categories",
+      AdminStorageRules: "admin/storage-rules",
+      AdminRecipes: "admin/recipes",
+      AdminNutrition: "admin/nutrition",
+    },
+  },
+};
+
 function MainApp() {
   return (
     <NavigationProvider>
@@ -46,7 +80,7 @@ function MainApp() {
 export default function App() {
   const returnedOrderCode = Platform.OS === 'web' ? parsePayOSReturnOrder(window.location.href) : undefined;
   const navigation = (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <Stack.Navigator
         initialRouteName={Platform.OS === "web" ? returnedOrderCode ? 'Subscription' : "Landing" : "Login"}
         screenOptions={{ headerShown: false }}

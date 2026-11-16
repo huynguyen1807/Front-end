@@ -59,14 +59,24 @@ export const topNavbarStyles = StyleSheet.create({
     position: "relative",
   },
 
-  dot: {
-    width: 9,
-    height: 9,
+  badge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    minWidth: 16,
+    height: 16,
     borderRadius: RADIUS.full,
     backgroundColor: COLORS.error,
-    position: "absolute",
-    top: 8,
-    right: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+
+  badgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700",
+    lineHeight: 12,
   },
 });
 

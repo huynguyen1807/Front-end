@@ -1,5 +1,6 @@
 import { apiClient } from '../../../services/apiClient';
 import { Platform } from 'react-native';
+import type { StorageLocation } from '../types/inventory';
 
 // ─── Image Upload ─────────────────────────────────────────────────────────────
 export const uploadImageApi = async (imageUri: string): Promise<{ url: string; publicId: string }> => {
