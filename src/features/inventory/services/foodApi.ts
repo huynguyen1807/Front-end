@@ -23,7 +23,7 @@ export const uploadImageApi = async (imageUri: string): Promise<{ url: string; p
   const res = await apiClient.post('/api/upload/image', formData, {
     timeout: 30_000,
     headers: {
-      'Content-Type': 'multipart/form-data',
+      'Content-Type': Platform.OS === 'web' ? undefined : 'multipart/form-data',
     },
   });
   return res.data.data;

@@ -34,6 +34,15 @@ const SOURCE_TYPES = [
   { key: 'MARKET', label: 'Chợ' },
 ] as const;
 
+function showFeedback(title: string, message: string, onOk?: () => void) {
+  if (Platform.OS === 'web') {
+    window.alert(`${title}\n${message}`);
+    onOk?.();
+    return;
+  }
+  Alert.alert(title, message, onOk ? [{ text: 'OK', onPress: onOk }] : undefined);
+}
+
 // Storage mặc định nếu user chưa tạo
 const DEFAULT_STORAGES = [
   { key: 'REFRIGERATOR', label: '🧊 Tủ lạnh' },
@@ -149,10 +158,12 @@ export default function AddFoodScreen() {
 
   // ─── Image Picker ────────────────────────────────────────────────────────────
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Cần quyền', 'Vui lòng cho phép truy cập thư viện ảnh');
-      return;
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showFeedback('Cần quyền', 'Vui lòng cho phép truy cập thư viện ảnh');
+        return;
+      }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
@@ -166,10 +177,12 @@ export default function AddFoodScreen() {
   };
 
   const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Cần quyền', 'Vui lòng cho phép truy cập camera');
-      return;
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        showFeedback('Cần quyền', 'Vui lòng cho phép truy cập camera');
+        return;
+      }
     }
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
@@ -182,6 +195,10 @@ export default function AddFoodScreen() {
   };
 
   const showImageOptions = () => {
+    if (Platform.OS === 'web') {
+      void pickImage();
+      return;
+    }
     Alert.alert('Thêm ảnh', 'Chọn nguồn ảnh', [
       { text: 'Chụp ảnh', onPress: takePhoto },
       { text: 'Chọn từ thư viện', onPress: pickImage },
@@ -194,16 +211,16 @@ export default function AddFoodScreen() {
     const { foodName, categoryId, purchaseDate, expiryDate, quantity, unit, storageTypeKey } = form;
 
     if (!foodName.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập tên thực phẩm'); return;
+      showFeedback('Thiếu thông tin', 'Vui lòng nhập tên thực phẩm'); return;
     }
     if (!expiryDate) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập ngày hết hạn'); return;
+      showFeedback('Thiếu thông tin', 'Vui lòng nhập ngày hết hạn'); return;
     }
     if (!quantity) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập số lượng'); return;
+      showFeedback('Thiếu thông tin', 'Vui lòng nhập số lượng'); return;
     }
     if (!categoryId) {
-      Alert.alert('Chưa có danh mục', 'Admin cần tạo danh mục thực phẩm trong hệ thống trước khi thêm inventory.');
+      showFeedback('Chưa có danh mục', 'Admin cần tạo danh mục thực phẩm trong hệ thống trước khi thêm inventory.');
       return;
     }
 
@@ -211,7 +228,7 @@ export default function AddFoodScreen() {
       const pDate = new Date(purchaseDate);
       const eDate = new Date(expiryDate);
       if (eDate < pDate) {
-        Alert.alert('Lỗi', 'Ngày hết hạn không được trước ngày mua'); return;
+        showFeedback('Lỗi', 'Ngày hết hạn không được trước ngày mua'); return;
       }
     }
 
@@ -281,18 +298,14 @@ export default function AddFoodScreen() {
       }
       const saveAlert = getFoodSaveAlert(newItem);
       if (saveAlert) {
-        Alert.alert(saveAlert.title, saveAlert.message, [
-          { text: 'OK', onPress: () => navigation.goBack() },
-        ]);
+        showFeedback(saveAlert.title, saveAlert.message, () => navigation.goBack());
         return;
       }
 
-      Alert.alert('Thành công', `Đã thêm "${newItem.foodName}" vào tủ!`, [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      showFeedback('Thành công', `Đã thêm "${newItem.foodName}" vào tủ!`, () => navigation.goBack());
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Không thêm được thực phẩm';
-      Alert.alert('Lỗi', msg);
+      showFeedback('Lỗi', msg);
     } finally {
       setLoading(false);
     }
