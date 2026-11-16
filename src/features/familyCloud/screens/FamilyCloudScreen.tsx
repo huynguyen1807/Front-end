@@ -333,9 +333,9 @@ export default function FamilyCloudScreen() {
               <Text style={styles.upgradeTitle}>Family Plan</Text>
               {subscriptionLoading ? <ActivityIndicator /> : <>
                 <Text style={styles.upgradeText}>{subscriptionError || (householdSubscription?.hasPaidAccess
-                  ? 'Gói đang hoạt động'
+                  ? householdSubscription.isTrial ? 'Đang dùng thử Family miễn phí' : 'Gói Family đang hoạt động'
                   : householdSubscription?.readOnly ? 'Gói đã ngừng hiệu lực. Dữ liệu dùng chung chỉ đọc.' : 'Chưa có gói Family hiệu lực. Chủ gia đình có thể chọn gói để kích hoạt.')}</Text>
-                {householdSubscription?.source === 'LEGACY_OWNER' && <Text style={styles.upgradeText}>Quyền Family hiện được cung cấp từ Premium của chủ gia đình.</Text>}
+                {householdSubscription?.source === 'LEGACY_OWNER' && <Text style={styles.upgradeText}>Dữ liệu gia đình cũ được giữ ở chế độ chỉ đọc. Chủ gia đình cần kích hoạt dùng thử nếu đủ điều kiện hoặc chọn gói Family để mở quyền chia sẻ.</Text>}
                 {householdSubscription?.subscription?.endDate && <Text style={styles.upgradeText}>Hết hạn: {new Date(householdSubscription.subscription.endDate).toLocaleDateString('vi-VN')}</Text>}
                 {householdSubscription?.limits && <Text style={styles.upgradeText}>Tối đa {householdSubscription.limits.maxMembers} thành viên · {householdSubscription.limits.maxFoodItems} thực phẩm · {householdSubscription.limits.maxStorageLocations} vị trí lưu trữ</Text>}
               </>}

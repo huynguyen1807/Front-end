@@ -36,6 +36,7 @@ import AppAlertModal from "../components/shared/AppAlertModal";
 import MetricGrid from "../components/shared/MetricGrid";
 import Section from "../components/shared/Section";
 import usePlannerScreen from "../hooks/usePlannerScreen";
+import ShoppingDestinationPicker from '../../shoppingList/components/ShoppingDestinationPicker';
 import { plannerStyles as styles } from "../styles/PlannerScreen.styles";
 import { formatFoodAmount, formatFoodUnit } from "../../../utils/foodUnits";
 
@@ -544,11 +545,12 @@ export default function PlannerScreen() {
                 </View>
               ))}
             </View>
+            <ShoppingDestinationPicker visible={Boolean(planner.missingIngredientPrompt)} disabled={planner.saving} onChange={planner.changeShoppingDestination} />
             <View style={styles.actionRow}>
               <TouchableOpacity
                 activeOpacity={0.82}
                 style={styles.noticePrimaryButton}
-                disabled={planner.saving}
+                disabled={planner.saving || !planner.shoppingDestinationReady}
                 onPress={planner.handleAddMissingIngredientsToShoppingList}
               >
                 <Text style={styles.noticePrimaryButtonText}>Thêm vào danh sách mua</Text>

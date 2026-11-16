@@ -5,14 +5,16 @@ import {
   ShoppingList,
   ShoppingListItem,
   ShoppingListStatus,
+  ShoppingOwnerType,
   UpdateShoppingListItemPayload,
 } from "../types/shopping";
 
 export const getShoppingListsApi = async (
   status: ShoppingListStatus | "ALL" = "ACTIVE",
-  options?: { signal?: AbortSignal; timeout?: number }
+  options?: { signal?: AbortSignal; timeout?: number; context?: { ownerType: ShoppingOwnerType; householdId?: string } }
 ): Promise<ShoppingList[]> => {
-  const res = await apiClient.get("/api/shopping-lists", { ...options, params: { status } });
+  const { context, ...requestOptions } = options ?? {};
+  const res = await apiClient.get("/api/shopping-lists", { ...requestOptions, params: { status, ...context } });
   return res.data.data;
 };
 
@@ -23,8 +25,8 @@ export const createShoppingListApi = async (
   return res.data.data;
 };
 
-export const getShoppingListByIdApi = async (id: string): Promise<ShoppingList> => {
-  const res = await apiClient.get(`/api/shopping-lists/${id}`);
+export const getShoppingListByIdApi = async (id: string, options?: { signal?: AbortSignal; timeout?: number }): Promise<ShoppingList> => {
+  const res = options ? await apiClient.get(`/api/shopping-lists/${id}`, options) : await apiClient.get(`/api/shopping-lists/${id}`);
   return res.data.data;
 };
 

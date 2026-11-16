@@ -154,6 +154,16 @@ test('expired owner can select and renew a Family plan on web while shared data 
   await button(tree, 'Gia hạn qua payOS').props.onPress(); assert.equal(h.stats().createCount, 1);
 });
 
+test('personal Premium legacy household stays read-only and can choose a Family plan without implicit activation', async () => {
+  const h = panelHarness({ subscription: { source: 'LEGACY_OWNER', readOnly: true, hasPaidAccess: false,
+    subscription: { planCode: 'PREMIUM_MONTHLY', status: 'ACTIVE', endDate: '2027-01-01' } } });
+  h.render(); h.start(); await h.settle(); const tree = h.render();
+  assert.ok(label(tree).includes('Dữ liệu gia đình cũ được giữ ở chế độ chỉ đọc'));
+  assert.equal(label(tree).includes('Quyền Family hiện được cung cấp từ Premium'), false);
+  assert.equal(button(tree, 'Thanh toán qua payOS').props.disabled, false);
+  assert.equal(h.stats().trialStarts, 0); assert.equal(h.stats().createCount, 0);
+});
+
 test('Expo Go can display backend Family prices and explicitly start a free trial without RevenueCat or payment', async () => {
   const h = panelHarness({ platform: 'ios', subscription: { trialEligibility: { eligible: true } },
     catalogue: [{ ...plan, price: 49000, billingPeriodMonths: 1 }, { ...plan, _id: 'year', planCode: 'FAMILY_YEARLY', price: 499000, billingPeriodMonths: 12 }] });

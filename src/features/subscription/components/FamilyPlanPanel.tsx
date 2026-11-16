@@ -167,7 +167,7 @@ export default function FamilyPlanPanel({ appUserId, requestedHouseholdId, retur
       </View> : null}
       <Text style={styles.featureText}>{subscription?.hasPaidAccess ? isTrial ? 'Đang dùng thử Family miễn phí' : 'Gói đang hoạt động' : subscription?.readOnly ? 'Gói đã hết hạn · Dữ liệu chỉ đọc' : 'Chưa có gói Family hiệu lực'}</Text>
       {subscription?.readOnly && subscription.canManageSubscription ? <Text style={styles.featureText}>Bạn vẫn có thể chọn gói và gia hạn bên dưới để tiếp tục sử dụng.</Text> : null}
-      {subscription?.source === 'LEGACY_OWNER' ? <Text style={styles.featureText}>Quyền Family hiện được cung cấp từ Premium của chủ gia đình.</Text> : null}
+      {subscription?.source === 'LEGACY_OWNER' ? <Text style={styles.featureText}>Dữ liệu gia đình cũ được giữ ở chế độ chỉ đọc. Chủ gia đình có thể bắt đầu dùng thử nếu đủ điều kiện hoặc chọn gói Family để mở quyền chia sẻ.</Text> : null}
       {subscription?.subscription?.endDate ? <Text style={styles.featureText}>{isTrial ? 'Dùng thử đến' : 'Hết hạn'}: {date(subscription.subscription.endDate)}</Text> : null}
       {scheduled ? <Text style={styles.featureText}>Đã mua {planName(scheduled.planCode)} · Có hiệu lực từ {date(scheduled.startDate)} đến {date(scheduled.endDate)}. Thời gian dùng thử còn lại được giữ nguyên.</Text> : null}
       {subscription && !subscription.canManageSubscription ? <Text style={styles.featureText}>Chỉ chủ gia đình có thể thanh toán hoặc gia hạn. Quyền sử dụng của bạn do chủ gia đình cấp.</Text> : null}
