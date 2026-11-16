@@ -18,7 +18,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
 import { COLORS } from "../../../constants/colors";
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { updateFoodItem } from "../redux/inventorySlice";
 import {
   getFoodCategoriesApi,
@@ -44,6 +44,15 @@ const EXPIRY_TYPES = [
   { key: "AI_PREDICTED", label: "AI dự đoán" },
 ] as const;
 
+function showFeedback(title: string, message: string, onOk?: () => void) {
+  if (Platform.OS === "web") {
+    window.alert(`${title}\n${message}`);
+    onOk?.();
+    return;
+  }
+  Alert.alert(title, message, onOk ? [{ text: "OK", onPress: onOk }] : undefined);
+}
+
 function toDateInput(value?: string) {
   return value ? value.split("T")[0] : "";
 }
@@ -52,6 +61,7 @@ export default function UpdateFoodScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const dispatch = useAppDispatch();
+  const context = useAppSelector((state) => state.inventory.context);
 
   const item: FoodItem = route.params?.item;
 
@@ -74,7 +84,10 @@ export default function UpdateFoodScreen() {
   const [fetching, setFetching] = useState(true);
 
   useEffect(() => {
-    Promise.all([getFoodCategoriesApi(), getStorageLocationsApi()])
+    Promise.all([
+      getFoodCategoriesApi(),
+      getStorageLocationsApi(context.ownerType, context.householdId),
+    ])
       .then(([categoryList, locationList]) => {
         const sortedCategories = sortFoodCategories(categoryList);
         setCategories(sortedCategories);
@@ -86,16 +99,18 @@ export default function UpdateFoodScreen() {
         }));
       })
       .catch(() => {
-        Alert.alert("Không tải được dữ liệu", "Không thể tải category hoặc vị trí lưu trữ.");
+        showFeedback("Không tải được dữ liệu", "Không thể tải category hoặc vị trí lưu trữ.");
       })
       .finally(() => setFetching(false));
-  }, []);
+  }, [context.ownerType, context.householdId]);
 
   const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Cần quyền", "Vui lòng cho phép truy cập thư viện ảnh.");
-      return;
+    if (Platform.OS !== "web") {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        showFeedback("Cần quyền", "Vui lòng cho phép truy cập thư viện ảnh.");
+        return;
+      }
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -111,10 +126,12 @@ export default function UpdateFoodScreen() {
   };
 
   const takePhoto = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Cần quyền", "Vui lòng cho phép truy cập camera.");
-      return;
+    if (Platform.OS !== "web") {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        showFeedback("Cần quyền", "Vui lòng cho phép truy cập camera.");
+        return;
+      }
     }
 
     const result = await ImagePicker.launchCameraAsync({
@@ -130,22 +147,22 @@ export default function UpdateFoodScreen() {
 
   const handleSave = async () => {
     if (!form.foodName.trim() || !form.categoryId || !form.storageLocationId) {
-      Alert.alert("Thiếu thông tin", "Vui lòng nhập tên, danh mục và vị trí lưu trữ.");
+      showFeedback("Thiếu thông tin", "Vui lòng nhập tên, danh mục và vị trí lưu trữ.");
       return;
     }
 
     if (!form.quantity || Number(form.quantity) < 0 || !form.unit.trim()) {
-      Alert.alert("Thiếu số lượng", "Vui lòng nhập số lượng và đơn vị hợp lệ.");
+      showFeedback("Thiếu số lượng", "Vui lòng nhập số lượng và đơn vị hợp lệ.");
       return;
     }
 
     if (!form.purchaseDate || !form.expiryDate) {
-      Alert.alert("Thiếu ngày", "Vui lòng nhập ngày mua và ngày hết hạn.");
+      showFeedback("Thiếu ngày", "Vui lòng nhập ngày mua và ngày hết hạn.");
       return;
     }
 
     if (new Date(form.expiryDate) < new Date(form.purchaseDate)) {
-      Alert.alert("Ngày không hợp lệ", "Ngày hết hạn không được trước ngày mua.");
+      showFeedback("Ngày không hợp lệ", "Ngày hết hạn không được trước ngày mua.");
       return;
     }
 
@@ -154,13 +171,9 @@ export default function UpdateFoodScreen() {
 
       // Upload image to Cloudinary if local URI
       let imageUrl = form.imageUrl;
-      if (imageUrl && imageUrl.startsWith('file://')) {
-        try {
-          const uploadResult = await uploadImageApi(imageUrl);
-          imageUrl = uploadResult.url;
-        } catch (uploadErr) {
-          console.warn('[Upload image failed, using original URI]', uploadErr);
-        }
+      if (imageUrl && /^(file:|content:|blob:|data:)/i.test(imageUrl)) {
+        const uploadResult = await uploadImageApi(imageUrl);
+        imageUrl = uploadResult.url;
       }
 
       const updated = await updateFoodApi(item._id, {
@@ -174,22 +187,18 @@ export default function UpdateFoodScreen() {
         quantity: Number(form.quantity),
         unit: form.unit.trim(),
         imageUrl: imageUrl,
-      });
+      }, context.ownerType, context.householdId);
 
       dispatch(updateFoodItem(updated));
       const saveAlert = getFoodSaveAlert(updated);
       if (saveAlert) {
-        Alert.alert(saveAlert.title, saveAlert.message, [
-          { text: "OK", onPress: () => navigation.goBack() },
-        ]);
+        showFeedback(saveAlert.title, saveAlert.message, () => navigation.goBack());
         return;
       }
 
-      Alert.alert("Đã cập nhật", `"${updated.foodName}" đã được lưu.`, [
-        { text: "OK", onPress: () => navigation.goBack() },
-      ]);
+      showFeedback("Đã cập nhật", `"${updated.foodName}" đã được lưu.`, () => navigation.goBack());
     } catch (error: any) {
-      Alert.alert("Không lưu được", error.response?.data?.message || error.message);
+      showFeedback("Không lưu được", error.response?.data?.message || error.message);
     } finally {
       setLoading(false);
     }

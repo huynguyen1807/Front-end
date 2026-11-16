@@ -119,7 +119,8 @@ export default function InventoryDashboardScreen() {
         if (kind === 'delete') await dispatch(deleteFood(item._id)).unwrap();
         else await dispatch(consumeFood(item._id)).unwrap();
       } catch {
-        Alert.alert('Chưa cập nhật được', 'Vui lòng kiểm tra kết nối và thử lại.');
+        if (Platform.OS === 'web') window.alert('Chưa cập nhật được\nVui lòng kiểm tra kết nối và thử lại.');
+        else Alert.alert('Chưa cập nhật được', 'Vui lòng kiểm tra kết nối và thử lại.');
       } finally { mutationLock.current = false; sync.resume(); }
     };
     if (!canEdit) {
