@@ -1,7 +1,5 @@
 import { apiClient } from '../../../services/apiClient';
 import { Platform } from 'react-native';
-import { apiClient } from '../../../services/apiClient';
-import { Platform } from 'react-native';
 import type { StorageLocation } from '../types/inventory';
 
 // ─── Image Upload ─────────────────────────────────────────────────────────────
